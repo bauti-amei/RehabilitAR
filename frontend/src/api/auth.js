@@ -5,3 +5,8 @@ export const loginRequest = (email, password) =>
 
 export const getMeRequest = () =>
   api.get('/auth/me/')
+
+export const registerRequest = (formData) =>
+  api.post('/auth/register/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })

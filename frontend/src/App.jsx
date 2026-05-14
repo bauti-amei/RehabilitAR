@@ -8,6 +8,7 @@ import Layout        from './components/common/Layout'
 
 // Public
 import Login        from './pages/public/Login'
+import Register     from './pages/public/Register'
 import Unauthorized from './pages/public/Unauthorized'
 
 // Admin
@@ -30,6 +31,7 @@ export default function App() {
 
           {/* Rutas públicas */}
           <Route path="/login"       element={<Login />} />
+          <Route path="/register"    element={<Register />} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
 
           {/* Rutas autenticadas con layout (sidebar) */}

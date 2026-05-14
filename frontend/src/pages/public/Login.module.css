@@ -171,6 +171,25 @@
     font-size: 0.95rem;
   }
   
+  /* REGISTER LINK */
+
+  .registerLink {
+    text-align: center;
+    margin-top: 1.2rem;
+    font-size: 0.9rem;
+    color: #b0b3c7;
+  }
+
+  .registerLink a {
+    color: #7c5cff;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .registerLink a:hover {
+    text-decoration: underline;
+  }
+
   /* RESPONSIVE */
   
   @media (max-width: 900px) {

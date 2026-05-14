@@ -1,0 +1,237 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  background: radial-gradient(circle at top left, #1d2140, #090b16 60%);
+  color: white;
+  font-family: sans-serif;
+}
+
+/* LEFT */
+
+.leftSide {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5rem;
+}
+
+.logo {
+  font-size: 5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.subtitle {
+  font-size: 1.8rem;
+  color: #bdbdf5;
+  margin-bottom: 1rem;
+}
+
+.description {
+  font-size: 1.2rem;
+  max-width: 500px;
+  color: #b0b3c7;
+  line-height: 1.6;
+}
+
+/* RIGHT */
+
+.rightSide {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+/* CARD */
+
+.card {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  margin: 2rem 0;
+}
+
+.title {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.text {
+  color: #b0b3c7;
+  margin-bottom: 1.5rem;
+}
+
+/* FORM */
+
+.row {
+  display: flex;
+  gap: 1rem;
+}
+
+.row .field {
+  flex: 1;
+}
+
+.grow {
+  flex: 2 !important;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.1rem;
+}
+
+.field label {
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+  color: #d3d5e5;
+}
+
+.sectionLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #7c5cff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.input {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #2c3157;
+  background: #111527;
+  color: white;
+  font-size: 0.95rem;
+  transition: 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  color: #6d7290;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #7c5cff;
+  box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.2);
+}
+
+/* FILE INPUT */
+
+.fileLabel {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed #2c3157;
+  background: #111527;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.fileLabel:hover {
+  border-color: #7c5cff;
+}
+
+.fileInput {
+  display: none;
+}
+
+.fileText {
+  color: #6d7290;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* BUTTON */
+
+.button {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c5cff, #5a3df0);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  opacity: 0.95;
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ERROR */
+
+.error {
+  color: #ff7b7b;
+  font-size: 0.92rem;
+  margin-top: 0.3rem;
+}
+
+/* LOGIN LINK */
+
+.loginLink {
+  text-align: center;
+  margin-top: 1.2rem;
+  font-size: 0.9rem;
+  color: #b0b3c7;
+}
+
+.loginLink a {
+  color: #7c5cff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.loginLink a:hover {
+  text-decoration: underline;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .leftSide {
+    padding: 3rem 2rem 1rem;
+  }
+
+  .logo {
+    font-size: 3rem;
+  }
+
+  .rightSide {
+    padding: 2rem;
+  }
+
+  .row {
+    flex-direction: column;
+    gap: 0;
+  }
+}

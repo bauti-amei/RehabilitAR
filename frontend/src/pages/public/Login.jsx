@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { loginRequest } from '../../api/auth'
 import { HOME_BY_ROLE } from '../../utils/roles'
@@ -116,6 +116,10 @@ export default function Login() {
           >
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
+
+          <p className={styles.registerLink}>
+            ¿No tenés cuenta? <Link to="/register">Registrate</Link>
+          </p>
         </form>
       </div>
     </div>
