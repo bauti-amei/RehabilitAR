@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import styles from './ClientLayout.module.css'
+import styles from './AdminLayout.module.css'
 
-/* ── Íconos SVG ──────────────────────────────────────────── */
+/* ── Íconos ──────────────────────────────────────────────── */
 const BellIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -28,10 +28,13 @@ const ChevronIcon = () => (
 )
 
 /* ── Modal genérico ──────────────────────────────────────── */
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children, small }) {
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+      <div
+        className={`${styles.modal} ${small ? styles.modalSmall : ''}`}
+        onClick={e => e.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>{title}</h3>
           <button className={styles.closeBtn} onClick={onClose}>✕</button>
@@ -42,20 +45,18 @@ function Modal({ title, onClose, children }) {
   )
 }
 
-// Cuando exista la API, reemplazar [] por la respuesta del backend
+/* ── Notificaciones vacías ───────────────────────────────── */
 const NOTIFICACIONES = []
 
-/* ── ClientLayout ────────────────────────────────────────── */
-export default function ClientLayout() {
+/* ── AdminLayout ─────────────────────────────────────────── */
+export default function AdminLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const [modal, setModal]           = useState(null) // 'notifications' | 'settings'
+  const [modal, setModal]           = useState(null) // 'notifications' | 'settings' | 'cambiarRol'
   const [userMenuOpen, setUserMenu] = useState(false)
-
   const userMenuRef = useRef(null)
 
-  // Cerrar menú usuario al hacer click afuera
   useEffect(() => {
     const handler = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -66,10 +67,8 @@ export default function ClientLayout() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+  const handleLogout = () => { logout(); navigate('/login') }
+  const openModal = (name) => { setModal(name); setUserMenu(false) }
 
   const initials = user
     ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
@@ -77,19 +76,28 @@ export default function ClientLayout() {
 
   const noLeidas = NOTIFICACIONES.filter(n => !n.leida).length
 
-  const openModal = (name) => {
-    setModal(name)
-    setUserMenu(false)
-  }
+  const ROLES_DISPONIBLES = [
+    { label: 'Administrador', value: 'admin',        emoji: '🛡️', current: true },
+    { label: 'Profesor',      value: 'teacher',      emoji: '📋', current: false },
+    { label: 'Recepcionista', value: 'receptionist', emoji: '🗂️', current: false },
+  ]
 
   return (
     <div className={styles.wrapper}>
 
       {/* ── NAVBAR ─────────────────────────────────────────── */}
       <header className={styles.navbar}>
-        <span className={styles.brand}>RehabilitAR</span>
+        <div className={styles.navLeft}>
+          <span className={styles.brand}>RehabilitAR</span>
+          <span className={styles.roleTag}>ADMINISTRADOR</span>
+        </div>
 
         <div className={styles.navActions}>
+
+          {/* Cambiar rol */}
+          <button className={styles.cambiarRolBtn} onClick={() => openModal('cambiarRol')}>
+            ⇄ Cambiar rol
+          </button>
 
           {/* Notificaciones */}
           <button className={styles.iconBtn} onClick={() => openModal('notifications')}>
@@ -106,10 +114,7 @@ export default function ClientLayout() {
 
           {/* Usuario */}
           <div className={styles.userMenu} ref={userMenuRef}>
-            <button
-              className={styles.userBtn}
-              onClick={() => setUserMenu(v => !v)}
-            >
+            <button className={styles.userBtn} onClick={() => setUserMenu(v => !v)}>
               <div className={styles.avatar}>{initials}</div>
               <span className={styles.userName}>{user?.first_name}</span>
               <span className={`${styles.chevron} ${userMenuOpen ? styles.chevronOpen : ''}`}>
@@ -119,10 +124,10 @@ export default function ClientLayout() {
 
             {userMenuOpen && (
               <div className={styles.dropdown}>
-                <button className={styles.dropItem} onClick={() => navigate('/client/perfil')}>
+                <button className={styles.dropItem} onClick={() => navigate('/admin/perfil')}>
                   <span>👤</span> Mi perfil
                 </button>
-                <button className={styles.dropItem} onClick={() => navigate('/client/cambiar-contrasena')}>
+                <button className={styles.dropItem} onClick={() => navigate('/admin/cambiar-contrasena')}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
                 <div className={styles.dropDivider} />
@@ -137,23 +142,30 @@ export default function ClientLayout() {
 
       {/* ── MODALES ────────────────────────────────────────── */}
 
+      {modal === 'cambiarRol' && (
+        <Modal title="Cambiar rol" onClose={() => setModal(null)} small>
+          <p className={styles.cambiarRolDesc}>
+            Seleccioná el rol con el que querés operar:
+          </p>
+          <div className={styles.rolesList}>
+            {ROLES_DISPONIBLES.map(r => (
+              <button
+                key={r.value}
+                className={`${styles.roleOption} ${r.current ? styles.roleOptionActive : ''}`}
+                onClick={() => setModal(null)}   // funcionalidad pendiente
+              >
+                <span className={styles.roleEmoji}>{r.emoji}</span>
+                <span className={styles.roleLabel}>{r.label}</span>
+                {r.current && <span className={styles.roleCurrentTag}>Actual</span>}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+
       {modal === 'notifications' && (
         <Modal title="Notificaciones" onClose={() => setModal(null)}>
-          {NOTIFICACIONES.length === 0 ? (
-            <p className={styles.emptyMsg}>No tenés notificaciones nuevas.</p>
-          ) : (
-            <ul className={styles.notifList}>
-              {NOTIFICACIONES.map(n => (
-                <li key={n.id} className={`${styles.notifItem} ${!n.leida ? styles.notifUnread : ''}`}>
-                  {!n.leida && <span className={styles.notifDot} />}
-                  <div>
-                    <p className={styles.notifTexto}>{n.texto}</p>
-                    <p className={styles.notifHora}>{n.hora}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className={styles.emptyMsg}>No tenés notificaciones nuevas.</p>
         </Modal>
       )}
 

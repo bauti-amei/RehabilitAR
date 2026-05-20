@@ -6,6 +6,7 @@ import { ROLES } from './utils/roles'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import Layout         from './components/common/Layout'
 import ClientLayout   from './components/client/ClientLayout'
+import AdminLayout    from './components/admin/AdminLayout'
 
 // Public
 import Login        from './pages/public/Login'
@@ -35,15 +36,17 @@ export default function App() {
           <Route path="/register"    element={<Register />} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
 
-          {/* Rutas con sidebar (admin, profesor, recepcionista) */}
-          <Route element={<Layout />}>
+          {/* Rutas del admin — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/admin" element={<AdminDashboard />} />
+          </Route>
 
-            {/* Admin */}
-            <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
+          {/* Rutas con sidebar (profesor, recepcionista) */}
+          <Route element={<Layout />}>
 
             {/* Profesor */}
             <Route path="/teacher" element={

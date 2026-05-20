@@ -158,3 +158,21 @@ class RegisterView(APIView):
             {'detail': 'Registro exitoso.'},
             status=status.HTTP_201_CREATED,
         )
+
+
+class UserListView(APIView):
+    """
+    GET /api/auth/users/
+    Devuelve la lista de todos los usuarios. Solo accesible para admins.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != User.Role.ADMIN:
+            return Response(
+                {'detail': 'No tenés permiso para ver esta información.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        users = User.objects.all().order_by('last_name', 'first_name')
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
