@@ -4,7 +4,8 @@ import { ROLES } from './utils/roles'
 
 // Common
 import ProtectedRoute from './components/common/ProtectedRoute'
-import Layout        from './components/common/Layout'
+import Layout         from './components/common/Layout'
+import ClientLayout   from './components/client/ClientLayout'
 
 // Public
 import Login        from './pages/public/Login'
@@ -34,7 +35,7 @@ export default function App() {
           <Route path="/register"    element={<Register />} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
 
-          {/* Rutas autenticadas con layout (sidebar) */}
+          {/* Rutas con sidebar (admin, profesor, recepcionista) */}
           <Route element={<Layout />}>
 
             {/* Admin */}
@@ -43,7 +44,6 @@ export default function App() {
                 <AdminDashboard />
               </ProtectedRoute>
             } />
-            {/* Más rutas de admin se agregan aquí */}
 
             {/* Profesor */}
             <Route path="/teacher" element={
@@ -59,13 +59,15 @@ export default function App() {
               </ProtectedRoute>
             } />
 
-            {/* Cliente */}
-            <Route path="/client" element={
-              <ProtectedRoute allowedRoles={[ROLES.CLIENT]}>
-                <ClientDashboard />
-              </ProtectedRoute>
-            } />
+          </Route>
 
+          {/* Rutas del cliente — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.CLIENT]}>
+              <ClientLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/client" element={<ClientDashboard />} />
           </Route>
 
           {/* Redirigir raíz al login */}

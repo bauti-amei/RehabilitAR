@@ -91,6 +91,5 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ── Validación de DNI ─────────────────────────────
-# En desarrollo se puede poner True para saltear la llamada a la API
 DNI_VALIDATION_MOCK = True
 OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', 'helloworld')
