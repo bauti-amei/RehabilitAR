@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import Clase
 from .serializers import ClaseSerializer
@@ -21,6 +21,19 @@ class ClaseListView(APIView):
                 status=403,
             )
         clases = Clase.objects.select_related('profesor').prefetch_related('inscriptos', 'lista_espera').all()
+        serializer = ClaseSerializer(clases, many=True)
+        return Response(serializer.data)
+
+
+class ClasePublicaListView(APIView):
+    """
+    GET /api/clases/publicas/
+    Devuelve info básica de todas las clases. Acceso público (sin autenticación).
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        clases = Clase.objects.select_related('profesor').all()
         serializer = ClaseSerializer(clases, many=True)
         return Response(serializer.data)
 

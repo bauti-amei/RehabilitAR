@@ -3,19 +3,17 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { loginRequest } from '../../api/auth'
 import { HOME_BY_ROLE } from '../../utils/roles'
+import CalendarioPublico from './CalendarioPublico'
 import styles from './Login.module.css'
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-  })
-
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState({ email: '', password: '' })
+  const [error,    setError]    = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [verClases, setVerClases] = useState(false)
 
   const handleChange = (e) => {
     setForm((prev) => ({
@@ -62,7 +60,20 @@ export default function Login() {
           Gestión integral de pacientes, clases
           y profesionales.
         </p>
+
+        <button
+          className={styles.verClasesBtn}
+          onClick={() => setVerClases(true)}
+        >
+          <span className={styles.verClasesBtnIcon}>📅</span>
+          Ver clases disponibles
+          <span className={styles.verClasesBtnArrow}>→</span>
+        </button>
       </div>
+
+      {verClases && (
+        <CalendarioPublico onClose={() => setVerClases(false)} />
+      )}
 
       <div className={styles.rightSide}>
         <form

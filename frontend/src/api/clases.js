@@ -5,3 +5,6 @@ export const getClasesRequest = () =>
 
 export const getClasesEnCursoRequest = () =>
   api.get('/clases/en-curso/')
+
+export const getClasesPublicasRequest = () =>
+  api.get('/clases/publicas/')

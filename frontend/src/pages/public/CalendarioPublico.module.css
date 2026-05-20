@@ -1,0 +1,462 @@
+/* ── Overlay de fondo ────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  backdrop-filter: blur(6px);
+  padding: 1rem;
+}
+
+/* ── Panel principal ─────────────────────────────────────── */
+.panel {
+  background: #0f1228;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.25s ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 92, 255, 0.3) transparent;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.panelTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.25rem;
+}
+
+.panelSubtitle {
+  font-size: 0.88rem;
+  color: #6b7090;
+  margin: 0;
+}
+
+.closeBtn {
+  background: rgba(255, 255, 255, 0.07);
+  border: none;
+  color: #8b90b0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.closeBtn:hover { background: rgba(255, 255, 255, 0.14); color: white; }
+
+/* ── Leyenda ─────────────────────────────────────────────── */
+.leyenda {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.leyendaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: #8b90b0;
+}
+
+.dotFeriado {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #ef4444;
+  display: inline-block;
+}
+.dotClase {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #7c5cff;
+  display: inline-block;
+}
+.dotHoy {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: transparent;
+  border: 2px solid #7c5cff;
+  display: inline-block;
+}
+
+/* ── Calendario nav ──────────────────────────────────────── */
+.calHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.calTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: white;
+}
+
+.calNav {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #c8cbdf;
+  font-size: 1.2rem;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.calNav:hover { background: rgba(124, 92, 255, 0.2); color: white; }
+
+/* ── Grilla ──────────────────────────────────────────────── */
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 1.25rem;
+}
+
+.calDayName {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7090;
+  padding: 0.3rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calCell {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  color: #b0b3c7;
+  font-size: 0.88rem;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cellFeriado {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  cursor: pointer;
+}
+.cellFeriado:hover { background: rgba(239, 68, 68, 0.2); }
+
+.cellClase {
+  background: rgba(124, 92, 255, 0.12);
+  border-color: rgba(124, 92, 255, 0.3);
+  color: #a78bfa;
+  cursor: pointer;
+  font-weight: 600;
+}
+.cellClase:hover { background: rgba(124, 92, 255, 0.22); }
+
+.cellHoy {
+  border-color: #7c5cff !important;
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.4);
+  color: white;
+  font-weight: 700;
+}
+
+.claseCount {
+  font-size: 0.62rem;
+  background: #7c5cff;
+  color: white;
+  border-radius: 999px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+/* ── Cargando ─────────────────────────────────────────────── */
+.cargando {
+  text-align: center;
+  color: #6b7090;
+  padding: 2rem 0;
+}
+
+/* ── Panel detalle día ───────────────────────────────────── */
+.diaPanel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-top: 0.5rem;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.diaPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.diaPanelTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #d0d3e8;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.closeDiaBtn {
+  background: none;
+  border: none;
+  color: #6b7090;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  transition: color 0.2s;
+}
+.closeDiaBtn:hover { color: white; }
+
+.feriadoTag {
+  font-size: 0.82rem;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.sinClases {
+  color: #6b7090;
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 0.75rem 0;
+}
+
+/* ── Cards de clases ─────────────────────────────────────── */
+.clasesDelDia {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.claseCard {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: rgba(124, 92, 255, 0.06);
+  border: 1px solid rgba(124, 92, 255, 0.2);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s, border-color 0.2s;
+}
+.claseCard:hover {
+  background: rgba(124, 92, 255, 0.14);
+  border-color: rgba(124, 92, 255, 0.4);
+}
+
+.claseCardLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.claseCardNombre {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.claseCardMeta {
+  font-size: 0.8rem;
+  color: #8b90b0;
+  margin: 0;
+}
+
+.claseCardProf {
+  font-size: 0.78rem;
+  color: #6b7090;
+  margin: 0;
+}
+
+.claseCardRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.cupoTag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.cupoLleno {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.verBtn {
+  font-size: 0.78rem;
+  color: #7c5cff;
+  font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════
+   MODAL CTA
+   ══════════════════════════════════════════════════════════ */
+.ctaOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  backdrop-filter: blur(4px);
+}
+
+.ctaModal {
+  background: #12162e;
+  border: 1px solid rgba(124, 92, 255, 0.3);
+  border-radius: 24px;
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.2s ease;
+  position: relative;
+}
+
+.ctaClose {
+  position: absolute;
+  top: 1rem; right: 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: none;
+  color: #8b90b0;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.ctaClose:hover { background: rgba(255, 255, 255, 0.12); color: white; }
+
+.ctaIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.ctaTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 1.25rem;
+  line-height: 1.45;
+}
+
+.ctaClaseInfo {
+  background: rgba(124, 92, 255, 0.08);
+  border: 1px solid rgba(124, 92, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.ctaClaseNombre {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #a78bfa;
+  margin: 0 0 0.2rem;
+}
+
+.ctaClaseMeta {
+  font-size: 0.82rem;
+  color: #6b7090;
+  margin: 0;
+}
+
+.ctaBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ctaBtnPrimary {
+  width: 100%;
+  padding: 0.85rem;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c5cff, #5a3df0);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.ctaBtnPrimary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.ctaBtnSecondary {
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #c8cbdf;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.ctaBtnSecondary:hover { background: rgba(255, 255, 255, 0.09); color: white; }
