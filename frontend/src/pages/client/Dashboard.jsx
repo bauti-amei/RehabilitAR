@@ -6,48 +6,13 @@ import styles from './Dashboard.module.css'
    MOCK DATA — reemplazar con llamadas a la API cuando estén
    ══════════════════════════════════════════════════════════ */
 
-const PROXIMA_CLASE = {
-  nombre:   'Tren Superior',
-  fecha:    '2026-05-20',
-  hora:     '18:00',
-  profesor: 'Martina López',
-  aula:     'Sala A',
-}
+// Cuando exista la API, reemplazar null/[] por la respuesta del backend
+const PROXIMA_CLASE = null   // null = sin clases pendientes
 
-const MI_PLAN = [
-  {
-    id:          1,
-    tipo:        'suscripcion',
-    nombre:      'Clase Tren Superior',
-    descripcion: 'Suscripción mensual — 8 clases',
-    fecha:       '2026-05-20',
-    hora:        '18:00',
-    profesor:    'Martina López',
-    aula:        'Sala A',
-    estado:      'Activa',
-  },
-  {
-    id:          2,
-    tipo:        'reserva',
-    nombre:      'Clase Tren Superior',
-    descripcion: 'Reserva individual',
-    fecha:       '2026-05-22',
-    hora:        '18:00',
-    profesor:    'Martina López',
-    aula:        'Sala A',
-    estado:      'Confirmada',
-  },
-]
+const MI_PLAN = []           // [] = sin reservas ni suscripciones
 
-// Días con clase — clave: 'YYYY-MM-DD'
-const MIS_CLASES = {
-  '2026-05-20': { nombre: 'Tren Superior', hora: '18:00', profesor: 'Martina López', aula: 'Sala A' },
-  '2026-05-22': { nombre: 'Tren Superior', hora: '18:00', profesor: 'Martina López', aula: 'Sala A' },
-  '2026-05-27': { nombre: 'Tren Superior', hora: '18:00', profesor: 'Martina López', aula: 'Sala A' },
-  '2026-06-03': { nombre: 'Tren Superior', hora: '18:00', profesor: 'Martina López', aula: 'Sala A' },
-  '2026-06-10': { nombre: 'Tren Superior', hora: '18:00', profesor: 'Martina López', aula: 'Sala A' },
-  '2026-06-17': { nombre: 'Tren Superior', hora: '18:00', profesor: 'Martina López', aula: 'Sala A' },
-}
+// Días con clase — clave: 'YYYY-MM-DD' (vacío hasta que el usuario reserve)
+const MIS_CLASES = {}
 
 // Feriados nacionales argentinos 2026
 const FERIADOS = {
@@ -229,10 +194,11 @@ export default function ClientDashboard() {
   const [planModal, setPlanModal] = useState(null)
 
   const todayStr = getTodayStr()
-  const esFeriado = !!FERIADOS[todayStr]
-  const fechaProxima = PROXIMA_CLASE.fecha === todayStr
-    ? `Hoy — ${PROXIMA_CLASE.hora} hs`
-    : `${formatFecha(PROXIMA_CLASE.fecha)} — ${PROXIMA_CLASE.hora} hs`
+  const fechaProxima = PROXIMA_CLASE
+    ? PROXIMA_CLASE.fecha === todayStr
+      ? `Hoy — ${PROXIMA_CLASE.hora} hs`
+      : `${formatFecha(PROXIMA_CLASE.fecha)} — ${PROXIMA_CLASE.hora} hs`
+    : null
 
   return (
     <div className={styles.container}>
@@ -249,39 +215,53 @@ export default function ClientDashboard() {
         {/* Próxima clase */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Próxima clase</h2>
-          <div className={styles.proximaBody}>
-            <p className={styles.proximaNombre}>{PROXIMA_CLASE.nombre}</p>
-            <div className={styles.proximaInfo}>
-              <div className={styles.infoRow}><span className={styles.infoLabel}>Fecha</span><span>{fechaProxima}</span></div>
-              <div className={styles.infoRow}><span className={styles.infoLabel}>Profesor</span><span>{PROXIMA_CLASE.profesor}</span></div>
-              <div className={styles.infoRow}><span className={styles.infoLabel}>Aula</span><span>{PROXIMA_CLASE.aula}</span></div>
+          {PROXIMA_CLASE ? (
+            <div className={styles.proximaBody}>
+              <p className={styles.proximaNombre}>{PROXIMA_CLASE.nombre}</p>
+              <div className={styles.proximaInfo}>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Fecha</span><span>{fechaProxima}</span></div>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Profesor</span><span>{PROXIMA_CLASE.profesor}</span></div>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Aula</span><span>{PROXIMA_CLASE.aula}</span></div>
+              </div>
+              <button className={styles.linkBtn}>Ver detalle →</button>
             </div>
-            <button className={styles.linkBtn}>Ver detalle →</button>
-          </div>
+          ) : (
+            <div className={styles.emptyState}>
+              <span className={styles.emptyIcon}>📅</span>
+              <p>No tenés clases pendientes aún</p>
+            </div>
+          )}
         </div>
 
         {/* Mi plan */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Mi plan</h2>
 
-          <div className={styles.planLista}>
-            {MI_PLAN.map(item => (
-              <div key={item.id} className={styles.planItem}>
-                <div className={styles.planLeft}>
-                  <span className={`${styles.tipoBadge} ${item.tipo === 'suscripcion' ? styles.badgeSub : styles.badgeRes}`}>
-                    {item.tipo === 'suscripcion' ? 'Suscripción' : 'Reserva'}
-                  </span>
-                  <div>
-                    <p className={styles.planNombre}>{item.nombre}</p>
-                    <p className={styles.planDesc}>{item.descripcion}</p>
+          {MI_PLAN.length > 0 ? (
+            <div className={styles.planLista}>
+              {MI_PLAN.map(item => (
+                <div key={item.id} className={styles.planItem}>
+                  <div className={styles.planLeft}>
+                    <span className={`${styles.tipoBadge} ${item.tipo === 'suscripcion' ? styles.badgeSub : styles.badgeRes}`}>
+                      {item.tipo === 'suscripcion' ? 'Suscripción' : 'Reserva'}
+                    </span>
+                    <div>
+                      <p className={styles.planNombre}>{item.nombre}</p>
+                      <p className={styles.planDesc}>{item.descripcion}</p>
+                    </div>
                   </div>
+                  <button className={styles.verMasBtn} onClick={() => setPlanModal(item)}>
+                    Ver más
+                  </button>
                 </div>
-                <button className={styles.verMasBtn} onClick={() => setPlanModal(item)}>
-                  Ver más
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyState}>
+              <span className={styles.emptyIcon}>🏋️</span>
+              <p>Reservá tu clase o comprá tu suscripción ahora</p>
+            </div>
+          )}
 
           <div className={styles.planAcciones}>
             <button className={styles.btnPrimary}>Reservar clase</button>
