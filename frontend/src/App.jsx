@@ -7,6 +7,7 @@ import ProtectedRoute from './components/common/ProtectedRoute'
 import Layout         from './components/common/Layout'
 import ClientLayout   from './components/client/ClientLayout'
 import AdminLayout    from './components/admin/AdminLayout'
+import TeacherLayout  from './components/teacher/TeacherLayout'
 
 // Public
 import Login        from './pages/public/Login'
@@ -45,15 +46,17 @@ export default function App() {
             <Route path="/admin" element={<AdminDashboard />} />
           </Route>
 
-          {/* Rutas con sidebar (profesor, recepcionista) */}
-          <Route element={<Layout />}>
+          {/* Rutas del profesor — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.TEACHER]}>
+              <TeacherLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/teacher" element={<TeacherDashboard />} />
+          </Route>
 
-            {/* Profesor */}
-            <Route path="/teacher" element={
-              <ProtectedRoute allowedRoles={[ROLES.TEACHER]}>
-                <TeacherDashboard />
-              </ProtectedRoute>
-            } />
+          {/* Rutas con sidebar (recepcionista) */}
+          <Route element={<Layout />}>
 
             {/* Recepcionista */}
             <Route path="/receptionist" element={
