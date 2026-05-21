@@ -176,3 +176,31 @@ class UserListView(APIView):
         users = User.objects.all().order_by('last_name', 'first_name')
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
+
+class DeleteUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, user_id):
+
+        if request.user.role != User.Role.ADMIN:
+            return Response(
+                {'detail': 'No tenés permiso.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+
+            user.is_active = False
+            user.save()
+
+            return Response(
+                {'message': 'Usuario eliminado'},
+                status=status.HTTP_200_OK
+            )
+
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'Usuario no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
