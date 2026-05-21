@@ -8,6 +8,7 @@ import Layout         from './components/common/Layout'
 import ClientLayout   from './components/client/ClientLayout'
 import AdminLayout    from './components/admin/AdminLayout'
 import TeacherLayout  from './components/teacher/TeacherLayout'
+import PublicRoute    from './components/common/PublicRoute'
 
 // Public
 import Login        from './pages/public/Login'
@@ -33,8 +34,8 @@ export default function App() {
         <Routes>
 
           {/* Rutas públicas */}
-          <Route path="/login"       element={<Login />} />
-          <Route path="/register"    element={<Register />} />
+          <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
 
           {/* Rutas del admin — layout con navbar superior */}
