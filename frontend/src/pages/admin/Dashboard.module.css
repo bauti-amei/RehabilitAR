@@ -445,10 +445,276 @@
 }
 .detalleGrid span:nth-child(even) { color: #c8cbdf; }
 
+/* ══════════════════════════════════════════════════════════
+   SALAS
+   ══════════════════════════════════════════════════════════ */
+.salasList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.salaRow {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: background 0.15s, border-color 0.15s;
+}
+.salaRow:hover {
+  background: rgba(124, 92, 255, 0.05);
+  border-color: rgba(124, 92, 255, 0.2);
+}
+
+.salaInfo { flex: 1; }
+
+.salaNombre {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.2rem;
+}
+
+.salaMeta {
+  font-size: 0.82rem;
+  color: #6b7090;
+  margin: 0;
+}
+
+.salaStats { display: flex; align-items: center; gap: 0.75rem; }
+
+.salaClasesBadge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(124, 92, 255, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(124, 92, 255, 0.2);
+  white-space: nowrap;
+}
+
+.verCalBtn {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  color: #c8cbdf;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.verCalBtn:hover {
+  background: rgba(124, 92, 255, 0.12);
+  color: white;
+  border-color: rgba(124, 92, 255, 0.35);
+}
+
+/* ── Formulario crear sala ───────────────────────────────── */
+.crearSalaForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 0.25rem;
+}
+
+.formField { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.formLabel {
+  font-size: 0.85rem;
+  color: #8b90b0;
+  font-weight: 500;
+}
+
+.formInput {
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.formInput::placeholder { color: #4a4f78; }
+.formInput:focus { border-color: rgba(124, 92, 255, 0.5); }
+
+.formError {
+  color: #f87171;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CALENDARIO DE SALA
+   ══════════════════════════════════════════════════════════ */
+.calSala { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.calSalaNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.calSalaMes {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+}
+
+.calNavBtn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #c8cbdf;
+  font-size: 1.1rem;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.calNavBtn:hover { background: rgba(124, 92, 255, 0.2); color: white; }
+
+.calSalaGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calSalaDayName {
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #4a4f78;
+  padding: 0.25rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calSalaCell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+  color: #6b7090;
+  font-size: 0.82rem;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  position: relative;
+  transition: background 0.15s;
+}
+
+.calCellClase {
+  background: rgba(124, 92, 255, 0.1);
+  border-color: rgba(124, 92, 255, 0.25);
+  color: #a78bfa;
+  cursor: pointer;
+  font-weight: 600;
+}
+.calCellClase:hover { background: rgba(124, 92, 255, 0.2); }
+
+.calCellHoy {
+  border-color: #7c5cff !important;
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.35);
+  color: white;
+  font-weight: 700;
+}
+
+.calCellSelected {
+  background: rgba(124, 92, 255, 0.3) !important;
+  border-color: #7c5cff !important;
+  color: white !important;
+}
+
+.calDot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #7c5cff;
+  flex-shrink: 0;
+}
+
+/* Panel detalle día */
+.calDiaPanel {
+  background: rgba(124, 92, 255, 0.06);
+  border: 1px solid rgba(124, 92, 255, 0.2);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.calDiaTitulo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #a78bfa;
+  margin: 0 0 0.25rem;
+  text-transform: capitalize;
+}
+
+.calClaseItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.calClaseNombre {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #d0d3e8;
+}
+
+.calClaseHorario {
+  font-size: 0.8rem;
+  color: #6b7090;
+  font-family: monospace;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   .topRow { grid-template-columns: 1fr; }
   .claseRow { flex-direction: column; align-items: flex-start; }
+  .salaRow { flex-direction: column; align-items: flex-start; }
+}
+
+/* ── Modal asignar profesor ──────────────────────────────── */
+.asignarProfesorForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.25rem 0 0.25rem;
+}
+
+.asignarHint {
+  font-size: 0.88rem;
+  color: #8b90b0;
+  margin: 0;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
 }
 
 /* ── Modal asignar profesor ──────────────────────────────── */

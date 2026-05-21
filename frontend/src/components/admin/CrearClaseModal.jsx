@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { getSalasRequest, createClaseRequest, getProfesoresPorEspecialidadRequest } from '../../api/clases'
 import styles from './CrearClaseModal.module.css'
 
+/* ══════════════════════════════════════════════════════════
+   CONSTANTES
+   ══════════════════════════════════════════════════════════ */
 const ESPECIALIDADES = [
   { value: 'tren_superior', label: 'Tren Superior' },
   { value: 'tren_inferior', label: 'Tren Inferior' },
@@ -20,11 +23,14 @@ const FORM_INICIAL = {
   nombre: '', especialidad: '', tipo_clase: '',
   dia: '', fecha: '', horario_inicio: '', horario_fin: '',
   sala_id: '', cupo: '', valor: '',
-  asignacion: '',
+  asignacion: '',   // 'manual' | 'ofertar' | ''
   profesor_id: '',
   descripcion: '',
 }
 
+/* ══════════════════════════════════════════════════════════
+   HELPERS — disponibilidad de sala
+   ══════════════════════════════════════════════════════════ */
 function timesOverlap(ini1, fin1, ini2, fin2) {
   return ini1 < fin2 && ini2 < fin1
 }
@@ -38,8 +44,9 @@ function salaOcupada(sala, tipo, dia, fecha, horIni, horFin) {
   if (!horIni || !horFin || (!dia && !fecha)) return false
   const diaNumNuevo = tipo === 'fija'
     ? parseDiaNombre(dia)
-    : new Date(fecha + 'T00:00:00').getDay()
+    : new Date(fecha + 'T00:00:00').getDay()   // 0=Dom
 
+  // Convertir índice JS (0=Dom) a índice DIAS_SEMANA (0=Lun)
   const jsToIdx = (js) => (js === 0 ? 6 : js - 1)
   const idxNuevo = jsToIdx(diaNumNuevo)
 
@@ -62,6 +69,9 @@ function salaOcupada(sala, tipo, dia, fecha, horIni, horFin) {
   return false
 }
 
+/* ══════════════════════════════════════════════════════════
+   COMPONENTE
+   ══════════════════════════════════════════════════════════ */
 export default function CrearClaseModal({ onClose, onCreada }) {
   const [form,       setForm]       = useState(FORM_INICIAL)
   const [salas,      setSalas]      = useState([])
@@ -69,10 +79,12 @@ export default function CrearClaseModal({ onClose, onCreada }) {
   const [error,      setError]      = useState('')
   const [guardando,  setGuardando]  = useState(false)
 
+  // Cargar salas al montar
   useEffect(() => {
     getSalasRequest().then(r => setSalas(r.data)).catch(() => setSalas([]))
   }, [])
 
+  // Cargar profesores cuando cambia especialidad
   useEffect(() => {
     if (!form.especialidad) { setProfesores([]); return }
     getProfesoresPorEspecialidadRequest(form.especialidad)
@@ -80,18 +92,21 @@ export default function CrearClaseModal({ onClose, onCreada }) {
       .catch(() => setProfesores([]))
   }, [form.especialidad])
 
+  // Cuando se selecciona sala → auto-completar cupo con capacidad
   useEffect(() => {
     const sala = salas.find(s => String(s.id) === String(form.sala_id))
     if (sala) setForm(f => ({ ...f, cupo: String(sala.capacidad) }))
   }, [form.sala_id, salas])
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
+
   const salaSeleccionada = salas.find(s => String(s.id) === String(form.sala_id))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
 
+    // Validaciones del lado del cliente
     const requeridos = [
       form.nombre, form.especialidad, form.tipo_clase,
       form.horario_inicio, form.horario_fin, form.sala_id,
@@ -151,13 +166,14 @@ export default function CrearClaseModal({ onClose, onCreada }) {
 
         <form className={styles.form} onSubmit={handleSubmit}>
 
-          {/* Nombre + Especialidad */}
+          {/* ── Nombre ── */}
           <div className={styles.row2}>
             <div className={styles.field}>
               <label className={styles.label}>Nombre de la clase *</label>
               <input className={styles.input} placeholder="Ej: Yoga Avanzado"
                 value={form.nombre} onChange={e => set('nombre', e.target.value)} />
             </div>
+
             <div className={styles.field}>
               <label className={styles.label}>Especialidad *</label>
               <select className={styles.select} value={form.especialidad}
@@ -170,7 +186,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             </div>
           </div>
 
-          {/* Tipo de clase */}
+          {/* ── Tipo de clase ── */}
           <div className={styles.field}>
             <label className={styles.label}>Tipo de clase *</label>
             <div className={styles.tipoRow}>
@@ -190,7 +206,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             )}
           </div>
 
-          {/* Día / Fecha */}
+          {/* ── Día / Fecha ── */}
           {form.tipo_clase === 'fija' && (
             <div className={styles.field}>
               <label className={styles.label}>Día de la semana *</label>
@@ -213,7 +229,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             </div>
           )}
 
-          {/* Horario */}
+          {/* ── Horario ── */}
           <div className={styles.row2}>
             <div className={styles.field}>
               <label className={styles.label}>Horario inicio *</label>
@@ -227,7 +243,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             </div>
           </div>
 
-          {/* Sala */}
+          {/* ── Sala ── */}
           <div className={styles.field}>
             <label className={styles.label}>Sala *</label>
             {salas.length === 0 ? (
@@ -256,7 +272,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             )}
           </div>
 
-          {/* Cupo y Valor */}
+          {/* ── Cupo y Valor ── */}
           <div className={styles.row2}>
             <div className={styles.field}>
               <label className={styles.label}>
@@ -275,7 +291,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             </div>
           </div>
 
-          {/* Asignación de profesor */}
+          {/* ── Asignación de profesor ── */}
           <div className={styles.field}>
             <label className={styles.label}>Asignación de profesor *</label>
             <div className={styles.tipoRow}>
@@ -313,7 +329,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             )}
           </div>
 
-          {/* Descripción */}
+          {/* ── Descripción (opcional) ── */}
           <div className={styles.field}>
             <label className={styles.label}>Descripción <span className={styles.opcional}>(opcional)</span></label>
             <textarea className={styles.textarea} rows={3}
@@ -321,8 +337,10 @@ export default function CrearClaseModal({ onClose, onCreada }) {
               value={form.descripcion} onChange={e => set('descripcion', e.target.value)} />
           </div>
 
+          {/* ── Error ── */}
           {error && <p className={styles.error}>{error}</p>}
 
+          {/* ── Submit ── */}
           <div className={styles.footer}>
             <button type="button" className={styles.btnCancelar} onClick={onClose}>Cancelar</button>
             <button type="submit" className={styles.btnCrear} disabled={guardando}>

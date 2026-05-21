@@ -32,8 +32,8 @@ class Clase(models.Model):
     # ── Horario ───────────────────────────────────────
     horario_inicio  = models.TimeField()
     horario_fin     = models.TimeField()
-    dias            = models.CharField(max_length=50, default='')
-    fecha           = models.DateField(null=True, blank=True)
+    dias            = models.CharField(max_length=50, default='')   # "Lunes" para fija; día de la fecha para individual
+    fecha           = models.DateField(null=True, blank=True)  # solo para clases individuales
 
     # ── Económico ─────────────────────────────────────
     valor           = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -42,7 +42,7 @@ class Clase(models.Model):
     descripcion     = models.TextField(blank=True, default='')
 
     # ── Asignación de profesor ────────────────────────
-    ofertada        = models.BooleanField(default=False)
+    ofertada        = models.BooleanField(default=False)  # True → profesores pueden auto-asignarse
 
     sala            = models.ForeignKey(
         Sala,
@@ -74,6 +74,7 @@ class Clase(models.Model):
 
     @property
     def aula(self):
+        """Nombre del aula para compatibilidad con el serializer."""
         return self.sala.nombre if self.sala else None
 
     @property

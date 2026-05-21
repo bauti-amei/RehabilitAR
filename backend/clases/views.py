@@ -10,11 +10,14 @@ from .serializers import (
     SalaSerializer, SalaCreateSerializer,
 )
 from users.models import User
+from users.serializers import UserSerializer
 
 
 class ClaseListView(APIView):
-    """GET /api/clases/ — lista todas las clases (admin)
-       POST /api/clases/ — crea una clase nueva (admin)"""
+    """
+    GET  /api/clases/          — lista todas las clases (admin)
+    POST /api/clases/          — crea una clase nueva (admin)
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -28,6 +31,7 @@ class ClaseListView(APIView):
             return Response({'detail': 'No tenés permiso.'}, status=403)
         serializer = ClaseCreateSerializer(data=request.data)
         if not serializer.is_valid():
+            # Devolver el primer error como string
             errors = serializer.errors
             first = next(iter(errors.values()))
             msg = first[0] if isinstance(first, list) else str(first)
@@ -58,7 +62,10 @@ class ClaseEnCursoListView(APIView):
 
 
 class ProfesoresPorEspecialidadView(APIView):
-    """GET /api/clases/profesores/?especialidad=tren_superior — (admin)."""
+    """
+    GET /api/clases/profesores/?especialidad=tren_superior
+    Devuelve profesores con esa especialidad (admin).
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -67,13 +74,17 @@ class ProfesoresPorEspecialidadView(APIView):
         especialidad = request.query_params.get('especialidad', '')
         profesores = User.objects.filter(role=User.Role.TEACHER, is_active=True)
         if especialidad:
+            # Filtra los que tienen esa especialidad en su lista CSV
             profesores = [p for p in profesores if especialidad in [e.strip() for e in p.especialidades.split(',') if e.strip()]]
         data = [{'id': p.id, 'nombre': p.full_name, 'email': p.email, 'especialidades': p.especialidades} for p in profesores]
         return Response(data)
 
 
 class MisClasesView(APIView):
-    """GET /api/clases/mis-clases/ — clases donde el profesor logueado está asignado."""
+    """
+    GET /api/clases/mis-clases/
+    Devuelve las clases donde el profesor logueado está asignado.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -89,76 +100,121 @@ class MisClasesView(APIView):
 
 
 class ClasesOfertadasView(APIView):
-    """GET /api/clases/ofertadas/ — clases ofertadas sin profesor, filtradas por especialidad del profesor logueado."""
+    """
+    GET /api/clases/ofertadas/
+    Devuelve clases ofertadas (sin profesor asignado) disponibles
+    para que un profesor se auto-asigne.
+    Solo muestra las que coinciden con la especialidad del profesor.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if request.user.role != User.Role.TEACHER:
             return Response({'detail': 'Solo profesores pueden acceder a este endpoint.'}, status=403)
-        mis_especialidades = [e.strip() for e in request.user.especialidades.split(',') if e.strip()]
-        clases = Clase.objects.filter(ofertada=True, profesor__isnull=True).select_related('sala').prefetch_related('inscriptos')
+
+        mis_especialidades = [
+            e.strip() for e in request.user.especialidades.split(',') if e.strip()
+        ]
+
+        clases = (
+            Clase.objects
+            .filter(ofertada=True, profesor__isnull=True)
+            .select_related('sala')
+            .prefetch_related('inscriptos')
+        )
+
+        # Filtrar por especialidad del profesor
         if mis_especialidades:
             clases = clases.filter(especialidad__in=mis_especialidades)
+
         return Response(ClaseProfesorSerializer(clases, many=True).data)
 
 
 class AsignarseClaseView(APIView):
-    """POST /api/clases/<id>/asignarse/ — el profesor se auto-asigna a una clase ofertada."""
+    """
+    POST /api/clases/<id>/asignarse/
+    El profesor logueado se asigna a una clase ofertada.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         if request.user.role != User.Role.TEACHER:
             return Response({'detail': 'Solo profesores pueden asignarse a clases.'}, status=403)
+
         try:
             clase = Clase.objects.get(pk=pk)
         except Clase.DoesNotExist:
             return Response({'detail': 'Clase no encontrada.'}, status=404)
+
         if not clase.ofertada:
             return Response({'detail': 'Esta clase no está disponible para asignación.'}, status=400)
+
         if clase.profesor is not None:
             return Response({'detail': 'Esta clase ya tiene un profesor asignado.'}, status=400)
-        mis_especialidades = [e.strip() for e in request.user.especialidades.split(',') if e.strip()]
+
+        # Verificar especialidad
+        mis_especialidades = [
+            e.strip() for e in request.user.especialidades.split(',') if e.strip()
+        ]
         if mis_especialidades and clase.especialidad not in mis_especialidades:
-            return Response({'detail': 'No tenés la especialidad requerida para esta clase.'}, status=400)
-        clase.profesor = request.user
-        clase.ofertada = False
+            return Response(
+                {'detail': 'No tenés la especialidad requerida para esta clase.'},
+                status=400
+            )
+
+        clase.profesor  = request.user
+        clase.ofertada  = False   # ya no está disponible para otros
         clase.save(update_fields=['profesor', 'ofertada'])
+
         return Response({'detail': 'Te asignaste correctamente a la clase.'}, status=200)
 
 
 class AsignarProfesorView(APIView):
-    """PATCH /api/clases/<id>/asignar-profesor/ — el admin asigna un profesor a una clase."""
+    """
+    PATCH /api/clases/<id>/asignar-profesor/
+    El admin asigna (o reasigna) un profesor a una clase existente.
+    Body: { "profesor_id": <int> }
+    """
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
         if request.user.role != User.Role.ADMIN:
             return Response({'detail': 'No tenés permiso.'}, status=403)
+
         try:
             clase = Clase.objects.get(pk=pk)
         except Clase.DoesNotExist:
             return Response({'detail': 'Clase no encontrada.'}, status=404)
+
         profesor_id = request.data.get('profesor_id')
         if not profesor_id:
             return Response({'detail': 'Debés indicar un profesor.'}, status=400)
+
         try:
             profesor = User.objects.get(pk=profesor_id, role=User.Role.TEACHER, is_active=True)
         except User.DoesNotExist:
             return Response({'detail': 'Profesor no encontrado.'}, status=404)
+
+        # Validar especialidad
         especialidades_prof = [e.strip() for e in profesor.especialidades.split(',') if e.strip()]
         if especialidades_prof and clase.especialidad not in especialidades_prof:
             return Response(
                 {'detail': f'{profesor.full_name} no tiene la especialidad requerida para esta clase.'},
                 status=400
             )
+
         clase.profesor = profesor
-        clase.ofertada = False
+        clase.ofertada = False   # si estaba ofertada, ya no
         clase.save(update_fields=['profesor', 'ofertada'])
+
         return Response(ClaseSerializer(clase).data, status=200)
 
 
 class SalaListCreateView(APIView):
-    """GET /api/clases/salas/ — lista salas (admin)
-       POST /api/clases/salas/ — crea sala (admin)"""
+    """
+    GET  /api/clases/salas/ — lista salas (admin)
+    POST /api/clases/salas/ — crea sala (admin)
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

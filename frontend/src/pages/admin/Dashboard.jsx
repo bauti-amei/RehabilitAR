@@ -5,7 +5,13 @@ import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaR
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
 
+/* ══════════════════════════════════════════════════════════
+   MOCK DATA
+   ══════════════════════════════════════════════════════════ */
+
+// [] = "Estás al día con todas tus tareas"
 const TAREAS = []
+
 
 const ROLE_LABEL = {
   admin: 'Administrador', teacher: 'Profesor',
@@ -31,6 +37,9 @@ const STATS_BTNS = [
   'Ingresos', 'Clase más elegida', 'Usuarios suspendidos', 'Horario más elegido', 'Exportar estadísticas',
 ]
 
+/* ══════════════════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════════════════ */
 function getHorarioFiltro(horario) {
   const hora = parseInt(horario.split(':')[0])
   if (hora < 12) return 'manana'
@@ -59,7 +68,7 @@ function Modal({ title, onClose, children, wide }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   TAREAS IMPORTANTES
+   SECCIÓN: TAREAS IMPORTANTES
    ══════════════════════════════════════════════════════════ */
 function TareasImportantes() {
   return (
@@ -85,7 +94,7 @@ function TareasImportantes() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   CLASES EN CURSO
+   SECCIÓN: CLASES EN CURSO
    ══════════════════════════════════════════════════════════ */
 function ClasesEnCurso() {
   const [clases,   setClases]   = useState([])
@@ -122,6 +131,7 @@ function ClasesEnCurso() {
           ))}
         </div>
       )}
+
       {detalle && (
         <Modal title={detalle.nombre} onClose={() => setDetalle(null)}>
           <div className={styles.detalleGrid}>
@@ -137,23 +147,22 @@ function ClasesEnCurso() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ÁREA DE CLASES
+   SECCIÓN: ÁREA DE CLASES
    ══════════════════════════════════════════════════════════ */
 function AreaClases() {
-  const [clases,           setClases]       = useState([])
-  const [cargando,         setCargando]     = useState(true)
-  const [filtro,           setFiltro]       = useState('todas')
-  const [listaEsperaModal, setLista]        = useState(null)
-  const [userModal,        setUserModal]    = useState(null)
-  const [crearClase,       setCrear]        = useState(false)
-  const [asignarModal,     setAsignar]      = useState(null)
-  const [profesores,       setProfesores]   = useState([])
-  const [profesorSel,      setProfesorSel]  = useState('')
-  const [asignando,        setAsignando]    = useState(false)
-  const [asignarError,     setAsignarError] = useState('')
+  const [clases,          setClases]    = useState([])
+  const [cargando,        setCargando]  = useState(true)
+  const [filtro,          setFiltro]    = useState('todas')
+  const [listaEsperaModal, setLista]   = useState(null)
+  const [userModal,       setUserModal] = useState(null)
+  const [crearClase,      setCrear]    = useState(false)
+  const [asignarModal,    setAsignar]  = useState(null)   // clase a la que se asigna profesor
+  const [profesores,      setProfesores] = useState([])
+  const [profesorSel,     setProfesorSel] = useState('')
+  const [asignando,       setAsignando] = useState(false)
+  const [asignarError,    setAsignarError] = useState('')
 
   const cargarClases = () => {
-    setCargando(true)
     getClasesRequest()
       .then(res => setClases(res.data))
       .catch(() => setClases([]))
@@ -198,16 +207,20 @@ function AreaClases() {
         <button className={styles.btnPrimary} onClick={() => setCrear(true)}>+ Crear nueva clase</button>
       </div>
 
+      {/* Filtros */}
       <div className={styles.filtros}>
         {FILTROS_HORARIO.map(f => (
-          <button key={f.value}
+          <button
+            key={f.value}
             className={`${styles.filtroBtn} ${filtro === f.value ? styles.filtroBtnActive : ''}`}
-            onClick={() => setFiltro(f.value)}>
+            onClick={() => setFiltro(f.value)}
+          >
             {f.label}
           </button>
         ))}
       </div>
 
+      {/* Lista de clases */}
       <div className={styles.clasesList}>
         {cargando ? (
           <p className={styles.noResultados}>Cargando clases...</p>
@@ -240,7 +253,10 @@ function AreaClases() {
               </div>
             </div>
             <div className={styles.claseAcciones}>
-              <button className={styles.listaEsperaBtn} onClick={() => setLista(c)}>
+              <button
+                className={styles.listaEsperaBtn}
+                onClick={() => setLista(c)}
+              >
                 Ver lista de espera
                 {c.lista_espera.length > 0 && (
                   <span className={styles.listaCount}>{c.lista_espera.length}</span>
@@ -288,7 +304,10 @@ function AreaClases() {
 
       {/* Modal asignar profesor */}
       {asignarModal && (
-        <Modal title={`Asignar profesor — ${asignarModal.nombre}`} onClose={() => setAsignar(null)}>
+        <Modal
+          title={`Asignar profesor — ${asignarModal.nombre}`}
+          onClose={() => setAsignar(null)}
+        >
           <div className={styles.asignarProfesorForm}>
             <p className={styles.asignarHint}>
               Especialidad requerida: <strong>{asignarModal.especialidad_display}</strong>
@@ -298,8 +317,11 @@ function AreaClases() {
                 No hay profesores con la especialidad <em>{asignarModal.especialidad_display}</em> registrados.
               </p>
             ) : (
-              <select className={styles.formInput} value={profesorSel}
-                onChange={e => setProfesorSel(e.target.value)}>
+              <select
+                className={styles.formInput}
+                value={profesorSel}
+                onChange={e => setProfesorSel(e.target.value)}
+              >
                 <option value="">Seleccioná un profesor</option>
                 {profesores.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -309,8 +331,11 @@ function AreaClases() {
             {asignarError && <p className={styles.formError}>{asignarError}</p>}
             <div className={styles.modalFooter}>
               <button className={styles.btnOutline} onClick={() => setAsignar(null)}>Cancelar</button>
-              <button className={styles.btnPrimary} onClick={handleAsignarProfesor}
-                disabled={asignando || profesores.length === 0}>
+              <button
+                className={styles.btnPrimary}
+                onClick={handleAsignarProfesor}
+                disabled={asignando || profesores.length === 0}
+              >
                 {asignando ? 'Guardando...' : 'Confirmar asignación'}
               </button>
             </div>
@@ -320,32 +345,40 @@ function AreaClases() {
 
       {/* Modal crear clase */}
       {crearClase && (
-        <CrearClaseModal onClose={() => setCrear(false)} onCreada={cargarClases} />
+        <CrearClaseModal
+          onClose={() => setCrear(false)}
+          onCreada={cargarClases}
+        />
       )}
     </section>
   )
 }
 
 /* ══════════════════════════════════════════════════════════
-   ESTADÍSTICAS
+   SECCIÓN: ESTADÍSTICAS
    ══════════════════════════════════════════════════════════ */
 function Estadisticas() {
   const [activeStat, setActiveStat] = useState(null)
+
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Estadísticas</h2>
       <div className={styles.statsBtns}>
         {STATS_BTNS.map(s => (
-          <button key={s}
+          <button
+            key={s}
             className={`${styles.statBtn} ${activeStat === s ? styles.statBtnActive : ''}`}
-            onClick={() => setActiveStat(s === activeStat ? null : s)}>
+            onClick={() => setActiveStat(s === activeStat ? null : s)}
+          >
             {s}
           </button>
         ))}
       </div>
       <div className={styles.statsPanel}>
         <p className={styles.emptyMsg}>
-          {activeStat ? `Estadística "${activeStat}" — próximamente disponible` : 'Seleccioná una estadística para visualizar'}
+          {activeStat
+            ? `Estadística "${activeStat}" — próximamente disponible`
+            : 'Seleccioná una estadística para visualizar'}
         </p>
       </div>
     </section>
@@ -353,7 +386,7 @@ function Estadisticas() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   USUARIOS
+   SECCIÓN: USUARIOS
    ══════════════════════════════════════════════════════════ */
 function Usuarios() {
   const [usuarios, setUsuarios]   = useState([])
@@ -378,17 +411,30 @@ function Usuarios() {
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Usuarios</h2>
-      <input className={styles.buscador} type="email" placeholder="Buscar usuario por mail..."
-        value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+
+      {/* Buscador */}
+      <input
+        className={styles.buscador}
+        type="email"
+        placeholder="Buscar usuario por mail..."
+        value={busqueda}
+        onChange={e => setBusqueda(e.target.value)}
+      />
+
+      {/* Filtros por rol */}
       <div className={styles.filtros}>
         {FILTROS_ROL.map(f => (
-          <button key={f.value}
+          <button
+            key={f.value}
             className={`${styles.filtroBtn} ${filtroRol === f.value ? styles.filtroBtnActive : ''}`}
-            onClick={() => setFiltroRol(f.value)}>
+            onClick={() => setFiltroRol(f.value)}
+          >
             {f.label}
           </button>
         ))}
       </div>
+
+      {/* Lista de usuarios */}
       <div className={styles.usuariosList}>
         {cargando ? (
           <p className={styles.noResultados}>Cargando usuarios...</p>
@@ -396,7 +442,9 @@ function Usuarios() {
           <p className={styles.noResultados}>No se encontraron usuarios.</p>
         ) : usuariosFiltrados.map(u => (
           <div key={u.id} className={styles.usuarioRow}>
-            <div className={styles.usuarioAvatar}>{u.first_name[0]}{u.last_name[0]}</div>
+            <div className={styles.usuarioAvatar}>
+              {u.first_name[0]}{u.last_name[0]}
+            </div>
             <div className={styles.usuarioInfo}>
               <p className={styles.usuarioNombre}>{u.first_name} {u.last_name}</p>
               <p className={styles.usuarioEmail}>{u.email}</p>
@@ -409,7 +457,12 @@ function Usuarios() {
           </div>
         ))}
       </div>
-      <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>+ Crear nuevo usuario</button>
+
+      <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
+        + Crear nuevo usuario
+      </button>
+
+      {/* Modal detalle usuario */}
       {userModal && (
         <Modal title={`${userModal.first_name} ${userModal.last_name}`} onClose={() => setUserModal(null)}>
           <div className={styles.detalleGrid}>
@@ -431,9 +484,9 @@ function Usuarios() {
 /* ══════════════════════════════════════════════════════════
    HELPERS CALENDARIO SALAS
    ══════════════════════════════════════════════════════════ */
-const MESES_CAL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const DIAS_CAL  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
-const DIAS_MAP  = { 'dom':0,'domingo':0,'lun':1,'lunes':1,'mar':2,'martes':2,'mié':3,'mie':3,'miércoles':3,'miercoles':3,'jue':4,'jueves':4,'vie':5,'viernes':5,'sáb':6,'sab':6,'sábado':6,'sabado':6 }
+const MESES_CAL  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const DIAS_CAL   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+const DIAS_MAP   = { 'dom':0,'domingo':0,'lun':1,'lunes':1,'mar':2,'martes':2,'mié':3,'mie':3,'miércoles':3,'miercoles':3,'jue':4,'jueves':4,'vie':5,'viernes':5,'sáb':6,'sab':6,'sábado':6,'sabado':6 }
 
 function parseDiasSala(diasStr) {
   const set = new Set()
@@ -449,14 +502,16 @@ function toDs(y, m, d) {
   return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
 }
 
+/* ── Calendario de una sala ─────────────────────────────── */
 function CalendarioSala({ sala }) {
-  const hoy    = new Date()
+  const hoy      = new Date()
   const [month, setMonth] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
   const [diaSelec, setDia] = useState(null)
 
   const year = month.getFullYear()
   const mes  = month.getMonth()
   const todayStr = toDs(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+
   const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
 
   function clasesDelDia(dia) {
@@ -467,6 +522,7 @@ function CalendarioSala({ sala }) {
   const primerDia = new Date(year, mes, 1).getDay()
   const diasEnMes = new Date(year, mes + 1, 0).getDate()
   const celdas    = [...Array(primerDia).fill(null), ...Array.from({ length: diasEnMes }, (_, i) => i + 1)]
+
   const clasesSelec = diaSelec ? clasesDelDia(parseInt(diaSelec.split('-')[2])) : []
 
   return (
@@ -476,29 +532,34 @@ function CalendarioSala({ sala }) {
         <span className={styles.calSalaMes}>{MESES_CAL[mes]} {year}</span>
         <button className={styles.calNavBtn} onClick={() => setMonth(new Date(year, mes+1, 1))}>›</button>
       </div>
+
       <div className={styles.calSalaGrid}>
         {DIAS_CAL.map(d => <div key={d} className={styles.calSalaDayName}>{d}</div>)}
         {celdas.map((dia, i) => {
           if (!dia) return <div key={`e-${i}`} />
-          const ds        = toDs(year, mes, dia)
-          const clasesHoy = clasesDelDia(dia)
+          const ds         = toDs(year, mes, dia)
+          const clasesHoy  = clasesDelDia(dia)
           const tieneClass = clasesHoy.length > 0
-          const esHoy     = ds === todayStr
+          const esHoy      = ds === todayStr
           return (
-            <button key={ds}
+            <button
+              key={ds}
               className={[
                 styles.calSalaCell,
                 tieneClass ? styles.calCellClase : '',
                 esHoy      ? styles.calCellHoy   : '',
                 diaSelec === ds ? styles.calCellSelected : '',
               ].join(' ')}
-              onClick={() => tieneClass && setDia(diaSelec === ds ? null : ds)}>
+              onClick={() => tieneClass && setDia(diaSelec === ds ? null : ds)}
+            >
               {dia}
               {tieneClass && <span className={styles.calDot} />}
             </button>
           )
         })}
       </div>
+
+      {/* Panel clases del día seleccionado */}
       {diaSelec && clasesSelec.length > 0 && (
         <div className={styles.calDiaPanel}>
           <p className={styles.calDiaTitulo}>
@@ -518,15 +579,15 @@ function CalendarioSala({ sala }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   SALAS
+   SECCIÓN: SALAS
    ══════════════════════════════════════════════════════════ */
 function AreaSalas() {
-  const [salas,     setSalas]     = useState([])
-  const [cargando,  setCargando]  = useState(true)
-  const [crearModal, setCrear]    = useState(false)
-  const [calModal,   setCal]      = useState(null)
-  const [form,      setForm]      = useState({ nombre: '', capacidad: '' })
-  const [error,     setError]     = useState('')
+  const [salas,    setSalas]    = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [crearModal, setCrear]  = useState(false)
+  const [calModal,   setCal]    = useState(null)   // sala seleccionada para ver calendario
+  const [form,     setForm]     = useState({ nombre: '', capacidad: '' })
+  const [error,    setError]    = useState('')
   const [guardando, setGuardando] = useState(false)
 
   const cargarSalas = () => {
@@ -555,21 +616,12 @@ function AreaSalas() {
     }
   }
 
-  // Calcula cuántos días distintos de la semana tiene clases la sala (para la barra de ocupación)
-  function diasOcupados(sala) {
-    const dias = new Set((sala.clases || []).map(c => c.dias).filter(Boolean))
-    return dias.size
-  }
-
   return (
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
-        <div>
-          <h2 className={styles.sectionTitle}>Salas</h2>
-          <p className={styles.sectionSubtitle}>{salas.length} sala{salas.length !== 1 ? 's' : ''} registrada{salas.length !== 1 ? 's' : ''}</p>
-        </div>
+        <h2 className={styles.sectionTitle}>Salas</h2>
         <button className={styles.btnPrimary} onClick={() => { setCrear(true); setError('') }}>
-          + Nueva sala
+          + Crear sala
         </button>
       </div>
 
@@ -578,77 +630,26 @@ function AreaSalas() {
       ) : salas.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon}>🏛️</span>
-          <p>No hay salas registradas aún.<br/>Creá la primera para empezar a asignar clases.</p>
+          <p>No hay salas registradas aún</p>
         </div>
       ) : (
-        <div className={styles.salasGrid}>
-          {salas.map(s => {
-            const ocupacion = Math.min(100, Math.round((diasOcupados(s) / 7) * 100))
-            return (
-              <div key={s.id} className={styles.salaCard}>
-                {/* Encabezado */}
-                <div className={styles.salaCardHeader}>
-                  <span className={styles.salaIcono}>🏛️</span>
-                  <div className={styles.salaCardTitles}>
-                    <p className={styles.salaCardNombre}>{s.nombre}</p>
-                    <p className={styles.salaCardCap}>
-                      <span className={styles.salaCapIcono}>👥</span>
-                      {s.capacidad} personas
-                    </p>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className={styles.salaCardStats}>
-                  <div className={styles.salaStatItem}>
-                    <span className={styles.salaStatVal}>{s.total_clases}</span>
-                    <span className={styles.salaStatLabel}>{s.total_clases === 1 ? 'clase' : 'clases'}</span>
-                  </div>
-                  <div className={styles.salaStatDivider} />
-                  <div className={styles.salaStatItem}>
-                    <span className={styles.salaStatVal}>{diasOcupados(s)}</span>
-                    <span className={styles.salaStatLabel}>días/sem.</span>
-                  </div>
-                  <div className={styles.salaStatDivider} />
-                  <div className={styles.salaStatItem}>
-                    <span className={styles.salaStatVal}>{ocupacion}%</span>
-                    <span className={styles.salaStatLabel}>ocupación</span>
-                  </div>
-                </div>
-
-                {/* Barra de ocupación */}
-                <div className={styles.salaBarWrap}>
-                  <div className={styles.salaBarBg}>
-                    <div
-                      className={styles.salaBarFill}
-                      style={{
-                        width: `${ocupacion}%`,
-                        background: ocupacion >= 85
-                          ? 'linear-gradient(90deg,#f87171,#ef4444)'
-                          : ocupacion >= 50
-                            ? 'linear-gradient(90deg,#fbbf24,#f59e0b)'
-                            : 'linear-gradient(90deg,#34d399,#10b981)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Clases activas (días de la semana) */}
-                {s.total_clases > 0 && (
-                  <div className={styles.salaDiasList}>
-                    {[...new Set((s.clases || []).map(c => c.dias).filter(Boolean))].map(d => (
-                      <span key={d} className={styles.salaDiaBadge}>{d.slice(0,3)}</span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Acción */}
-                <button className={styles.verCalBtn} onClick={() => setCal(s)}>
-                  📅 Ver calendario de reservas
-                </button>
+        <div className={styles.salasList}>
+          {salas.map(s => (
+            <div key={s.id} className={styles.salaRow}>
+              <div className={styles.salaInfo}>
+                <p className={styles.salaNombre}>{s.nombre}</p>
+                <p className={styles.salaMeta}>Capacidad: {s.capacidad} personas</p>
               </div>
-            )
-          })}
+              <div className={styles.salaStats}>
+                <span className={styles.salaClasesBadge}>
+                  {s.total_clases} {s.total_clases === 1 ? 'clase' : 'clases'}
+                </span>
+              </div>
+              <button className={styles.verCalBtn} onClick={() => setCal(s)}>
+                📅 Ver calendario
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -658,13 +659,24 @@ function AreaSalas() {
           <form onSubmit={handleCrear} className={styles.crearSalaForm}>
             <div className={styles.formField}>
               <label className={styles.formLabel}>Nombre de la sala</label>
-              <input className={styles.formInput} type="text" placeholder="Ej: Sala A, Sala Principal..."
-                value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+              <input
+                className={styles.formInput}
+                type="text"
+                placeholder="Ej: Sala A, Sala Principal..."
+                value={form.nombre}
+                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+              />
             </div>
             <div className={styles.formField}>
               <label className={styles.formLabel}>Capacidad máxima</label>
-              <input className={styles.formInput} type="number" min="1" placeholder="Ej: 15"
-                value={form.capacidad} onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))} />
+              <input
+                className={styles.formInput}
+                type="number"
+                min="1"
+                placeholder="Ej: 15"
+                value={form.capacidad}
+                onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
+              />
             </div>
             {error && <p className={styles.formError}>{error}</p>}
             <button type="submit" className={styles.btnPrimary} disabled={guardando}>
@@ -676,7 +688,11 @@ function AreaSalas() {
 
       {/* Modal calendario de sala */}
       {calModal && (
-        <Modal title={`📅 ${calModal.nombre} — Reservas`} onClose={() => setCal(null)} wide>
+        <Modal
+          title={`Reservas — ${calModal.nombre}`}
+          onClose={() => setCal(null)}
+          wide
+        >
           {calModal.total_clases === 0 ? (
             <div className={styles.emptyState} style={{ padding: '1.5rem 0' }}>
               <span className={styles.emptyIcon}>📅</span>
@@ -699,18 +715,30 @@ export default function AdminDashboard() {
 
   return (
     <div className={styles.container}>
+
       <div className={styles.greeting}>
         <h1>Bienvenido, <span>{user?.first_name}</span> 👋</h1>
         <p>Panel de administración — RehabilitAR</p>
       </div>
+
+      {/* Fila superior: Tareas + Clases en curso */}
       <div className={styles.topRow}>
         <TareasImportantes />
         <ClasesEnCurso />
       </div>
+
+      {/* Clases */}
       <AreaClases />
+
+      {/* Salas */}
       <AreaSalas />
+
+      {/* Estadísticas */}
       <Estadisticas />
+
+      {/* Usuarios */}
       <Usuarios />
+
     </div>
   )
 }

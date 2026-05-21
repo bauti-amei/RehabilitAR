@@ -3,38 +3,52 @@ import { useAuth } from '../../hooks/useAuth'
 import { getMisClasesRequest, getClasesOfertadasRequest, asignarseClaseRequest } from '../../api/clases'
 import styles from './Dashboard.module.css'
 
+/* ══════════════════════════════════════════════════════════
+   CONSTANTES
+   ══════════════════════════════════════════════════════════ */
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+
+// últimas 4 notificaciones (mock — implementar cuando haya sistema de notificaciones)
 const NOTIFICACIONES_PANEL = []
 
-/* ── Calcula la próxima clase del profesor ─────────────── */
+/* ══════════════════════════════════════════════════════════
+   HELPER — próxima clase
+   Dado el listado de clases del profesor, devuelve la que
+   ocurrirá más próximamente (hoy o en los próximos días).
+   ══════════════════════════════════════════════════════════ */
 function calcularProximaClase(clases) {
   if (!clases.length) return null
-  const ahora  = new Date()
-  const hoyIdx = (ahora.getDay() + 6) % 7
-  const horaStr = ahora.toTimeString().slice(0, 5)
+
+  const ahora   = new Date()
+  const hoyIdx  = (ahora.getDay() + 6) % 7  // 0=Lun…6=Dom (igual que DIAS_SEMANA)
+  const horaStr = ahora.toTimeString().slice(0, 5)  // "HH:MM"
 
   let mejor = null
   let mejorDias = Infinity
 
   for (const c of clases) {
     let diasHasta = Infinity
+
     if (c.tipo_clase === 'individual') {
       if (!c.fecha) continue
       const fechaClase = new Date(c.fecha + 'T00:00:00')
       const hoy        = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
       const diff       = Math.round((fechaClase - hoy) / 86400000)
-      if (diff < 0) continue
-      if (diff === 0 && c.horario_fin < horaStr) continue
+      if (diff < 0) continue                           // ya pasó
+      if (diff === 0 && c.horario_fin < horaStr) continue  // hoy pero ya terminó
       diasHasta = diff
     } else {
+      // clase fija: buscar el próximo día de la semana que coincide
       const idxClase = DIAS_SEMANA.indexOf(c.dias)
       if (idxClase === -1) continue
       let diff = idxClase - hoyIdx
       if (diff < 0) diff += 7
+      // Si es hoy, verificar que no haya terminado
       if (diff === 0 && c.horario_fin < horaStr) diff = 7
       diasHasta = diff
     }
-    if (diasHasta < mejorDias || (diasHasta === mejorDias && c.horario_inicio < mejor?.horario_inicio)) {
+
+    if (diasHasta < mejorDias || (diasHasta === mejorDias && c.horario_inicio < mejor.horario_inicio)) {
       mejorDias = diasHasta
       mejor = { ...c, diasHasta }
     }
@@ -48,8 +62,10 @@ function calcularProximaClase(clases) {
 function Modal({ title, onClose, children, wide }) {
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={`${styles.modal} ${wide ? styles.modalWide : ''}`}
-        onClick={e => e.stopPropagation()}>
+      <div
+        className={`${styles.modal} ${wide ? styles.modalWide : ''}`}
+        onClick={e => e.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>{title}</h3>
           <button className={styles.closeBtn} onClick={onClose}>✕</button>
@@ -61,15 +77,17 @@ function Modal({ title, onClose, children, wide }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   PRÓXIMA CLASE + NOTIFICACIONES
+   SECCIÓN: PRÓXIMA CLASE + NOTIFICACIONES
    ══════════════════════════════════════════════════════════ */
 function TopRow({ clases, cargando }) {
   const [detalleModal, setDetalle] = useState(false)
+
   const proxima = cargando ? null : calcularProximaClase(clases)
 
   function labelFecha(c) {
     if (!c) return ''
     if (c.tipo_clase === 'individual') {
+      const [y, m, d] = c.fecha.split('-')
       return new Date(c.fecha + 'T00:00:00')
         .toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
     }
@@ -80,6 +98,8 @@ function TopRow({ clases, cargando }) {
 
   return (
     <div className={styles.topRow}>
+
+      {/* Próxima clase */}
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Próxima clase</h2>
         {cargando ? (
@@ -111,11 +131,14 @@ function TopRow({ clases, cargando }) {
               <span className={styles.proximaLabel}>Aula</span>
               <span className={styles.proximaValor}>{proxima.aula || '—'}</span>
             </div>
-            <button className={styles.verDetalleBtn} onClick={() => setDetalle(true)}>Ver detalle</button>
+            <button className={styles.verDetalleBtn} onClick={() => setDetalle(true)}>
+              Ver detalle
+            </button>
           </div>
         )}
       </div>
 
+      {/* Panel notificaciones (últimas 4) */}
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Últimas notificaciones</h2>
         {NOTIFICACIONES_PANEL.length === 0 ? (
@@ -138,6 +161,7 @@ function TopRow({ clases, cargando }) {
         )}
       </div>
 
+      {/* Modal detalle próxima clase */}
       {detalleModal && proxima && (
         <Modal title={proxima.nombre} onClose={() => setDetalle(false)}>
           <div className={styles.detalleGrid}>
@@ -154,18 +178,21 @@ function TopRow({ clases, cargando }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ÁREA DE ASISTENCIA
+   SECCIÓN: ASISTENCIA
    ══════════════════════════════════════════════════════════ */
 function AreaAsistencia({ clases }) {
   const [busqueda,  setBusqueda]  = useState('')
   const [qrModal,   setQrModal]   = useState(false)
   const [userModal, setUserModal] = useState(null)
 
+  // Clase en curso = la del profesor que está pasando ahora mismo
   const ahora   = new Date().toTimeString().slice(0, 5)
   const hoyIdx  = (new Date().getDay() + 6) % 7
   const claseActiva = clases.find(c => {
     if (c.horario_inicio > ahora || c.horario_fin <= ahora) return false
-    if (c.tipo_clase === 'individual') return c.fecha === new Date().toISOString().slice(0, 10)
+    if (c.tipo_clase === 'individual') {
+      return c.fecha === new Date().toISOString().slice(0, 10)
+    }
     return DIAS_SEMANA.indexOf(c.dias) === hoyIdx
   }) || null
 
@@ -182,12 +209,18 @@ function AreaAsistencia({ clases }) {
         <div>
           <h2 className={styles.sectionTitle}>
             Asistencia
-            {claseActiva && <span className={styles.claseActivaBadge}> — {claseActiva.nombre}</span>}
+            {claseActiva && (
+              <span className={styles.claseActivaBadge}> — {claseActiva.nombre}</span>
+            )}
           </h2>
-          {!claseActiva && <p className={styles.sectionSubtitle}>Esta sección se habilita cuando comienza tu clase</p>}
+          {!claseActiva && (
+            <p className={styles.sectionSubtitle}>Esta sección se habilita cuando comienza tu clase</p>
+          )}
         </div>
         {claseActiva && (
-          <button className={styles.qrBtn} onClick={() => setQrModal(true)}>📱 Ver QR para asistencia</button>
+          <button className={styles.qrBtn} onClick={() => setQrModal(true)}>
+            📱 Ver QR para asistencia
+          </button>
         )}
       </div>
 
@@ -199,17 +232,26 @@ function AreaAsistencia({ clases }) {
       ) : (
         <>
           <div className={styles.buscarRow}>
-            <input className={styles.buscador} type="text"
+            <input
+              className={styles.buscador}
+              type="text"
               placeholder="Buscar usuario por mail o nombre..."
-              value={busqueda} onChange={e => setBusqueda(e.target.value)} />
-            <button className={styles.btnPrimary} disabled={!busqueda.trim()}>Registrar asistencia</button>
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+            />
+            <button className={styles.btnPrimary} disabled={!busqueda.trim()}>
+              Registrar asistencia
+            </button>
           </div>
+
           <div className={styles.inscriptosList}>
             {inscriptosFiltrados.length === 0 ? (
               <p className={styles.noResultados}>No se encontraron usuarios.</p>
             ) : inscriptosFiltrados.map(u => (
               <div key={u.id} className={styles.inscriptoRow}>
-                <button className={styles.inscriptoNombre} onClick={() => setUserModal(u)}>{u.nombre}</button>
+                <button className={styles.inscriptoNombre} onClick={() => setUserModal(u)}>
+                  {u.nombre}
+                </button>
                 <span className={u.presente ? styles.badgePresente : styles.badgeAusente}>
                   {u.presente ? 'Presente' : 'Ausente'}
                 </span>
@@ -224,10 +266,13 @@ function AreaAsistencia({ clases }) {
         <Modal title="QR de asistencia" onClose={() => setQrModal(false)}>
           <div className={styles.qrPlaceholder}>
             <div className={styles.qrBox}>QR</div>
-            <p className={styles.qrDesc}>Mostrá este código a tus alumnos para que registren su asistencia.</p>
+            <p className={styles.qrDesc}>
+              Mostrá este código a tus alumnos para que registren su asistencia.
+            </p>
           </div>
         </Modal>
       )}
+
       {userModal && (
         <Modal title={userModal.nombre} onClose={() => setUserModal(null)}>
           <div className={styles.detalleGrid}>
@@ -241,7 +286,7 @@ function AreaAsistencia({ clases }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   CURSOS QUE DICTA
+   SECCIÓN: CURSOS QUE DICTA
    ══════════════════════════════════════════════════════════ */
 function MisClases({ clases, cargando }) {
   const [claseModal, setClaseModal] = useState(null)
@@ -250,6 +295,7 @@ function MisClases({ clases, cargando }) {
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Cursos que dicta</h2>
+
       {cargando ? (
         <p className={styles.noResultados}>Cargando clases...</p>
       ) : clases.length === 0 ? (
@@ -269,8 +315,10 @@ function MisClases({ clases, cargando }) {
                 </p>
                 <p className={styles.miClaseCupo}>{c.cantidad_inscriptos}/{c.cupo} inscriptos</p>
               </div>
-              <button className={styles.verInscriptosBtn}
-                onClick={() => { setClaseModal(c); setUserModal(null) }}>
+              <button
+                className={styles.verInscriptosBtn}
+                onClick={() => { setClaseModal(c); setUserModal(null) }}
+              >
                 Ver usuarios inscriptos
               </button>
             </div>
@@ -278,9 +326,13 @@ function MisClases({ clases, cargando }) {
         </div>
       )}
 
+      {/* Modal lista de inscriptos */}
       {claseModal && (
-        <Modal title={`Inscriptos — ${claseModal.nombre}`}
-          onClose={() => { setClaseModal(null); setUserModal(null) }} wide>
+        <Modal
+          title={`Inscriptos — ${claseModal.nombre}`}
+          onClose={() => { setClaseModal(null); setUserModal(null) }}
+          wide
+        >
           {(claseModal.inscriptos_detalle || []).length === 0 ? (
             <p className={styles.emptyMsg}>No hay usuarios inscriptos en esta clase.</p>
           ) : (
@@ -288,7 +340,9 @@ function MisClases({ clases, cargando }) {
               {claseModal.inscriptos_detalle.map(u => (
                 <div key={u.id} className={styles.inscriptoModalRow}>
                   <div>
-                    <button className={styles.inscriptoNombre} onClick={() => setUserModal(u)}>{u.nombre}</button>
+                    <button className={styles.inscriptoNombre} onClick={() => setUserModal(u)}>
+                      {u.nombre}
+                    </button>
                     <p className={styles.inscriptoEmail}>{u.email}</p>
                   </div>
                   <button className={styles.suspenderBtn}>Suspender</button>
@@ -299,6 +353,7 @@ function MisClases({ clases, cargando }) {
         </Modal>
       )}
 
+      {/* Modal detalle de usuario */}
       {userModal && (
         <Modal title={userModal.nombre} onClose={() => setUserModal(null)}>
           <div className={styles.detalleGrid}>
@@ -312,13 +367,13 @@ function MisClases({ clases, cargando }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ASIGNARSE A UNA CLASE
+   SECCIÓN: ASIGNARSE A UNA CLASE
    ══════════════════════════════════════════════════════════ */
 function AsignarseClase({ onAsignado }) {
   const [open,      setOpen]      = useState(false)
   const [clases,    setClases]    = useState([])
   const [cargando,  setCargando]  = useState(false)
-  const [asignando, setAsignando] = useState(null)
+  const [asignando, setAsignando] = useState(null)   // id de clase en proceso
   const [error,     setError]     = useState('')
   const [exito,     setExito]     = useState('')
 
@@ -341,7 +396,7 @@ function AsignarseClase({ onAsignado }) {
       await asignarseClaseRequest(clase.id)
       setExito(`¡Te asignaste correctamente a "${clase.nombre}"!`)
       setClases(prev => prev.filter(c => c.id !== clase.id))
-      onAsignado()
+      onAsignado()   // recarga mis-clases en el dashboard
     } catch (err) {
       setError(err.response?.data?.detail ?? 'Error al asignarse a la clase.')
     } finally {
@@ -352,13 +407,19 @@ function AsignarseClase({ onAsignado }) {
   return (
     <>
       <div className={styles.asignarseRow}>
-        <button className={styles.btnOutline} onClick={abrir}>+ Asignarse a una clase</button>
+        <button className={styles.btnOutline} onClick={abrir}>
+          + Asignarse a una clase
+        </button>
       </div>
 
       {open && (
-        <Modal title="Clases disponibles para asignarse" onClose={() => setOpen(false)} wide>
-          {error && <p className={styles.formError} style={{ marginBottom: '1rem' }}>{error}</p>}
-          {exito && <p className={styles.formExito} style={{ marginBottom: '1rem' }}>{exito}</p>}
+        <Modal
+          title="Clases disponibles para asignarse"
+          onClose={() => setOpen(false)}
+          wide
+        >
+          {error  && <p className={styles.formError}  style={{ marginBottom: '1rem' }}>{error}</p>}
+          {exito  && <p className={styles.formExito}  style={{ marginBottom: '1rem' }}>{exito}</p>}
 
           {cargando ? (
             <p className={styles.noResultados}>Cargando clases ofertadas...</p>
@@ -380,9 +441,11 @@ function AsignarseClase({ onAsignado }) {
                     <p className={styles.ofertadaCupo}>{c.cantidad_inscriptos}/{c.cupo} inscriptos</p>
                     {c.descripcion && <p className={styles.ofertadaDesc}>{c.descripcion}</p>}
                   </div>
-                  <button className={styles.btnAsignarse}
+                  <button
+                    className={styles.btnAsignarse}
                     onClick={() => handleAsignarse(c)}
-                    disabled={asignando === c.id}>
+                    disabled={asignando === c.id}
+                  >
                     {asignando === c.id ? 'Asignando...' : 'Asignarme'}
                   </button>
                 </div>
@@ -414,14 +477,24 @@ export default function TeacherDashboard() {
 
   return (
     <div className={styles.container}>
+
       <div className={styles.greeting}>
         <h1>Bienvenido, <span>{user?.first_name}</span> 👋</h1>
         <p>Panel del profesor — RehabilitAR</p>
       </div>
+
+      {/* Próxima clase + Notificaciones */}
       <TopRow clases={clases} cargando={cargando} />
+
+      {/* Área de asistencia */}
       <AreaAsistencia clases={clases} />
+
+      {/* Mis clases */}
       <MisClases clases={clases} cargando={cargando} />
+
+      {/* Asignarse a una clase ofertada */}
       <AsignarseClase onAsignado={cargarMisClases} />
+
     </div>
   )
 }
