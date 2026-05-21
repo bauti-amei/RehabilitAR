@@ -15,4 +15,4 @@ export const getUsersRequest = () =>
   api.get('/auth/users/')
 
 export const deleteUserRequest = (id) =>
-  axios.delete(`/api/auth/delete/${id}/`)
+  axios.delete(`/auth/users/${id}/`)

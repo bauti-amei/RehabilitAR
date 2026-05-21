@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getUsersRequest } from '../../api/auth'
+import { getUsersRequest, deleteUserRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -410,7 +410,7 @@ function Usuarios() {
         prev.filter(u => u.id !== userId)
       )
 
-      alert('Usuario eliminado')
+      alert('Usuario suspendido')
     } catch (error) {
       console.error(error)
       alert('Error al eliminar usuario')
