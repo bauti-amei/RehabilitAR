@@ -168,7 +168,7 @@ class UserListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if request.user.role != User.Role.ADMIN:
+        if request.user.role not in (User.Role.ADMIN, User.Role.RECEPTIONIST):
             return Response(
                 {'detail': 'No tenés permiso para ver esta información.'},
                 status=status.HTTP_403_FORBIDDEN,

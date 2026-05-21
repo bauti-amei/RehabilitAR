@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
+import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -122,7 +123,7 @@ function ClasesEnCurso() {
           {clases.map(c => (
             <div key={c.id} className={styles.cursoItem}>
               <div className={styles.cursoInfo}>
-                <span className={styles.cursoNombre}>{c.tipo}</span>
+                <span className={styles.cursoNombre}>{c.nombre}</span>
                 <span className={styles.cursoDato}>{c.aula} · {c.horario}</span>
               </div>
               <button className={styles.verMasBtn} onClick={() => setDetalle(c)}>Ver más</button>
@@ -132,7 +133,7 @@ function ClasesEnCurso() {
       )}
 
       {detalle && (
-        <Modal title={detalle.tipo} onClose={() => setDetalle(null)}>
+        <Modal title={detalle.nombre} onClose={() => setDetalle(null)}>
           <div className={styles.detalleGrid}>
             <span>Aula</span>       <span>{detalle.aula}</span>
             <span>Horario</span>    <span>{detalle.horario}</span>
@@ -149,18 +150,51 @@ function ClasesEnCurso() {
    SECCIÓN: ÁREA DE CLASES
    ══════════════════════════════════════════════════════════ */
 function AreaClases() {
-  const [clases,   setClases]         = useState([])
-  const [cargando, setCargando]       = useState(true)
-  const [filtro, setFiltro]           = useState('todas')
-  const [listaEsperaModal, setLista]  = useState(null)
-  const [userModal, setUserModal]     = useState(null)
+  const [clases,          setClases]    = useState([])
+  const [cargando,        setCargando]  = useState(true)
+  const [filtro,          setFiltro]    = useState('todas')
+  const [listaEsperaModal, setLista]   = useState(null)
+  const [userModal,       setUserModal] = useState(null)
+  const [crearClase,      setCrear]    = useState(false)
+  const [asignarModal,    setAsignar]  = useState(null)   // clase a la que se asigna profesor
+  const [profesores,      setProfesores] = useState([])
+  const [profesorSel,     setProfesorSel] = useState('')
+  const [asignando,       setAsignando] = useState(false)
+  const [asignarError,    setAsignarError] = useState('')
 
-  useEffect(() => {
+  const cargarClases = () => {
     getClasesRequest()
       .then(res => setClases(res.data))
       .catch(() => setClases([]))
       .finally(() => setCargando(false))
-  }, [])
+  }
+
+  useEffect(() => { cargarClases() }, [])
+
+  const abrirAsignar = (clase) => {
+    setAsignar(clase)
+    setProfesorSel('')
+    setAsignarError('')
+    setProfesores([])
+    getProfesoresPorEspecialidadRequest(clase.especialidad)
+      .then(r => setProfesores(r.data))
+      .catch(() => setProfesores([]))
+  }
+
+  const handleAsignarProfesor = async () => {
+    if (!profesorSel) { setAsignarError('Seleccioná un profesor.'); return }
+    setAsignando(true)
+    setAsignarError('')
+    try {
+      await asignarProfesorRequest(asignarModal.id, parseInt(profesorSel))
+      setAsignar(null)
+      cargarClases()
+    } catch (err) {
+      setAsignarError(err.response?.data?.detail ?? 'Error al asignar el profesor.')
+    } finally {
+      setAsignando(false)
+    }
+  }
 
   const clasesFiltradas = clases.filter(c =>
     filtro === 'todas' ? true : getHorarioFiltro(c.horario) === filtro
@@ -170,7 +204,7 @@ function AreaClases() {
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Clases</h2>
-        <button className={styles.btnPrimary}>+ Crear nueva clase</button>
+        <button className={styles.btnPrimary} onClick={() => setCrear(true)}>+ Crear nueva clase</button>
       </div>
 
       {/* Filtros */}
@@ -199,8 +233,8 @@ function AreaClases() {
           <div key={c.id} className={styles.claseRow}>
             <div className={styles.claseMain}>
               <div>
-                <p className={styles.claseNombre}>{c.tipo}</p>
-                <p className={styles.claseMeta}>{c.dias} · {c.horario} · {c.aula}</p>
+                <p className={styles.claseNombre}>{c.nombre}</p>
+                <p className={styles.claseMeta}>{c.especialidad_display} · {c.dias} · {c.horario} · {c.aula}</p>
               </div>
               <div className={styles.claseProfesor}>
                 {c.profesor_nombre ? (
@@ -208,7 +242,7 @@ function AreaClases() {
                 ) : (
                   <div className={styles.sinProfesor}>
                     <span className={styles.sinAsignar}>SIN ASIGNAR</span>
-                    <button className={styles.asignarBtn}>Asignar profesor</button>
+                    <button className={styles.asignarBtn} onClick={() => abrirAsignar(c)}>Asignar profesor</button>
                   </div>
                 )}
               </div>
@@ -236,7 +270,7 @@ function AreaClases() {
       {/* Modal lista de espera */}
       {listaEsperaModal && (
         <Modal
-          title={`Lista de espera — ${listaEsperaModal.tipo}`}
+          title={`Lista de espera — ${listaEsperaModal.nombre}`}
           onClose={() => { setLista(null); setUserModal(null) }}
           wide
         >
@@ -266,6 +300,55 @@ function AreaClases() {
             <span>Teléfono</span> <span>{userModal.telefono || '—'}</span>
           </div>
         </Modal>
+      )}
+
+      {/* Modal asignar profesor */}
+      {asignarModal && (
+        <Modal
+          title={`Asignar profesor — ${asignarModal.nombre}`}
+          onClose={() => setAsignar(null)}
+        >
+          <div className={styles.asignarProfesorForm}>
+            <p className={styles.asignarHint}>
+              Especialidad requerida: <strong>{asignarModal.especialidad_display}</strong>
+            </p>
+            {profesores.length === 0 ? (
+              <p className={styles.emptyMsg}>
+                No hay profesores con la especialidad <em>{asignarModal.especialidad_display}</em> registrados.
+              </p>
+            ) : (
+              <select
+                className={styles.formInput}
+                value={profesorSel}
+                onChange={e => setProfesorSel(e.target.value)}
+              >
+                <option value="">Seleccioná un profesor</option>
+                {profesores.map(p => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+            )}
+            {asignarError && <p className={styles.formError}>{asignarError}</p>}
+            <div className={styles.modalFooter}>
+              <button className={styles.btnOutline} onClick={() => setAsignar(null)}>Cancelar</button>
+              <button
+                className={styles.btnPrimary}
+                onClick={handleAsignarProfesor}
+                disabled={asignando || profesores.length === 0}
+              >
+                {asignando ? 'Guardando...' : 'Confirmar asignación'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal crear clase */}
+      {crearClase && (
+        <CrearClaseModal
+          onClose={() => setCrear(false)}
+          onCreada={cargarClases}
+        />
       )}
     </section>
   )
@@ -415,6 +498,232 @@ function Usuarios() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   HELPERS CALENDARIO SALAS
+   ══════════════════════════════════════════════════════════ */
+const MESES_CAL  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const DIAS_CAL   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+const DIAS_MAP   = { 'dom':0,'domingo':0,'lun':1,'lunes':1,'mar':2,'martes':2,'mié':3,'mie':3,'miércoles':3,'miercoles':3,'jue':4,'jueves':4,'vie':5,'viernes':5,'sáb':6,'sab':6,'sábado':6,'sabado':6 }
+
+function parseDiasSala(diasStr) {
+  const set = new Set()
+  ;(diasStr || '').split(/[/,]+/).forEach(p => {
+    const key = p.trim().toLowerCase()
+    const num = DIAS_MAP[key] ?? DIAS_MAP[key.normalize('NFD').replace(/[̀-ͯ]/g, '')]
+    if (num !== undefined) set.add(num)
+  })
+  return set
+}
+
+function toDs(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+}
+
+/* ── Calendario de una sala ─────────────────────────────── */
+function CalendarioSala({ sala }) {
+  const hoy      = new Date()
+  const [month, setMonth] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
+  const [diaSelec, setDia] = useState(null)
+
+  const year = month.getFullYear()
+  const mes  = month.getMonth()
+  const todayStr = toDs(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+
+  const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
+
+  function clasesDelDia(dia) {
+    const dow = new Date(year, mes, dia).getDay()
+    return clasesConDias.filter(c => c.diasSet.has(dow))
+  }
+
+  const primerDia = new Date(year, mes, 1).getDay()
+  const diasEnMes = new Date(year, mes + 1, 0).getDate()
+  const celdas    = [...Array(primerDia).fill(null), ...Array.from({ length: diasEnMes }, (_, i) => i + 1)]
+
+  const clasesSelec = diaSelec ? clasesDelDia(parseInt(diaSelec.split('-')[2])) : []
+
+  return (
+    <div className={styles.calSala}>
+      <div className={styles.calSalaNav}>
+        <button className={styles.calNavBtn} onClick={() => setMonth(new Date(year, mes-1, 1))}>‹</button>
+        <span className={styles.calSalaMes}>{MESES_CAL[mes]} {year}</span>
+        <button className={styles.calNavBtn} onClick={() => setMonth(new Date(year, mes+1, 1))}>›</button>
+      </div>
+
+      <div className={styles.calSalaGrid}>
+        {DIAS_CAL.map(d => <div key={d} className={styles.calSalaDayName}>{d}</div>)}
+        {celdas.map((dia, i) => {
+          if (!dia) return <div key={`e-${i}`} />
+          const ds         = toDs(year, mes, dia)
+          const clasesHoy  = clasesDelDia(dia)
+          const tieneClass = clasesHoy.length > 0
+          const esHoy      = ds === todayStr
+          return (
+            <button
+              key={ds}
+              className={[
+                styles.calSalaCell,
+                tieneClass ? styles.calCellClase : '',
+                esHoy      ? styles.calCellHoy   : '',
+                diaSelec === ds ? styles.calCellSelected : '',
+              ].join(' ')}
+              onClick={() => tieneClass && setDia(diaSelec === ds ? null : ds)}
+            >
+              {dia}
+              {tieneClass && <span className={styles.calDot} />}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Panel clases del día seleccionado */}
+      {diaSelec && clasesSelec.length > 0 && (
+        <div className={styles.calDiaPanel}>
+          <p className={styles.calDiaTitulo}>
+            {new Date(year, mes, parseInt(diaSelec.split('-')[2]))
+              .toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' })}
+          </p>
+          {clasesSelec.map(c => (
+            <div key={c.id} className={styles.calClaseItem}>
+              <span className={styles.calClaseNombre}>{c.nombre}</span>
+              <span className={styles.calClaseHorario}>{c.horario}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECCIÓN: SALAS
+   ══════════════════════════════════════════════════════════ */
+function AreaSalas() {
+  const [salas,    setSalas]    = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [crearModal, setCrear]  = useState(false)
+  const [calModal,   setCal]    = useState(null)   // sala seleccionada para ver calendario
+  const [form,     setForm]     = useState({ nombre: '', capacidad: '' })
+  const [error,    setError]    = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const cargarSalas = () => {
+    getSalasRequest()
+      .then(res => setSalas(res.data))
+      .catch(() => setSalas([]))
+      .finally(() => setCargando(false))
+  }
+
+  useEffect(() => { cargarSalas() }, [])
+
+  const handleCrear = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!form.nombre.trim() || !form.capacidad) { setError('Completá todos los campos.'); return }
+    setGuardando(true)
+    try {
+      await createSalaRequest({ nombre: form.nombre.trim(), capacidad: parseInt(form.capacidad) })
+      setCrear(false)
+      setForm({ nombre: '', capacidad: '' })
+      cargarSalas()
+    } catch (err) {
+      setError(err.response?.data?.detail ?? 'Error al crear la sala.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <h2 className={styles.sectionTitle}>Salas</h2>
+        <button className={styles.btnPrimary} onClick={() => { setCrear(true); setError('') }}>
+          + Crear sala
+        </button>
+      </div>
+
+      {cargando ? (
+        <p className={styles.noResultados}>Cargando salas...</p>
+      ) : salas.length === 0 ? (
+        <div className={styles.emptyState}>
+          <span className={styles.emptyIcon}>🏛️</span>
+          <p>No hay salas registradas aún</p>
+        </div>
+      ) : (
+        <div className={styles.salasList}>
+          {salas.map(s => (
+            <div key={s.id} className={styles.salaRow}>
+              <div className={styles.salaInfo}>
+                <p className={styles.salaNombre}>{s.nombre}</p>
+                <p className={styles.salaMeta}>Capacidad: {s.capacidad} personas</p>
+              </div>
+              <div className={styles.salaStats}>
+                <span className={styles.salaClasesBadge}>
+                  {s.total_clases} {s.total_clases === 1 ? 'clase' : 'clases'}
+                </span>
+              </div>
+              <button className={styles.verCalBtn} onClick={() => setCal(s)}>
+                📅 Ver calendario
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal crear sala */}
+      {crearModal && (
+        <Modal title="Nueva sala" onClose={() => setCrear(false)}>
+          <form onSubmit={handleCrear} className={styles.crearSalaForm}>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>Nombre de la sala</label>
+              <input
+                className={styles.formInput}
+                type="text"
+                placeholder="Ej: Sala A, Sala Principal..."
+                value={form.nombre}
+                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+              />
+            </div>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>Capacidad máxima</label>
+              <input
+                className={styles.formInput}
+                type="number"
+                min="1"
+                placeholder="Ej: 15"
+                value={form.capacidad}
+                onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
+              />
+            </div>
+            {error && <p className={styles.formError}>{error}</p>}
+            <button type="submit" className={styles.btnPrimary} disabled={guardando}>
+              {guardando ? 'Guardando...' : 'Crear sala'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal calendario de sala */}
+      {calModal && (
+        <Modal
+          title={`Reservas — ${calModal.nombre}`}
+          onClose={() => setCal(null)}
+          wide
+        >
+          {calModal.total_clases === 0 ? (
+            <div className={styles.emptyState} style={{ padding: '1.5rem 0' }}>
+              <span className={styles.emptyIcon}>📅</span>
+              <p>Esta sala no tiene clases asignadas aún</p>
+            </div>
+          ) : (
+            <CalendarioSala sala={calModal} />
+          )}
+        </Modal>
+      )}
+    </section>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
    DASHBOARD PRINCIPAL
    ══════════════════════════════════════════════════════════ */
 export default function AdminDashboard() {
@@ -436,6 +745,9 @@ export default function AdminDashboard() {
 
       {/* Clases */}
       <AreaClases />
+
+      {/* Salas */}
+      <AreaSalas />
 
       {/* Estadísticas */}
       <Estadisticas />
