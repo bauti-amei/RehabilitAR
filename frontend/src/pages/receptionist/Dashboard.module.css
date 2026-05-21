@@ -1,0 +1,277 @@
+/* ── Container ───────────────────────────────────────────── */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* ── Greeting ────────────────────────────────────────────── */
+.greeting h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem;
+  color: white;
+}
+.greeting h1 span { color: #fb923c; }
+.greeting p { color: #6b7090; margin: 0; font-size: 0.95rem; }
+
+/* ── Section ─────────────────────────────────────────────── */
+.section {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 18px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sectionTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+/* ── Buscador ────────────────────────────────────────────── */
+.buscador {
+  width: 100%;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.buscador::placeholder { color: #6b7090; }
+.buscador:focus { border-color: rgba(251, 146, 60, 0.5); }
+
+/* ── Lista clientes ──────────────────────────────────────── */
+.clientesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.clienteRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.15s, border-color 0.15s;
+}
+.clienteRow:hover {
+  background: rgba(251, 146, 60, 0.04);
+  border-color: rgba(251, 146, 60, 0.15);
+}
+
+/* Avatar */
+.clienteAvatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fb923c, #ea580c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* Info */
+.clienteInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.clienteNombre {
+  background: none;
+  border: none;
+  color: #d0d3e8;
+  font-size: 0.97rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255,255,255,0.2);
+  transition: color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.clienteNombre:hover { color: #fb923c; }
+
+.clienteEmail {
+  font-size: 0.82rem;
+  color: #6b7090;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Estado badge */
+.estadoBadge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.estadoActivo {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+.estadoSuspendido {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Acciones */
+.clienteAcciones {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btnPrimary {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fb923c, #ea580c);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.btnPrimary:hover { opacity: 0.88; transform: translateY(-1px); }
+
+.btnRegistrarPago {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  border-radius: 9px;
+  background: rgba(251, 146, 60, 0.08);
+  color: #fb923c;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.btnRegistrarPago:hover { background: rgba(251, 146, 60, 0.18); }
+
+.btnRegistrarPagoModal {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  border-radius: 12px;
+}
+
+.btnVerMas {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9px;
+  background: rgba(255,255,255,0.04);
+  color: #b0b3c7;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+.btnVerMas:hover { background: rgba(255,255,255,0.09); color: white; }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 3rem 1rem;
+  color: #6b7090;
+  text-align: center;
+  font-size: 0.95rem;
+}
+.emptyIcon { font-size: 2.5rem; }
+
+.noResultados {
+  color: #6b7090;
+  font-size: 0.92rem;
+  padding: 1rem 0;
+  margin: 0;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: #12162e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 1.5rem;
+  width: 100%; max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.modalHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+.modalTitle { font-size: 1.1rem; font-weight: 600; color: white; margin: 0; }
+.closeBtn {
+  background: rgba(255,255,255,0.07); border: none; color: #8b90b0;
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.closeBtn:hover { background: rgba(255,255,255,0.12); color: white; }
+
+/* ── Detalle grid ────────────────────────────────────────── */
+.detalleGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem 1.5rem;
+  font-size: 0.92rem;
+}
+.detalleGrid span:nth-child(odd)  { color: #6b7090; font-weight: 500; }
+.detalleGrid span:nth-child(even) { color: #d0d3e8; }

@@ -4,10 +4,12 @@ import { ROLES } from './utils/roles'
 
 // Common
 import ProtectedRoute from './components/common/ProtectedRoute'
+import PublicRoute    from './components/common/PublicRoute'
 import Layout         from './components/common/Layout'
 import ClientLayout   from './components/client/ClientLayout'
 import AdminLayout    from './components/admin/AdminLayout'
-import TeacherLayout  from './components/teacher/TeacherLayout'
+import TeacherLayout      from './components/teacher/TeacherLayout'
+import ReceptionistLayout from './components/receptionist/ReceptionistLayout'
 
 // Public
 import Login        from './pages/public/Login'
@@ -33,8 +35,8 @@ export default function App() {
         <Routes>
 
           {/* Rutas públicas */}
-          <Route path="/login"       element={<Login />} />
-          <Route path="/register"    element={<Register />} />
+          <Route path="/login"       element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/register"    element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
 
           {/* Rutas del admin — layout con navbar superior */}
@@ -55,16 +57,13 @@ export default function App() {
             <Route path="/teacher" element={<TeacherDashboard />} />
           </Route>
 
-          {/* Rutas con sidebar (recepcionista) */}
-          <Route element={<Layout />}>
-
-            {/* Recepcionista */}
-            <Route path="/receptionist" element={
-              <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
-                <ReceptionistDashboard />
-              </ProtectedRoute>
-            } />
-
+          {/* Rutas del recepcionista — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
+              <ReceptionistLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/receptionist" element={<ReceptionistDashboard />} />
           </Route>
 
           {/* Rutas del cliente — layout con navbar superior */}
