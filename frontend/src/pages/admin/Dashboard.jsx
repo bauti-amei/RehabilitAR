@@ -319,6 +319,21 @@ function Usuarios() {
       .finally(() => setCargando(false))
   }, [])
 
+  const handleDelete = async (userId) => {
+    try {
+      await deleteUserRequest(userId)
+
+      setUsuarios(prev =>
+        prev.filter(u => u.id !== userId)
+      )
+
+      alert('Usuario eliminado')
+    } catch (error) {
+      console.error(error)
+      alert('Error al eliminar usuario')
+    }
+  }
+
   const usuariosFiltrados = usuarios.filter(u => {
     const matchRol = filtroRol === 'todos' || u.role === filtroRol
     const matchBusq = u.email.toLowerCase().includes(busqueda.toLowerCase())
@@ -371,6 +386,17 @@ function Usuarios() {
               {u.is_active ? 'Activo' : 'Suspendido'}
             </span>
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+            <button 
+              style={{
+                marginLeft: 'auto',
+                background: '#ef4444',
+                color: 'white',
+                padding: '6px 10px',
+                borderRadius: '6px'
+                }}
+                onClick={() => handleDelete(u.id)}>
+              Eliminar
+            </button>
           </div>
         ))}
       </div>

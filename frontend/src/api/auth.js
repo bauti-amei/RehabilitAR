@@ -13,3 +13,6 @@ export const registerRequest = (formData) =>
 
 export const getUsersRequest = () =>
   api.get('/auth/users/')
+
+export const deleteUserRequest = (id) =>
+  axios.delete(`/api/auth/delete/${id}/`)
