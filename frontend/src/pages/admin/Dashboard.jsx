@@ -387,14 +387,8 @@ function Usuarios() {
             </span>
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
             <button 
-              style={{
-                marginLeft: 'auto',
-                background: '#ef4444',
-                color: 'white',
-                padding: '6px 10px',
-                borderRadius: '6px'
-                }}
-                onClick={() => handleDelete(u.id)}>
+              className={styles.eliminarBtn}
+              onClick={() => handleDelete(u.id)}>
               Eliminar
             </button>
           </div>
