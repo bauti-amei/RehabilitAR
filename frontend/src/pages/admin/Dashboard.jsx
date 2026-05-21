@@ -385,12 +385,8 @@ function Usuarios() {
             <span className={`${styles.estadoBadge} ${u.is_active ? styles.estadoActivo : styles.estadoSuspendido}`}>
               {u.is_active ? 'Activo' : 'Suspendido'}
             </span>
-            <button classNames={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
-            <button 
-              className={styles.eliminarBtn}
-              onClick={() => handleDelete(u.id)}>
-              Eliminar
-            </button>
+            <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+            <button className={styles.eliminarBtn} onClick={() => handleDelete(u.id)}>Eliminar</button>
           </div>
         ))}
       </div>
