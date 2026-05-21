@@ -1,2 +1,75 @@
+# ─── Sistema operativo ────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Editor / IDEs ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 .claude/
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  BACKEND  (Django / Python)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Entorno virtual
+backend/venv/
+backend/.venv/
+
+# Variables de entorno
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Base de datos local
+backend/db.sqlite3
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Distribución / empaquetado
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Cobertura y tests
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Archivos estáticos generados
+backend/staticfiles/
+backend/mediafiles/
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  FRONTEND  (React + Vite)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Dependencias
+frontend/node_modules/
+
+# Build de producción
+frontend/dist/
+frontend/.vite/
+
+# Variables de entorno
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Logs de npm / yarn / pnpm
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Cache de ESLint / Prettier
+frontend/.eslintcache
+frontend/.prettiercache
