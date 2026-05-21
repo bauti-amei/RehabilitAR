@@ -1,2 +1,27 @@
 .DS_Store
+.AppleDouble
+.LSOverride
 .claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtualenv
+backend/venv/
+venv/
+env/
+
+# Django
+backend/db.sqlite3
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+
+# Editors
+.vscode/
+.idea/
