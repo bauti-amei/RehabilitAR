@@ -1,0 +1,310 @@
+.wrapper {
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, #1a1d35, #090b16 70%);
+  color: white;
+  font-family: sans-serif;
+}
+
+/* ── Navbar ──────────────────────────────────────────────── */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 64px;
+  background: rgba(15, 18, 40, 0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(12px);
+}
+
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.02em;
+}
+
+.roleTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #a78bfa;
+  background: rgba(124,92,255,0.15);
+  border: 1px solid rgba(124,92,255,0.3);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Cambiar rol ─────────────────────────────────────────── */
+.cambiarRolBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(124,92,255,0.35);
+  border-radius: 10px;
+  background: rgba(124,92,255,0.1);
+  color: #a78bfa;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cambiarRolBtn:hover {
+  background: rgba(124,92,255,0.22);
+}
+
+/* ── Icon buttons ────────────────────────────────────────── */
+.iconBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  color: #c8cbdf;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.iconBtn:hover {
+  background: rgba(124,92,255,0.15);
+  color: white;
+  border-color: rgba(124,92,255,0.3);
+}
+
+.iconLabel { font-size: 0.88rem; }
+
+.badge {
+  position: absolute;
+  top: -6px; right: -6px;
+  min-width: 18px; height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── User menu ───────────────────────────────────────────── */
+.userMenu { position: relative; margin-left: 0.5rem; }
+
+.userBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem 0.4rem 0.5rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.userBtn:hover {
+  background: rgba(124,92,255,0.15);
+  border-color: rgba(124,92,255,0.3);
+}
+
+.avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c5cff, #5a3df0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.userName { font-size: 0.9rem; font-weight: 500; }
+
+.chevron {
+  display: flex;
+  color: #8b90b0;
+  transition: transform 0.2s;
+}
+.chevronOpen { transform: rotate(180deg); }
+
+/* ── Dropdown ────────────────────────────────────────────── */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 200px;
+  background: #12162e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  overflow: hidden;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dropItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.75rem 1.1rem;
+  background: none;
+  border: none;
+  color: #c8cbdf;
+  font-size: 0.92rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.dropItem:hover { background: rgba(124,92,255,0.12); color: white; }
+.dropDivider { height: 1px; background: rgba(255,255,255,0.07); margin: 0.25rem 0; }
+.dropLogout { color: #f87171; }
+.dropLogout:hover { background: rgba(239,68,68,0.1); color: #fca5a5; }
+
+/* ── Modal ───────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: #12162e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: slideUp 0.2s ease;
+}
+
+.modalSmall { max-width: 340px; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.modalTitle { font-size: 1.1rem; font-weight: 600; color: white; margin: 0; }
+
+.closeBtn {
+  background: rgba(255,255,255,0.07);
+  border: none;
+  color: #8b90b0;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.closeBtn:hover { background: rgba(255,255,255,0.12); color: white; }
+
+.modalBody { color: #b0b3c7; }
+
+.emptyMsg { color: #6b7090; text-align: center; padding: 1rem 0; }
+
+/* ── Cambiar rol modal ───────────────────────────────────── */
+.cambiarRolDesc {
+  font-size: 0.88rem;
+  color: #6b7090;
+  margin: 0 0 1rem;
+}
+
+.rolesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.roleOption {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  color: #c8cbdf;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s, border-color 0.2s;
+  width: 100%;
+}
+
+.roleOption:hover {
+  background: rgba(124,92,255,0.1);
+  border-color: rgba(124,92,255,0.3);
+  color: white;
+}
+
+.roleOptionActive {
+  background: rgba(124,92,255,0.12);
+  border-color: rgba(124,92,255,0.4);
+  color: white;
+}
+
+.roleEmoji { font-size: 1.2rem; }
+.roleLabel { flex: 1; font-weight: 500; font-size: 0.95rem; }
+
+.roleCurrentTag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(124,92,255,0.2);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+/* ── Main ────────────────────────────────────────────────── */
+.main {
+  padding: 2rem;
+  max-width: 1300px;
+  margin: 0 auto;
+}

@@ -1,0 +1,586 @@
+/* ── Container ───────────────────────────────────────────── */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* ── Greeting ────────────────────────────────────────────── */
+.greeting h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem;
+  color: white;
+}
+.greeting h1 span { color: #34d399; }
+.greeting p { color: #6b7090; margin: 0; font-size: 0.95rem; }
+
+/* ── Top row ─────────────────────────────────────────────── */
+.topRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 1.5rem;
+}
+
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #c8cbdf;
+  margin: 0 0 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem 1rem;
+  color: #6b7090;
+  text-align: center;
+  font-size: 0.92rem;
+}
+.emptyIcon { font-size: 2rem; }
+
+/* ── Próxima clase ───────────────────────────────────────── */
+.proximaInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.proximaRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.proximaLabel {
+  font-size: 0.8rem;
+  color: #6b7090;
+  min-width: 64px;
+}
+.proximaValor {
+  font-size: 0.95rem;
+  color: #d0d3e8;
+  font-weight: 500;
+}
+.verDetalleBtn {
+  margin-top: 0.75rem;
+  align-self: flex-start;
+  padding: 0.45rem 1.1rem;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  border-radius: 8px;
+  background: rgba(52, 211, 153, 0.08);
+  color: #34d399;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.verDetalleBtn:hover { background: rgba(52, 211, 153, 0.16); }
+
+/* ── Notif panel ─────────────────────────────────────────── */
+.notifPanelList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.notifPanelItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.notifUnread { background: rgba(52, 211, 153, 0.05); border-color: rgba(52, 211, 153, 0.15); }
+.notifDot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #34d399; flex-shrink: 0; margin-top: 5px;
+}
+.notifTexto { color: #d0d3e8; font-size: 0.88rem; margin: 0 0 0.2rem; }
+.notifHora  { color: #6b7090; font-size: 0.75rem; margin: 0; }
+
+/* ── Sections ────────────────────────────────────────────── */
+.section {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 18px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sectionTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+.claseActivaBadge {
+  color: #34d399;
+  font-weight: 600;
+}
+
+.sectionSubtitle {
+  color: #6b7090;
+  font-size: 0.85rem;
+  margin: 0.3rem 0 0;
+}
+
+/* ── Asistencia deshabilitada ────────────────────────────── */
+.asistenciaDisabled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2rem;
+  color: #6b7090;
+  text-align: center;
+  background: rgba(255,255,255,0.02);
+  border: 1px dashed rgba(255,255,255,0.08);
+  border-radius: 12px;
+}
+
+/* ── Buscador row ────────────────────────────────────────── */
+.buscarRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.buscador {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  color: white;
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.buscador::placeholder { color: #6b7090; }
+.buscador:focus { border-color: rgba(52, 211, 153, 0.4); }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btnPrimary {
+  padding: 0.65rem 1.3rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #34d399, #059669);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+.btnPrimary:hover:not(:disabled) { opacity: 0.88; }
+.btnPrimary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btnOutline {
+  padding: 0.65rem 1.5rem;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  border-radius: 10px;
+  background: transparent;
+  color: #34d399;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btnOutline:hover { background: rgba(52, 211, 153, 0.08); }
+
+.qrBtn {
+  padding: 0.55rem 1.1rem;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 10px;
+  background: rgba(52, 211, 153, 0.08);
+  color: #34d399;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.qrBtn:hover { background: rgba(52, 211, 153, 0.15); }
+
+.verInscriptosBtn {
+  padding: 0.5rem 1.1rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: #c8cbdf;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+.verInscriptosBtn:hover { background: rgba(52, 211, 153, 0.1); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
+
+.registrarBtn {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: 8px;
+  background: rgba(52, 211, 153, 0.07);
+  color: #34d399;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.registrarBtn:hover { background: rgba(52, 211, 153, 0.15); }
+
+.suspenderBtn {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.07);
+  color: #f87171;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.suspenderBtn:hover { background: rgba(239, 68, 68, 0.15); }
+
+/* ── Lista inscriptos (asistencia) ───────────────────────── */
+.inscriptosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inscriptoRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.inscriptoNombre {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #d0d3e8;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255,255,255,0.2);
+  transition: color 0.2s;
+}
+.inscriptoNombre:hover { color: #34d399; }
+
+/* ── Badges ──────────────────────────────────────────────── */
+.badgePresente {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  white-space: nowrap;
+}
+
+.badgeAusente {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  white-space: nowrap;
+}
+
+/* ── Mis clases ──────────────────────────────────────────── */
+.misClasesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.miClaseRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.miClaseInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.miClaseNombre {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.miClaseMeta {
+  font-size: 0.85rem;
+  color: #8b90b0;
+  margin: 0;
+}
+
+.miClaseCupo {
+  font-size: 0.82rem;
+  color: #6b7090;
+  margin: 0;
+}
+
+/* ── Modal inscriptos lista ──────────────────────────────── */
+.inscriptosModalList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inscriptoModalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.inscriptoEmail {
+  font-size: 0.8rem;
+  color: #6b7090;
+  margin: 0.15rem 0 0;
+}
+
+/* ── QR placeholder ──────────────────────────────────────── */
+.qrPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.qrBox {
+  width: 160px;
+  height: 160px;
+  border: 3px solid rgba(52, 211, 153, 0.5);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.05);
+  letter-spacing: 0.1em;
+}
+
+.qrDesc {
+  color: #8b90b0;
+  font-size: 0.88rem;
+  text-align: center;
+  max-width: 280px;
+  margin: 0;
+}
+
+/* ── Detalle grid ────────────────────────────────────────── */
+.detalleGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem 1.5rem;
+  padding: 0.5rem 0;
+  color: #b0b3c7;
+  font-size: 0.92rem;
+}
+
+.detalleGrid span:nth-child(odd) {
+  color: #6b7090;
+  font-weight: 500;
+}
+
+.detalleGrid span:nth-child(even) {
+  color: #d0d3e8;
+}
+
+/* ── No resultados ───────────────────────────────────────── */
+.noResultados {
+  color: #6b7090;
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+  margin: 0;
+}
+
+.emptyMsg {
+  color: #6b7090;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1rem 0;
+  margin: 0;
+}
+
+/* ── Asignarse row ───────────────────────────────────────── */
+.asignarseRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: #12162e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 1.5rem;
+  width: 100%; max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: slideUp 0.2s ease;
+}
+
+.modalWide { max-width: 620px; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.modalHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.modalTitle { font-size: 1.1rem; font-weight: 600; color: white; margin: 0; }
+
+.closeBtn {
+  background: rgba(255,255,255,0.07);
+  border: none; color: #8b90b0;
+  width: 30px; height: 30px;
+  border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.closeBtn:hover { background: rgba(255,255,255,0.12); color: white; }
+
+/* ── Clases ofertadas ─────────────────────────────────────── */
+.ofertadasList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ofertadaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+}
+
+.ofertadaInfo { flex: 1; }
+
+.ofertadaNombre {
+  font-size: 0.97rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.2rem;
+}
+
+.ofertadaMeta {
+  font-size: 0.82rem;
+  color: #8b90b0;
+  margin: 0 0 0.15rem;
+}
+
+.ofertadaCupo {
+  font-size: 0.8rem;
+  color: #6b7090;
+  margin: 0;
+}
+
+.ofertadaDesc {
+  font-size: 0.8rem;
+  color: #7b8090;
+  font-style: italic;
+  margin: 0.3rem 0 0;
+}
+
+.btnAsignarse {
+  padding: 0.5rem 1.1rem;
+  background: #34d399;
+  color: #0f1117;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s, opacity 0.18s;
+}
+.btnAsignarse:hover:not(:disabled) { background: #10b981; }
+.btnAsignarse:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.formError {
+  font-size: 0.88rem;
+  color: #f87171;
+  background: rgba(248,113,113,0.1);
+  border: 1px solid rgba(248,113,113,0.3);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0;
+}
+
+.formExito {
+  font-size: 0.88rem;
+  color: #34d399;
+  background: rgba(52,211,153,0.1);
+  border: 1px solid rgba(52,211,153,0.3);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0;
+}

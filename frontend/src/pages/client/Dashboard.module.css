@@ -1,0 +1,540 @@
+/* ── Container ───────────────────────────────────────────── */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Saludo ──────────────────────────────────────────────── */
+.greeting h1 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.3rem;
+}
+
+.greeting h1 span {
+  color: #a78bfa;
+}
+
+.greeting p {
+  color: #7b80a0;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* ── Top row ─────────────────────────────────────────────── */
+.topRow {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 1.5rem;
+}
+
+/* ── Card base ───────────────────────────────────────────── */
+.card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 1.5rem;
+  backdrop-filter: blur(8px);
+}
+
+.cardTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #5c619a;
+  margin: 0 0 1.1rem;
+}
+
+/* ── Próxima clase ───────────────────────────────────────── */
+.proximaBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.proximaNombre {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 2rem;
+  opacity: 0.6;
+}
+
+.emptyState p {
+  color: #5c619a;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+/* ── Próxima info ────────────────────────────────────────── */
+.proximaInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  color: #b0b3c7;
+}
+
+.infoLabel {
+  font-weight: 600;
+  color: #6b70a0;
+  min-width: 70px;
+}
+
+.linkBtn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #7c5cff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 0.3rem;
+  transition: color 0.2s;
+}
+
+.linkBtn:hover {
+  color: #a78bfa;
+}
+
+/* ── Mi plan ─────────────────────────────────────────────── */
+.planLista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 1.2rem;
+}
+
+.planItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+}
+
+.planLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tipoBadge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badgeSub {
+  background: rgba(124,92,255,0.18);
+  color: #a78bfa;
+  border: 1px solid rgba(124,92,255,0.3);
+}
+
+.badgeRes {
+  background: rgba(34,197,94,0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.25);
+}
+
+.planNombre {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.1rem;
+}
+
+.planDesc {
+  font-size: 0.78rem;
+  color: #6b70a0;
+  margin: 0;
+}
+
+.verMasBtn {
+  flex-shrink: 0;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgba(124,92,255,0.3);
+  border-radius: 8px;
+  background: rgba(124,92,255,0.1);
+  color: #a78bfa;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.verMasBtn:hover {
+  background: rgba(124,92,255,0.22);
+}
+
+.planAcciones {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btnPrimary {
+  flex: 1;
+  padding: 0.65rem;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7c5cff, #5a3df0);
+  color: white;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.btnPrimary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btnOutline {
+  flex: 1;
+  padding: 0.65rem;
+  border: 1px solid rgba(124,92,255,0.4);
+  border-radius: 12px;
+  background: transparent;
+  color: #a78bfa;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.btnOutline:hover {
+  background: rgba(124,92,255,0.1);
+  transform: translateY(-1px);
+}
+
+/* ── Calendario ──────────────────────────────────────────── */
+.calSection {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 1.5rem;
+}
+
+.calHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.calTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.calNav {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #b0b3c7;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.calNav:hover {
+  background: rgba(124,92,255,0.2);
+  color: white;
+}
+
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calDayName {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4a4f78;
+  padding: 0.4rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.calDay {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: #8b90b0;
+  transition: background 0.15s;
+  cursor: default;
+}
+
+.calDayNum {
+  line-height: 1;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  filter: brightness(1.15);
+}
+
+/* Feriado */
+.feriado {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Con clase */
+.conClase {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  font-weight: 600;
+}
+
+/* Hoy */
+.hoy {
+  outline: 2px solid #7c5cff;
+  outline-offset: 1px;
+}
+
+.claseDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-top: 2px;
+}
+
+/* Leyenda */
+.calLeyenda {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.leyendaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: #6b70a0;
+}
+
+.leyendaDot {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.leyendaHoy {
+  background: transparent;
+  border: 2px solid #7c5cff;
+  border-radius: 3px;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: #12162e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.modalTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.closeBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255,255,255,0.07);
+  color: #8b90b0;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.closeBtn:hover {
+  background: rgba(255,255,255,0.13);
+  color: white;
+}
+
+/* Detalle día */
+.dayDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dayClase {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: rgba(34,197,94,0.08);
+  border: 1px solid rgba(34,197,94,0.2);
+  border-radius: 12px;
+}
+
+.dayClaseTag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #4ade80;
+}
+
+.dayClase p {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  margin: 0;
+  color: #c8cbdf;
+}
+
+.dayClase p span:first-child {
+  color: #6b70a0;
+  font-weight: 600;
+}
+
+.dayFeriado {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 12px;
+  color: #fca5a5;
+  font-size: 0.9rem;
+}
+
+.dayFeriado p {
+  margin: 0;
+}
+
+/* Detalle plan */
+.planDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.planDetailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: #c8cbdf;
+}
+
+.planDetailRow:last-child {
+  border-bottom: none;
+}
+
+.planDetailRow span:first-child {
+  color: #5c619a;
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.estadoOk {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .topRow {
+    grid-template-columns: 1fr;
+  }
+}

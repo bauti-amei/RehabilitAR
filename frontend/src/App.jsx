@@ -4,7 +4,12 @@ import { ROLES } from './utils/roles'
 
 // Common
 import ProtectedRoute from './components/common/ProtectedRoute'
-import Layout        from './components/common/Layout'
+import PublicRoute    from './components/common/PublicRoute'
+import Layout         from './components/common/Layout'
+import ClientLayout   from './components/client/ClientLayout'
+import AdminLayout    from './components/admin/AdminLayout'
+import TeacherLayout      from './components/teacher/TeacherLayout'
+import ReceptionistLayout from './components/receptionist/ReceptionistLayout'
 
 // Public
 import Login        from './pages/public/Login'
@@ -30,42 +35,44 @@ export default function App() {
         <Routes>
 
           {/* Rutas públicas */}
-          <Route path="/login"       element={<Login />} />
-          <Route path="/register"    element={<Register />} />
+          <Route path="/login"       element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/register"    element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
 
-          {/* Rutas autenticadas con layout (sidebar) */}
-          <Route element={<Layout />}>
+          {/* Rutas del admin — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/admin" element={<AdminDashboard />} />
+          </Route>
 
-            {/* Admin */}
-            <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            {/* Más rutas de admin se agregan aquí */}
+          {/* Rutas del profesor — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.TEACHER]}>
+              <TeacherLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/teacher" element={<TeacherDashboard />} />
+          </Route>
 
-            {/* Profesor */}
-            <Route path="/teacher" element={
-              <ProtectedRoute allowedRoles={[ROLES.TEACHER]}>
-                <TeacherDashboard />
-              </ProtectedRoute>
-            } />
+          {/* Rutas del recepcionista — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
+              <ReceptionistLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/receptionist" element={<ReceptionistDashboard />} />
+          </Route>
 
-            {/* Recepcionista */}
-            <Route path="/receptionist" element={
-              <ProtectedRoute allowedRoles={[ROLES.RECEPTIONIST]}>
-                <ReceptionistDashboard />
-              </ProtectedRoute>
-            } />
-
-            {/* Cliente */}
-            <Route path="/client" element={
-              <ProtectedRoute allowedRoles={[ROLES.CLIENT]}>
-                <ClientDashboard />
-              </ProtectedRoute>
-            } />
-
+          {/* Rutas del cliente — layout con navbar superior */}
+          <Route element={
+            <ProtectedRoute allowedRoles={[ROLES.CLIENT]}>
+              <ClientLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/client" element={<ClientDashboard />} />
           </Route>
 
           {/* Redirigir raíz al login */}
