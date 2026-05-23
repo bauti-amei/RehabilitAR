@@ -25,6 +25,11 @@ const FILTROS_HORARIO = [
   { label: 'Noche',  value: 'noche' },
 ]
 
+const FILTROS_TIPO = [
+  { label: '🔁 Fija',       value: 'fija' },
+  { label: '📅 Individual', value: 'individual' },
+]
+
 const FILTROS_ROL = [
   { label: 'Todos',           value: 'todos' },
   { label: 'Profesores',      value: 'teacher' },
@@ -153,6 +158,7 @@ function AreaClases() {
   const [clases,          setClases]    = useState([])
   const [cargando,        setCargando]  = useState(true)
   const [filtro,          setFiltro]    = useState('todas')
+  const [filtroTipo,      setFiltroTipo] = useState('todos')
   const [listaEsperaModal, setLista]   = useState(null)
   const [userModal,       setUserModal] = useState(null)
   const [crearClase,      setCrear]    = useState(false)
@@ -196,9 +202,11 @@ function AreaClases() {
     }
   }
 
-  const clasesFiltradas = clases.filter(c =>
-    filtro === 'todas' ? true : getHorarioFiltro(c.horario) === filtro
-  )
+  const clasesFiltradas = clases.filter(c => {
+    const matchHorario = filtro === 'todas' || getHorarioFiltro(c.horario) === filtro
+    const matchTipo    = filtroTipo === 'todos' || c.tipo_clase === filtroTipo
+    return matchHorario && matchTipo
+  })
 
   return (
     <section className={styles.section}>
@@ -214,6 +222,16 @@ function AreaClases() {
             key={f.value}
             className={`${styles.filtroBtn} ${filtro === f.value ? styles.filtroBtnActive : ''}`}
             onClick={() => setFiltro(f.value)}
+          >
+            {f.label}
+          </button>
+        ))}
+        <div className={styles.filtroSeparador} />
+        {FILTROS_TIPO.map(f => (
+          <button
+            key={f.value}
+            className={`${styles.filtroBtn} ${filtroTipo === f.value ? styles.filtroBtnActive : ''}`}
+            onClick={() => setFiltroTipo(f.value)}
           >
             {f.label}
           </button>

@@ -127,6 +127,13 @@
   font-weight: 600;
 }
 
+.filtroSeparador {
+  width: 1px;
+  background: rgba(255,255,255,0.12);
+  margin: 0 0.25rem;
+  align-self: stretch;
+}
+
 /* ── Clases list ─────────────────────────────────────────── */
 .clasesList { display: flex; flex-direction: column; gap: 0.65rem; }
 .noResultados { color: #4a4f78; font-size: 0.88rem; text-align: center; padding: 1rem; margin: 0; }
