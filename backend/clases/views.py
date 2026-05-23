@@ -63,19 +63,88 @@ class ClaseEnCursoListView(APIView):
 
 class ProfesoresPorEspecialidadView(APIView):
     """
-    GET /api/clases/profesores/?especialidad=tren_superior
-    Devuelve profesores con esa especialidad (admin).
+    GET /api/clases/profesores/?especialidad=tren_superior&tipo_clase=fija&dia=Lunes&horario_inicio=10:00&horario_fin=11:00
+    GET /api/clases/profesores/?especialidad=tren_superior&tipo_clase=individual&fecha=2024-06-10&horario_inicio=10:00&horario_fin=11:00
+    Devuelve profesores con esa especialidad y disponibles en el horario indicado (admin).
     """
     permission_classes = [IsAuthenticated]
 
+    def _times_overlap(self, ini1, fin1, ini2, fin2):
+        return ini1 < fin2 and ini2 < fin1
+
+    def _profesor_ocupado(self, profesor, tipo_clase, dia, fecha, horario_inicio, horario_fin):
+        """Devuelve True si el profesor tiene una clase que solapa con el horario dado.
+        horario_inicio y horario_fin deben ser objetos datetime.time."""
+        if not horario_inicio or not horario_fin:
+            return False
+
+        clases = Clase.objects.filter(profesor=profesor)
+        for c in clases:
+            if not self._times_overlap(horario_inicio, horario_fin, c.horario_inicio, c.horario_fin):
+                continue
+            # Hay solapamiento de horas — ahora verificar si es el mismo día
+            if tipo_clase == 'fija':
+                # Conflicto si la clase existente es fija en el mismo día,
+                # o individual en una fecha que cae en ese día
+                if c.tipo_clase == 'fija' and c.dias == dia:
+                    return True
+                if c.tipo_clase == 'individual' and c.fecha:
+                    from datetime import date
+                    DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                    js_day = c.fecha.weekday()  # 0=Lun
+                    if DIAS[js_day] == dia:
+                        return True
+            elif tipo_clase == 'individual':
+                if not fecha:
+                    continue
+                from datetime import date
+                DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                try:
+                    fecha_obj = date.fromisoformat(fecha)
+                except ValueError:
+                    continue
+                dia_semana = DIAS[fecha_obj.weekday()]
+                if c.tipo_clase == 'fija' and c.dias == dia_semana:
+                    return True
+                if c.tipo_clase == 'individual' and c.fecha and str(c.fecha) == fecha:
+                    return True
+        return False
+
     def get(self, request):
+        from datetime import time as Time
         if request.user.role != User.Role.ADMIN:
             return Response({'detail': 'No tenés permiso.'}, status=403)
-        especialidad = request.query_params.get('especialidad', '')
-        profesores = User.objects.filter(role=User.Role.TEACHER, is_active=True)
+
+        especialidad    = request.query_params.get('especialidad', '')
+        tipo_clase      = request.query_params.get('tipo_clase', '')
+        dia             = request.query_params.get('dia', '')
+        fecha           = request.query_params.get('fecha', '')
+        horario_inicio  = request.query_params.get('horario_inicio', '')
+        horario_fin     = request.query_params.get('horario_fin', '')
+
+        profesores = list(User.objects.filter(role=User.Role.TEACHER, is_active=True))
+
+        # Filtrar por especialidad
         if especialidad:
-            # Filtra los que tienen esa especialidad en su lista CSV
-            profesores = [p for p in profesores if especialidad in [e.strip() for e in p.especialidades.split(',') if e.strip()]]
+            profesores = [
+                p for p in profesores
+                if especialidad in [e.strip() for e in p.especialidades.split(',') if e.strip()]
+            ]
+
+        # Filtrar por disponibilidad de horario — convertir strings a time
+        if horario_inicio and horario_fin and tipo_clase and (dia or fecha):
+            try:
+                h, m = horario_inicio.split(':')
+                t_ini = Time(int(h), int(m))
+                h, m = horario_fin.split(':')
+                t_fin = Time(int(h), int(m))
+                profesores = [
+                    p for p in profesores
+                    if not self._profesor_ocupado(p, tipo_clase, dia, fecha, t_ini, t_fin)
+                ]
+            except (ValueError, AttributeError):
+                pass  # Si el formato es inválido, no filtrar por horario
+
         data = [{'id': p.id, 'nombre': p.full_name, 'email': p.email, 'especialidades': p.especialidades} for p in profesores]
         return Response(data)
 

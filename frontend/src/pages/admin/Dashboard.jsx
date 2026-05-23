@@ -220,8 +220,11 @@ function AreaClases() {
         {FILTROS_HORARIO.map(f => (
           <button
             key={f.value}
-            className={`${styles.filtroBtn} ${filtro === f.value ? styles.filtroBtnActive : ''}`}
-            onClick={() => setFiltro(f.value)}
+            className={`${styles.filtroBtn} ${filtro === f.value && (f.value !== 'todas' || filtroTipo === 'todos') ? styles.filtroBtnActive : ''}`}
+            onClick={() => {
+              setFiltro(f.value)
+              if (f.value === 'todas') setFiltroTipo('todos')
+            }}
           >
             {f.label}
           </button>

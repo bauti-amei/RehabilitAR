@@ -84,13 +84,19 @@ export default function CrearClaseModal({ onClose, onCreada }) {
     getSalasRequest().then(r => setSalas(r.data)).catch(() => setSalas([]))
   }, [])
 
-  // Cargar profesores cuando cambia especialidad
+  // Cargar profesores cuando cambia especialidad, horario o día/fecha
   useEffect(() => {
     if (!form.especialidad) { setProfesores([]); return }
-    getProfesoresPorEspecialidadRequest(form.especialidad)
+    getProfesoresPorEspecialidadRequest(form.especialidad, {
+      tipo_clase:     form.tipo_clase,
+      dia:            form.dia,
+      fecha:          form.fecha,
+      horario_inicio: form.horario_inicio,
+      horario_fin:    form.horario_fin,
+    })
       .then(r => setProfesores(r.data))
       .catch(() => setProfesores([]))
-  }, [form.especialidad])
+  }, [form.especialidad, form.tipo_clase, form.dia, form.fecha, form.horario_inicio, form.horario_fin])
 
   // Cuando se selecciona sala → auto-completar cupo con capacidad
   useEffect(() => {
@@ -315,7 +321,9 @@ export default function CrearClaseModal({ onClose, onCreada }) {
                 {!form.especialidad ? (
                   <p className={styles.sinSalas}>Primero seleccioná la especialidad para ver los profesores disponibles.</p>
                 ) : profesores.length === 0 ? (
-                  <p className={styles.sinSalas}>No hay profesores con la especialidad "{ESPECIALIDADES.find(e => e.value === form.especialidad)?.label}" registrados.</p>
+                  <p className={styles.sinSalas}>
+                    No hay profesores disponibles para el horario seleccionado.
+                  </p>
                 ) : (
                   <select className={styles.select} value={form.profesor_id}
                     onChange={e => set('profesor_id', e.target.value)}>
