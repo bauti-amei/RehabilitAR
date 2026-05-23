@@ -71,6 +71,8 @@ export default function ClientLayout() {
     navigate('/login')
   }
 
+  const pedirLogout = () => { setUserMenu(false); setModal('logout') }
+
   const initials = user
     ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
     : '?'
@@ -126,7 +128,7 @@ export default function ClientLayout() {
                   <span>🔒</span> Cambiar contraseña
                 </button>
                 <div className={styles.dropDivider} />
-                <button className={`${styles.dropItem} ${styles.dropLogout}`} onClick={handleLogout}>
+                <button className={`${styles.dropItem} ${styles.dropLogout}`} onClick={pedirLogout}>
                   <span>🚪</span> Cerrar sesión
                 </button>
               </div>
@@ -136,6 +138,22 @@ export default function ClientLayout() {
       </header>
 
       {/* ── MODALES ────────────────────────────────────────── */}
+
+      {modal === 'logout' && (
+        <div className={styles.overlay} onClick={() => setModal(null)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalBody} style={{ textAlign: 'center', padding: '1.5rem' }}>
+              <p style={{ fontSize: '1.05rem', fontWeight: 600, color: 'white', marginBottom: '1.5rem' }}>
+                ¿Está seguro que desea cerrar sesión?
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                <button onClick={handleLogout} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}>Sí</button>
+                <button onClick={() => setModal(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#c8cbdf', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}>No</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modal === 'notifications' && (
         <Modal title="Notificaciones" onClose={() => setModal(null)}>
