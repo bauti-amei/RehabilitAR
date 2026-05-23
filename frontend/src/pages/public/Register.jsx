@@ -58,7 +58,8 @@ export default function Register() {
       await registerRequest(formData)
       setSuccess(true)
     } catch (err) {
-      setError(err.response?.data?.detail ?? 'Error al registrarse. Intentá nuevamente.')
+      const msg = err.response?.data?.email?.[0] ?? err.response?.data?.detail ?? 'Error al registrarse. Intentá nuevamente.'
+      setError(msg.includes('Ya existe') ? 'Ya existe un usuario con este email.' : msg)
     } finally {
       setLoading(false)
     }
