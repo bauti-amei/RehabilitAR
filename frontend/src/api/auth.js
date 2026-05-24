@@ -14,5 +14,18 @@ export const registerRequest = (formData) =>
 export const getUsersRequest = () =>
   api.get('/auth/users/')
 
-export const deleteUserRequest = (id) =>
-  api.delete(`/auth/users/${id}/`)
+export const deleteUserRequest = (id, reason) => {
+  const token = localStorage.getItem('token'); // O como extraigas el token en tu app
+
+  // Usamos la configuración expandida de Axios
+  return api({
+    method: 'delete',
+    url: `auth/users/${id}/`,
+    data: { reason: reason }, // <-- Acá viaja el motivo directo al request.data de Django
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+};
+ // api.delete(`/auth/users/${id}/`, {data: {reason}})
