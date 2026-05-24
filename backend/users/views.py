@@ -8,6 +8,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from django.contrib.auth import authenticate
+from django.core.mail import EmailMessage
+from django.conf import settings
 
 from .serializers import UserSerializer, RegisterSerializer
 from .models import User
@@ -175,32 +177,61 @@ class UserListView(APIView):
             )
         users = User.objects.all().order_by('last_name', 'first_name')
         serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class DeleteUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, user_id):
-
+        # 1. Validar permisos de Admin
         if request.user.role != User.Role.ADMIN:
-            return Response(
-                {'detail': 'No tenés permiso.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
+            return Response({'detail': 'No tenés permiso.'}, status=status.HTTP_403_FORBIDDEN)
+        
         try:
+            # 2. 🚨 CLAVE: Buscar al usuario en la base de datos primero
             user = User.objects.get(id=user_id)
+            
+            # 3. Determinar acción según el estado actual
+            if user.is_active:
+                # ACCIÓN: SUSPENDER (Estaba activo, pasa a inactivo)
+                reason = request.data.get('reason')
+                if not reason:
+                    return Response({'detail': 'Debe indicar un motivo.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                user.is_active = False  
+                user.deleted_reason = reason
+                user.save() # Guardamos en BD
+                
+                asunto = "Tu cuenta en RehabilitAR ha sido suspendida"
+                mensaje = f"Hola {user.first_name},\n\nTe informamos que tu cuenta ha sido suspendida.\nMotivo:\n\"{reason}\""
+            else:
+                # ACCIÓN: ACTIVAR (Estaba inactivo, pasa a activo)
+                user.is_active = True
+                user.deleted_reason = None  
+                user.save() # Guardamos en BD
+                
+                asunto = "Tu cuenta en RehabilitAR ha sido reactivada"
+                mensaje = f"Hola {user.first_name},\n\n¡Buenas noticias! Tu cuenta ha sido reactivada por el administrador. Ya podés volver a ingresar a la plataforma."
 
-            user.is_active = False
-            user.save()
+            # 4. Enviar el mail de forma segura (Una sola vez, blindado contra ASCII/eñes)
+            try:
+                email = EmailMessage(
+                    subject=asunto,
+                    body=mensaje,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[user.email]
+                )
+                email.encoding = 'utf-8' # Forzamos UTF-8
+                email.send(fail_silently=False)
+                print("📧 ¡Mail enviado/impreso con éxito!")
+            except Exception as mail_error:
+                print(f"⚠️ Error al enviar el mail: {str(mail_error)}")
 
+            # 5. Respuesta exitosa al frontend
             return Response(
-                {'message': 'Usuario eliminado'},
+                {'message': 'Estado del usuario actualizado', 'is_active': user.is_active},
                 status=status.HTTP_200_OK
             )
 
         except User.DoesNotExist:
-            return Response(
-                {'detail': 'Usuario no encontrado'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
