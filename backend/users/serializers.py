@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 from .models import User
 
+ESPECIALIDADES_VALIDAS = {'tren_superior', 'tren_inferior', 'tren_medio'}
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -56,3 +58,56 @@ class RegisterSerializer(serializers.ModelSerializer):
             role=User.Role.CLIENT,
             **validated_data,
         )
+
+
+class AdminRegisterSerializer(serializers.ModelSerializer):
+    """Serializer para que un administrativo cree cualquier tipo de usuario."""
+    # Sobrescribimos email para evitar el UniqueValidator automático
+    # y dar nuestro mensaje custom en validate_email().
+    email          = serializers.EmailField()
+    password       = serializers.CharField(write_only=True)
+    especialidades = serializers.CharField(required=False, allow_blank=True, default='')
+
+    class Meta:
+        model  = User
+        fields = [
+            'email', 'password', 'first_name', 'last_name',
+            'phone', 'birth_date',
+            'address', 'address_number', 'address_floor', 'address_apt',
+            'role', 'especialidades',
+        ]
+        extra_kwargs = {
+            'birth_date':     {'required': True},
+            'phone':          {'required': True},
+            'address':        {'required': True},
+            'address_number': {'required': True},
+            'address_floor':  {'required': False, 'allow_blank': True},
+            'address_apt':    {'required': False, 'allow_blank': True},
+            'role':           {'required': True},
+        }
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value.lower()).exists():
+            raise serializers.ValidationError('El mail ya se encuentra registrado.')
+        return value.lower()
+
+    def validate_password(self, value):
+        if (len(value) < 8
+                or not any(c.isalpha() for c in value)
+                or not any(c.isdigit() for c in value)):
+            raise serializers.ValidationError(
+                'La contraseña debe tener al menos 8 caracteres, una letra y un número.'
+            )
+        return value
+
+    def validate_especialidades(self, value):
+        if not value:
+            return ''
+        partes = [e.strip() for e in value.split(',') if e.strip()]
+        invalidas = set(partes) - ESPECIALIDADES_VALIDAS
+        if invalidas:
+            raise serializers.ValidationError(f'Especialidades inválidas: {", ".join(invalidas)}')
+        return ','.join(partes)
+
+    def create(self, validated_data):
+        return User.objects.create_user(**validated_data)

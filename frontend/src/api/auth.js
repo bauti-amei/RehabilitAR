@@ -13,3 +13,6 @@ export const registerRequest = (formData) =>
 
 export const getUsersRequest = () =>
   api.get('/auth/users/')
+
+export const adminRegisterRequest = (data) =>
+  api.post('/auth/admin-register/', data)

@@ -9,7 +9,9 @@ from rest_framework_simplejwt.exceptions import TokenError
 
 from django.contrib.auth import authenticate
 
-from .serializers import UserSerializer, RegisterSerializer
+from django.core.mail import send_mail
+
+from .serializers import UserSerializer, RegisterSerializer, AdminRegisterSerializer
 from .models import User
 from .services.dni_service import validate_dni
 
@@ -156,6 +158,57 @@ class RegisterView(APIView):
         serializer.save()
         return Response(
             {'detail': 'Registro exitoso.'},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminRegisterView(APIView):
+    """
+    POST /api/auth/admin-register/
+    Crea un usuario de cualquier rol. Solo accesible para administrativos.
+    Envía un mail de bienvenida al nuevo usuario.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role not in (User.Role.ADMIN, User.Role.RECEPTIONIST):
+            return Response(
+                {'detail': 'No tenés permiso para registrar usuarios.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = AdminRegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {'detail': str(first_error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = serializer.save()
+
+        try:
+            send_mail(
+                subject='Bienvenido/a a RehabilitAR',
+                message=(
+                    f'Hola {user.first_name},\n\n'
+                    f'Tu cuenta fue creada exitosamente en RehabilitAR.\n'
+                    f'Podés ingresar con tu correo: {user.email}\n\n'
+                    f'Saludos,\nEquipo RehabilitAR'
+                ),
+                from_email='noreply@rehabilitar.com',
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception:
+            user.delete()
+            return Response(
+                {'detail': 'Error, intente nuevamente'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {'detail': 'Usuario registrado exitosamente.'},
             status=status.HTTP_201_CREATED,
         )
 

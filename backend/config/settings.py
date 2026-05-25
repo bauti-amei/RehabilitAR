@@ -91,6 +91,12 @@ USE_TZ = True
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ── Email ─────────────────────────────────────────────────
+# En desarrollo imprime el mail en consola.
+# En producción reemplazar por un backend SMTP real.
+EMAIL_BACKEND   = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@rehabilitar.com'
+
 # ── Validación de DNI ─────────────────────────────
 DNI_VALIDATION_MOCK = True
 OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', 'helloworld')
