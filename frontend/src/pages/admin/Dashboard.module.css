@@ -342,7 +342,7 @@
   padding: 0.2rem 0.6rem;
   white-space: nowrap;
 }
-.estadoActivo     { color: #4ade80; background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.2); }
+.estadoActivo { color: #4ade80; background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.2); }
 .estadoSuspendido { color: #f87171; background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.2); }
 
 /* ── Botones ─────────────────────────────────────────────── */
@@ -373,7 +373,7 @@
 }
 .btnOutline:hover { background: rgba(124,92,255,0.1); }
 
-.verMasBtn {
+.verMasBtn, .eliminarBtn, .activarBtn {
   flex-shrink: 0;
   padding: 0.3rem 0.75rem;
   border: 1px solid rgba(124,92,255,0.3);

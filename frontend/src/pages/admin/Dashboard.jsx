@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getUsersRequest, adminRegisterRequest } from '../../api/auth'
+import { getUsersRequest, adminRegisterRequest, deleteUserRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -485,6 +485,34 @@ function Usuarios() {
 
   const rolLabel = ROL_OPCIONES.find(r => r.value === regRol)?.label ?? ''
 
+  const handleDelete = async (user) => {
+    let reason = null;
+
+    // 1. Si el usuario está ACTIVO, significa que lo queremos SUSPENDER (pedimos motivo)
+    if (user.is_active) {
+      reason = prompt("Por favor, ingresa el motivo de la suspensión:");
+      if (!reason || reason.trim() === "") {
+        alert("El motivo es obligatorio para suspender al usuario.");
+        return;
+      }
+    }
+
+    try {
+      // Mandamos la petición al backend (pasa el id y el reason si lo hay)
+      await deleteUserRequest(user.id, reason);
+
+      // 2. Invertimos el estado de is_active en la lista visual de React
+      setUsuarios(prev =>
+        prev.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u)
+      );
+
+      alert(user.is_active ? 'Usuario suspendido con éxito' : 'Usuario reactivado con éxito');
+    } catch (error) {
+      console.error(error);
+      alert('Error al cambiar el estado del usuario');
+    }
+  };
+
   const usuariosFiltrados = usuarios.filter(u => {
     const matchRol = filtroRol === 'todos' || u.role === filtroRol
     const matchBusq = u.email.toLowerCase().includes(busqueda.toLowerCase())
@@ -537,6 +565,14 @@ function Usuarios() {
               {u.is_active ? 'Activo' : 'Suspendido'}
             </span>
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+            {u.role !== "admin" && (
+              <button 
+                className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
+                onClick={() => handleDelete(u)} // 👈 Le pasamos todo el usuario 'u'
+              >
+                {u.is_active ? 'Eliminar' : 'Activar'}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -692,6 +728,232 @@ function Usuarios() {
                 </button>
               </div>
             </div>
+          )}
+        </Modal>
+      )}
+    </section>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   HELPERS CALENDARIO SALAS
+   ══════════════════════════════════════════════════════════ */
+const MESES_CAL  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const DIAS_CAL   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+const DIAS_MAP   = { 'dom':0,'domingo':0,'lun':1,'lunes':1,'mar':2,'martes':2,'mié':3,'mie':3,'miércoles':3,'miercoles':3,'jue':4,'jueves':4,'vie':5,'viernes':5,'sáb':6,'sab':6,'sábado':6,'sabado':6 }
+
+function parseDiasSala(diasStr) {
+  const set = new Set()
+  ;(diasStr || '').split(/[/,]+/).forEach(p => {
+    const key = p.trim().toLowerCase()
+    const num = DIAS_MAP[key] ?? DIAS_MAP[key.normalize('NFD').replace(/[̀-ͯ]/g, '')]
+    if (num !== undefined) set.add(num)
+  })
+  return set
+}
+
+function toDs(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+}
+
+/* ── Calendario de una sala ─────────────────────────────── */
+function CalendarioSala({ sala }) {
+  const hoy      = new Date()
+  const [month, setMonth] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
+  const [diaSelec, setDia] = useState(null)
+
+  const year = month.getFullYear()
+  const mes  = month.getMonth()
+  const todayStr = toDs(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+
+  const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
+
+  function clasesDelDia(dia) {
+    const dow = new Date(year, mes, dia).getDay()
+    return clasesConDias.filter(c => c.diasSet.has(dow))
+  }
+
+  const primerDia = new Date(year, mes, 1).getDay()
+  const diasEnMes = new Date(year, mes + 1, 0).getDate()
+  const celdas    = [...Array(primerDia).fill(null), ...Array.from({ length: diasEnMes }, (_, i) => i + 1)]
+
+  const clasesSelec = diaSelec ? clasesDelDia(parseInt(diaSelec.split('-')[2])) : []
+
+  return (
+    <div className={styles.calSala}>
+      <div className={styles.calSalaNav}>
+        <button className={styles.calNavBtn} onClick={() => setMonth(new Date(year, mes-1, 1))}>‹</button>
+        <span className={styles.calSalaMes}>{MESES_CAL[mes]} {year}</span>
+        <button className={styles.calNavBtn} onClick={() => setMonth(new Date(year, mes+1, 1))}>›</button>
+      </div>
+
+      <div className={styles.calSalaGrid}>
+        {DIAS_CAL.map(d => <div key={d} className={styles.calSalaDayName}>{d}</div>)}
+        {celdas.map((dia, i) => {
+          if (!dia) return <div key={`e-${i}`} />
+          const ds         = toDs(year, mes, dia)
+          const clasesHoy  = clasesDelDia(dia)
+          const tieneClass = clasesHoy.length > 0
+          const esHoy      = ds === todayStr
+          return (
+            <button
+              key={ds}
+              className={[
+                styles.calSalaCell,
+                tieneClass ? styles.calCellClase : '',
+                esHoy      ? styles.calCellHoy   : '',
+                diaSelec === ds ? styles.calCellSelected : '',
+              ].join(' ')}
+              onClick={() => tieneClass && setDia(diaSelec === ds ? null : ds)}
+            >
+              {dia}
+              {tieneClass && <span className={styles.calDot} />}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Panel clases del día seleccionado */}
+      {diaSelec && clasesSelec.length > 0 && (
+        <div className={styles.calDiaPanel}>
+          <p className={styles.calDiaTitulo}>
+            {new Date(year, mes, parseInt(diaSelec.split('-')[2]))
+              .toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' })}
+          </p>
+          {clasesSelec.map(c => (
+            <div key={c.id} className={styles.calClaseItem}>
+              <span className={styles.calClaseNombre}>{c.nombre}</span>
+              <span className={styles.calClaseHorario}>{c.horario}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECCIÓN: SALAS
+   ══════════════════════════════════════════════════════════ */
+function AreaSalas() {
+  const [salas,    setSalas]    = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [crearModal, setCrear]  = useState(false)
+  const [calModal,   setCal]    = useState(null)   // sala seleccionada para ver calendario
+  const [form,     setForm]     = useState({ nombre: '', capacidad: '' })
+  const [error,    setError]    = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const cargarSalas = () => {
+    getSalasRequest()
+      .then(res => setSalas(res.data))
+      .catch(() => setSalas([]))
+      .finally(() => setCargando(false))
+  }
+
+  useEffect(() => { cargarSalas() }, [])
+
+  const handleCrear = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!form.nombre.trim() || !form.capacidad) { setError('Completá todos los campos.'); return }
+    setGuardando(true)
+    try {
+      await createSalaRequest({ nombre: form.nombre.trim(), capacidad: parseInt(form.capacidad) })
+      setCrear(false)
+      setForm({ nombre: '', capacidad: '' })
+      cargarSalas()
+    } catch (err) {
+      setError(err.response?.data?.detail ?? 'Error al crear la sala.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <h2 className={styles.sectionTitle}>Salas</h2>
+        <button className={styles.btnPrimary} onClick={() => { setCrear(true); setError('') }}>
+          + Crear sala
+        </button>
+      </div>
+
+      {cargando ? (
+        <p className={styles.noResultados}>Cargando salas...</p>
+      ) : salas.length === 0 ? (
+        <div className={styles.emptyState}>
+          <span className={styles.emptyIcon}>🏛️</span>
+          <p>No hay salas registradas aún</p>
+        </div>
+      ) : (
+        <div className={styles.salasList}>
+          {salas.map(s => (
+            <div key={s.id} className={styles.salaRow}>
+              <div className={styles.salaInfo}>
+                <p className={styles.salaNombre}>{s.nombre}</p>
+                <p className={styles.salaMeta}>Capacidad: {s.capacidad} personas</p>
+              </div>
+              <div className={styles.salaStats}>
+                <span className={styles.salaClasesBadge}>
+                  {s.total_clases} {s.total_clases === 1 ? 'clase' : 'clases'}
+                </span>
+              </div>
+              <button className={styles.verCalBtn} onClick={() => setCal(s)}>
+                📅 Ver calendario
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal crear sala */}
+      {crearModal && (
+        <Modal title="Nueva sala" onClose={() => setCrear(false)}>
+          <form onSubmit={handleCrear} className={styles.crearSalaForm}>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>Nombre de la sala</label>
+              <input
+                className={styles.formInput}
+                type="text"
+                placeholder="Ej: Sala A, Sala Principal..."
+                value={form.nombre}
+                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+              />
+            </div>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>Capacidad máxima</label>
+              <input
+                className={styles.formInput}
+                type="number"
+                min="1"
+                placeholder="Ej: 15"
+                value={form.capacidad}
+                onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
+              />
+            </div>
+            {error && <p className={styles.formError}>{error}</p>}
+            <button type="submit" className={styles.btnPrimary} disabled={guardando}>
+              {guardando ? 'Guardando...' : 'Crear sala'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal calendario de sala */}
+      {calModal && (
+        <Modal
+          title={`Reservas — ${calModal.nombre}`}
+          onClose={() => setCal(null)}
+          wide
+        >
+          {calModal.total_clases === 0 ? (
+            <div className={styles.emptyState} style={{ padding: '1.5rem 0' }}>
+              <span className={styles.emptyIcon}>📅</span>
+              <p>Esta sala no tiene clases asignadas aún</p>
+            </div>
+          ) : (
+            <CalendarioSala sala={calModal} />
           )}
         </Modal>
       )}
