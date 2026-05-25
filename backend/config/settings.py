@@ -94,3 +94,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ── Validación de DNI ─────────────────────────────
 DNI_VALIDATION_MOCK = True
 OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', 'helloworld')
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'duldominguez1@gmail.com'
+# 🚨 OJO: No va tu contraseña normal. Tenés que generar una "Contraseña de Aplicación" en tu cuenta de Google.
+EMAIL_HOST_PASSWORD = 'abcdefghijklmnop'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getUsersRequest } from '../../api/auth'
+import { getUsersRequest, deleteUserRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -402,6 +402,34 @@ function Usuarios() {
       .finally(() => setCargando(false))
   }, [])
 
+  const handleDelete = async (user) => {
+    let reason = null;
+
+    // 1. Si el usuario está ACTIVO, significa que lo queremos SUSPENDER (pedimos motivo)
+    if (user.is_active) {
+      reason = prompt("Por favor, ingresa el motivo de la suspensión:");
+      if (!reason || reason.trim() === "") {
+        alert("El motivo es obligatorio para suspender al usuario.");
+        return;
+      }
+    }
+
+    try {
+      // Mandamos la petición al backend (pasa el id y el reason si lo hay)
+      await deleteUserRequest(user.id, reason);
+
+      // 2. Invertimos el estado de is_active en la lista visual de React
+      setUsuarios(prev =>
+        prev.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u)
+      );
+
+      alert(user.is_active ? 'Usuario suspendido con éxito' : 'Usuario reactivado con éxito');
+    } catch (error) {
+      console.error(error);
+      alert('Error al cambiar el estado del usuario');
+    }
+  };
+
   const usuariosFiltrados = usuarios.filter(u => {
     const matchRol = filtroRol === 'todos' || u.role === filtroRol
     const matchBusq = u.email.toLowerCase().includes(busqueda.toLowerCase())
@@ -454,6 +482,14 @@ function Usuarios() {
               {u.is_active ? 'Activo' : 'Suspendido'}
             </span>
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+            {u.role !== "admin" && (
+              <button 
+                className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
+                onClick={() => handleDelete(u)} // 👈 Le pasamos todo el usuario 'u'
+              >
+                {u.is_active ? 'Eliminar' : 'Activar'}
+              </button>
+            )}
           </div>
         ))}
       </div>
