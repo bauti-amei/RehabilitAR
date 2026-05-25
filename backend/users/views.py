@@ -8,8 +8,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from django.contrib.auth import authenticate
+from django.core.mail import send_mail, EmailMessage
+from django.conf import settings
 
-from .serializers import UserSerializer, RegisterSerializer
+from .serializers import UserSerializer, RegisterSerializer, AdminRegisterSerializer
 from .models import User
 from .services.dni_service import validate_dni
 
@@ -175,4 +177,113 @@ class UserListView(APIView):
             )
         users = User.objects.all().order_by('last_name', 'first_name')
         serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminRegisterView(APIView):
+    """
+    POST /api/auth/admin-register/
+    Crea un usuario de cualquier rol. Solo accesible para administrativos.
+    Envía un mail de bienvenida al nuevo usuario.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role not in (User.Role.ADMIN, User.Role.RECEPTIONIST):
+            return Response(
+                {'detail': 'No tenés permiso para registrar usuarios.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = AdminRegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {'detail': str(first_error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = serializer.save()
+
+        try:
+            send_mail(
+                subject='Bienvenido/a a RehabilitAR',
+                message=(
+                    f'Hola {user.first_name},\n\n'
+                    f'Tu cuenta fue creada exitosamente en RehabilitAR.\n'
+                    f'Podés ingresar con tu correo: {user.email}\n\n'
+                    f'Saludos,\nEquipo RehabilitAR'
+                ),
+                from_email='noreply@rehabilitar.com',
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception:
+            user.delete()
+            return Response(
+                {'detail': 'Error, intente nuevamente'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {'detail': 'Usuario registrado exitosamente.'},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class DeleteUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, user_id):
+        # 1. Validar permisos de Admin
+        if request.user.role != User.Role.ADMIN:
+            return Response({'detail': 'No tenés permiso.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            # 2. 🚨 CLAVE: Buscar al usuario en la base de datos primero
+            user = User.objects.get(id=user_id)
+
+            # 3. Determinar acción según el estado actual
+            if user.is_active:
+                # ACCIÓN: SUSPENDER (Estaba activo, pasa a inactivo)
+                reason = request.data.get('reason')
+                if not reason:
+                    return Response({'detail': 'Debe indicar un motivo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                user.is_active = False
+                user.deleted_reason = reason
+                user.save() # Guardamos en BD
+
+                asunto = "Tu cuenta en RehabilitAR ha sido suspendida"
+                mensaje = f"Hola {user.first_name},\n\nTe informamos que tu cuenta ha sido suspendida.\nMotivo:\n\"{reason}\""
+            else:
+                # ACCIÓN: ACTIVAR (Estaba inactivo, pasa a activo)
+                user.is_active = True
+                user.deleted_reason = None
+                user.save() # Guardamos en BD
+
+                asunto = "Tu cuenta en RehabilitAR ha sido reactivada"
+                mensaje = f"Hola {user.first_name},\n\n¡Buenas noticias! Tu cuenta ha sido reactivada por el administrador. Ya podés volver a ingresar a la plataforma."
+
+            # 4. Enviar el mail de forma segura (Una sola vez, blindado contra ASCII/eñes)
+            try:
+                email = EmailMessage(
+                    subject=asunto,
+                    body=mensaje,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[user.email]
+                )
+                email.encoding = 'utf-8' # Forzamos UTF-8
+                email.send(fail_silently=False)
+                print("📧 ¡Mail enviado/impreso con éxito!")
+            except Exception as mail_error:
+                print(f"⚠️ Error al enviar el mail: {str(mail_error)}")
+
+            # 5. Respuesta exitosa al frontend
+            return Response(
+                {'message': 'Estado del usuario actualizado', 'is_active': user.is_active},
+                status=status.HTTP_200_OK
+            )
+
+        except User.DoesNotExist:
+            return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)

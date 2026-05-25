@@ -18,8 +18,10 @@ export const createSalaRequest = (data) =>
 export const createClaseRequest = (data) =>
   api.post('/clases/', data)
 
-export const getProfesoresPorEspecialidadRequest = (especialidad) =>
-  api.get(`/clases/profesores/?especialidad=${especialidad}`)
+export const getProfesoresPorEspecialidadRequest = (especialidad, { tipo_clase = '', dia = '', fecha = '', horario_inicio = '', horario_fin = '' } = {}) => {
+  const params = new URLSearchParams({ especialidad, tipo_clase, dia, fecha, horario_inicio, horario_fin })
+  return api.get(`/clases/profesores/?${params}`)
+}
 
 export const getMisClasesRequest = () =>
   api.get('/clases/mis-clases/')
@@ -29,6 +31,9 @@ export const getClasesOfertadasRequest = () =>
 
 export const asignarseClaseRequest = (id) =>
   api.post(`/clases/${id}/asignarse/`)
+
+export const desasignarseClaseRequest = (id) =>
+  api.post(`/clases/${id}/desasignarse/`)
 
 export const asignarProfesorRequest = (claseId, profesorId) =>
   api.patch(`/clases/${claseId}/asignar-profesor/`, { profesor_id: profesorId })

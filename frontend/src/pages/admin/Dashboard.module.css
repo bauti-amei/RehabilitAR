@@ -127,6 +127,13 @@
   font-weight: 600;
 }
 
+.filtroSeparador {
+  width: 1px;
+  background: rgba(255,255,255,0.12);
+  margin: 0 0.25rem;
+  align-self: stretch;
+}
+
 /* ── Clases list ─────────────────────────────────────────── */
 .clasesList { display: flex; flex-direction: column; gap: 0.65rem; }
 .noResultados { color: #4a4f78; font-size: 0.88rem; text-align: center; padding: 1rem; margin: 0; }
@@ -335,7 +342,7 @@
   padding: 0.2rem 0.6rem;
   white-space: nowrap;
 }
-.estadoActivo     { color: #4ade80; background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.2); }
+.estadoActivo { color: #4ade80; background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.2); }
 .estadoSuspendido { color: #f87171; background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.2); }
 
 /* ── Botones ─────────────────────────────────────────────── */
@@ -366,7 +373,7 @@
 }
 .btnOutline:hover { background: rgba(124,92,255,0.1); }
 
-.verMasBtn {
+.verMasBtn, .eliminarBtn, .activarBtn {
   flex-shrink: 0;
   padding: 0.3rem 0.75rem;
   border: 1px solid rgba(124,92,255,0.3);
@@ -1016,3 +1023,135 @@
 }
 .calClaseNombre  { font-size: 0.87rem; font-weight: 600; color: white; }
 .calClaseHorario { font-size: 0.78rem; color: #6b70a0; }
+
+/* ── Modal registro: selección de rol ───────────────────── */
+.rolGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.rolCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.4rem 1rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  color: #c8cbdf;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.95rem;
+}
+.rolCard:hover {
+  border-color: rgba(124,92,255,0.45);
+  background: rgba(124,92,255,0.09);
+  color: white;
+  transform: translateY(-2px);
+}
+.rolEmoji  { font-size: 1.8rem; }
+.rolNombre { font-weight: 600; }
+
+/* ── Modal registro: formulario ─────────────────────────── */
+.formReg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.labelReg {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4a4f78;
+}
+.req { color: #f87171; }
+.inputReg {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  color: white;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+}
+.inputReg::placeholder { color: #4a4f78; }
+.inputReg:focus { outline: none; border-color: #7c5cff; box-shadow: 0 0 0 3px rgba(124,92,255,0.15); }
+
+/* ── Especialidades checklist ────────────────────────────── */
+.checkGrid { display: flex; flex-direction: column; gap: 0.4rem; }
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  color: #8b90b0;
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: all 0.15s;
+  text-align: left;
+}
+.checkItem:hover { border-color: rgba(124,92,255,0.3); color: #c8cbdf; }
+.checkItemActive  { border-color: rgba(124,92,255,0.5); background: rgba(124,92,255,0.1); color: #a78bfa; }
+.checkBox {
+  width: 17px; height: 17px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  color: transparent;
+}
+.checkBoxActive { background: #7c5cff; border-color: #7c5cff; color: white; }
+
+/* ── Footer del formulario ───────────────────────────────── */
+.formFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+.btnVolver {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: transparent;
+  color: #7b80a0;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btnVolver:hover { background: rgba(255,255,255,0.06); color: #c8cbdf; }
+.msgError { color: #f87171; font-size: 0.85rem; margin: 0; }
+
+/* ── Pantalla de éxito registro ──────────────────────────── */
+.regExito {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+  text-align: center;
+  color: #c8cbdf;
+}
+.regExitoIcon  { font-size: 2.5rem; }
+.regExitoEmail { font-size: 0.85rem; color: #5c619a; margin: 0; }

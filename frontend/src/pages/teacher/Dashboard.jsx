@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getMisClasesRequest, getClasesOfertadasRequest, asignarseClaseRequest } from '../../api/clases'
+import { getMisClasesRequest, getClasesOfertadasRequest, asignarseClaseRequest, desasignarseClaseRequest } from '../../api/clases'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -288,13 +288,35 @@ function AreaAsistencia({ clases }) {
 /* ══════════════════════════════════════════════════════════
    SECCIÓN: CURSOS QUE DICTA
    ══════════════════════════════════════════════════════════ */
-function MisClases({ clases, cargando }) {
+function MisClases({ clases, cargando, onDesasignado }) {
   const [claseModal, setClaseModal] = useState(null)
   const [userModal,  setUserModal]  = useState(null)
+  const [desasignar, setDesasignar] = useState(null)   // clase a confirmar
+  const [desasError, setDesasError] = useState('')
+  const [desasMsg,   setDesasMsg]   = useState('')
+  const [desasCarg,  setDesasCarg]  = useState(false)
+
+  const confirmarDesasignar = async () => {
+    if (!desasignar) return
+    setDesasCarg(true); setDesasError('')
+    try {
+      const res = await desasignarseClaseRequest(desasignar.id)
+      setDesasMsg(res.data?.detail || 'Te desasignaste de la clase con éxito')
+      setDesasignar(null)
+      onDesasignado && onDesasignado()
+      setTimeout(() => setDesasMsg(''), 3500)
+    } catch (e) {
+      setDesasError(e.response?.data?.detail || 'No se pudo desasignar de la clase.')
+    } finally {
+      setDesasCarg(false)
+    }
+  }
 
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Cursos que dicta</h2>
+
+      {desasMsg && <p className={styles.desasMsgOk}>{desasMsg}</p>}
 
       {cargando ? (
         <p className={styles.noResultados}>Cargando clases...</p>
@@ -315,15 +337,52 @@ function MisClases({ clases, cargando }) {
                 </p>
                 <p className={styles.miClaseCupo}>{c.cantidad_inscriptos}/{c.cupo} inscriptos</p>
               </div>
-              <button
-                className={styles.verInscriptosBtn}
-                onClick={() => { setClaseModal(c); setUserModal(null) }}
-              >
-                Ver usuarios inscriptos
-              </button>
+              <div className={styles.miClaseAcciones}>
+                <button
+                  className={styles.verInscriptosBtn}
+                  onClick={() => { setClaseModal(c); setUserModal(null) }}
+                >
+                  Ver usuarios inscriptos
+                </button>
+                <button
+                  className={styles.desasignarBtn}
+                  onClick={() => { setDesasignar(c); setDesasError('') }}
+                >
+                  Desasignarme
+                </button>
+              </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Modal confirmación desasignar */}
+      {desasignar && (
+        <Modal
+          title="Desasignarme de la clase"
+          onClose={() => { setDesasignar(null); setDesasError('') }}
+        >
+          <p style={{ color: '#c8cbdf', fontSize: '0.92rem', marginBottom: '1rem' }}>
+            ¿Confirmás que querés desasignarte de <strong>{desasignar.nombre}</strong>?
+            La clase quedará disponible para que otro profesor la tome.
+          </p>
+          {desasError && <p className={styles.desasMsgError}>{desasError}</p>}
+          <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+            <button
+              className={styles.btnSecundario}
+              onClick={() => { setDesasignar(null); setDesasError('') }}
+            >
+              Cancelar
+            </button>
+            <button
+              className={styles.btnPeligro}
+              onClick={confirmarDesasignar}
+              disabled={desasCarg}
+            >
+              {desasCarg ? 'Procesando...' : 'Sí, desasignarme'}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* Modal lista de inscriptos */}
@@ -490,7 +549,7 @@ export default function TeacherDashboard() {
       <AreaAsistencia clases={clases} />
 
       {/* Mis clases */}
-      <MisClases clases={clases} cargando={cargando} />
+      <MisClases clases={clases} cargando={cargando} onDesasignado={cargarMisClases} />
 
       {/* Asignarse a una clase ofertada */}
       <AsignarseClase onAsignado={cargarMisClases} />

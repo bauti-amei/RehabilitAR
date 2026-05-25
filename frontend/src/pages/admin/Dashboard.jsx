@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getUsersRequest } from '../../api/auth'
+import { getUsersRequest, adminRegisterRequest, deleteUserRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -23,6 +23,11 @@ const FILTROS_HORARIO = [
   { label: 'Mañana', value: 'manana' },
   { label: 'Tarde',  value: 'tarde' },
   { label: 'Noche',  value: 'noche' },
+]
+
+const FILTROS_TIPO = [
+  { label: '🔁 Fija',       value: 'fija' },
+  { label: '📅 Individual', value: 'individual' },
 ]
 
 const FILTROS_ROL = [
@@ -153,6 +158,7 @@ function AreaClases() {
   const [clases,          setClases]    = useState([])
   const [cargando,        setCargando]  = useState(true)
   const [filtro,          setFiltro]    = useState('todas')
+  const [filtroTipo,      setFiltroTipo] = useState('todos')
   const [listaEsperaModal, setLista]   = useState(null)
   const [userModal,       setUserModal] = useState(null)
   const [crearClase,      setCrear]    = useState(false)
@@ -196,9 +202,11 @@ function AreaClases() {
     }
   }
 
-  const clasesFiltradas = clases.filter(c =>
-    filtro === 'todas' ? true : getHorarioFiltro(c.horario) === filtro
-  )
+  const clasesFiltradas = clases.filter(c => {
+    const matchHorario = filtro === 'todas' || getHorarioFiltro(c.horario) === filtro
+    const matchTipo    = filtroTipo === 'todos' || c.tipo_clase === filtroTipo
+    return matchHorario && matchTipo
+  })
 
   return (
     <section className={styles.section}>
@@ -212,8 +220,21 @@ function AreaClases() {
         {FILTROS_HORARIO.map(f => (
           <button
             key={f.value}
-            className={`${styles.filtroBtn} ${filtro === f.value ? styles.filtroBtnActive : ''}`}
-            onClick={() => setFiltro(f.value)}
+            className={`${styles.filtroBtn} ${filtro === f.value && (f.value !== 'todas' || filtroTipo === 'todos') ? styles.filtroBtnActive : ''}`}
+            onClick={() => {
+              setFiltro(f.value)
+              if (f.value === 'todas') setFiltroTipo('todos')
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+        <div className={styles.filtroSeparador} />
+        {FILTROS_TIPO.map(f => (
+          <button
+            key={f.value}
+            className={`${styles.filtroBtn} ${filtroTipo === f.value ? styles.filtroBtnActive : ''}`}
+            onClick={() => setFiltroTipo(f.value)}
           >
             {f.label}
           </button>
@@ -388,6 +409,25 @@ function Estadisticas() {
 /* ══════════════════════════════════════════════════════════
    SECCIÓN: USUARIOS
    ══════════════════════════════════════════════════════════ */
+const ESPECIALIDADES_OPTS = [
+  { value: 'tren_superior', label: 'Tren Superior' },
+  { value: 'tren_inferior', label: 'Tren Inferior' },
+  { value: 'tren_medio',    label: 'Tren Medio'    },
+]
+
+const ROL_OPCIONES = [
+  { value: 'admin',        label: 'Administrativo', emoji: '🛡️' },
+  { value: 'teacher',      label: 'Profesor',        emoji: '👨‍🏫' },
+  { value: 'receptionist', label: 'Recepcionista',   emoji: '🗂️' },
+  { value: 'client',       label: 'Cliente',          emoji: '👤' },
+]
+
+const FORM_VACIO = {
+  first_name: '', last_name: '', email: '', password: '',
+  birth_date: '', address: '', address_number: '',
+  address_floor: '', address_apt: '', phone: '',
+}
+
 function Usuarios() {
   const [usuarios, setUsuarios]   = useState([])
   const [cargando, setCargando]   = useState(true)
@@ -395,12 +435,83 @@ function Usuarios() {
   const [filtroRol, setFiltroRol] = useState('todos')
   const [userModal, setUserModal] = useState(null)
 
-  useEffect(() => {
+  // ── Modal registro ────────────────────────────────────────
+  const [regModal,    setRegModal]   = useState(false)
+  const [regPaso,     setRegPaso]    = useState(1)
+  const [regRol,      setRegRol]     = useState(null)
+  const [regForm,     setRegForm]    = useState(FORM_VACIO)
+  const [regEsp,      setRegEsp]     = useState([])
+  const [regError,    setRegError]   = useState('')
+  const [regOk,       setRegOk]      = useState(false)
+  const [regCargando, setRegCarg]    = useState(false)
+
+  const cargarUsuarios = () => {
+    setCargando(true)
     getUsersRequest()
       .then(res => setUsuarios(res.data))
       .catch(() => setUsuarios([]))
       .finally(() => setCargando(false))
-  }, [])
+  }
+
+  useEffect(() => { cargarUsuarios() }, [])
+
+  const abrirRegModal = () => {
+    setRegModal(true); setRegPaso(1); setRegRol(null)
+    setRegForm(FORM_VACIO); setRegEsp([])
+    setRegError(''); setRegOk(false)
+  }
+
+  const cambiarForm  = e => setRegForm(p => ({ ...p, [e.target.name]: e.target.value }))
+  const toggleEsp    = val => setRegEsp(p => p.includes(val) ? p.filter(v => v !== val) : [...p, val])
+  const conEsp       = regRol === 'admin' || regRol === 'teacher'
+
+  const handleRegistrar = async () => {
+    const { first_name, last_name, email, password, birth_date, address, address_number, phone } = regForm
+    if (!first_name || !last_name || !email || !password || !birth_date || !address || !address_number || !phone) {
+      setRegError('Completá todos los campos obligatorios.')
+      return
+    }
+    setRegCarg(true); setRegError('')
+    try {
+      await adminRegisterRequest({ ...regForm, role: regRol, especialidades: regEsp.join(',') })
+      setRegOk(true)
+      cargarUsuarios()
+    } catch (e) {
+      setRegError(e.response?.data?.detail || 'Error, intente nuevamente')
+    } finally {
+      setRegCarg(false)
+    }
+  }
+
+  const rolLabel = ROL_OPCIONES.find(r => r.value === regRol)?.label ?? ''
+
+  const handleDelete = async (user) => {
+    let reason = null;
+
+    // 1. Si el usuario está ACTIVO, significa que lo queremos SUSPENDER (pedimos motivo)
+    if (user.is_active) {
+      reason = prompt("Por favor, ingresa el motivo de la suspensión:");
+      if (!reason || reason.trim() === "") {
+        alert("El motivo es obligatorio para suspender al usuario.");
+        return;
+      }
+    }
+
+    try {
+      // Mandamos la petición al backend (pasa el id y el reason si lo hay)
+      await deleteUserRequest(user.id, reason);
+
+      // 2. Invertimos el estado de is_active en la lista visual de React
+      setUsuarios(prev =>
+        prev.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u)
+      );
+
+      alert(user.is_active ? 'Usuario suspendido con éxito' : 'Usuario reactivado con éxito');
+    } catch (error) {
+      console.error(error);
+      alert('Error al cambiar el estado del usuario');
+    }
+  };
 
   const usuariosFiltrados = usuarios.filter(u => {
     const matchRol = filtroRol === 'todos' || u.role === filtroRol
@@ -454,12 +565,20 @@ function Usuarios() {
               {u.is_active ? 'Activo' : 'Suspendido'}
             </span>
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+            {u.role !== "admin" && (
+              <button 
+                className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
+                onClick={() => handleDelete(u)} // 👈 Le pasamos todo el usuario 'u'
+              >
+                {u.is_active ? 'Eliminar' : 'Activar'}
+              </button>
+            )}
           </div>
         ))}
       </div>
 
-      <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
-        + Crear nuevo usuario
+      <button className={styles.btnOutline} style={{ marginTop: '1rem' }} onClick={abrirRegModal}>
+        + Registrar nuevo usuario como administrativo
       </button>
 
       {/* Modal detalle usuario */}
@@ -475,6 +594,367 @@ function Usuarios() {
               {userModal.is_active ? 'Activo' : 'Suspendido'}
             </span>
           </div>
+        </Modal>
+      )}
+
+      {/* ── Modal registro ── */}
+      {regModal && (
+        <Modal
+          title={regPaso === 1 ? 'Seleccioná el tipo de usuario' : `Nuevo ${rolLabel}`}
+          onClose={() => setRegModal(false)}
+          wide
+        >
+          {regOk ? (
+            <div className={styles.regExito}>
+              <span className={styles.regExitoIcon}>✅</span>
+              <p>Usuario registrado correctamente.</p>
+              <p className={styles.regExitoEmail}>Se envió un correo a <strong>{regForm.email}</strong></p>
+              <button className={styles.btnPrimary} onClick={() => setRegModal(false)}>Cerrar</button>
+            </div>
+
+          ) : regPaso === 1 ? (
+            <div className={styles.rolGrid}>
+              {ROL_OPCIONES.map(r => (
+                <button
+                  key={r.value}
+                  className={styles.rolCard}
+                  onClick={() => { setRegRol(r.value); setRegPaso(2) }}
+                >
+                  <span className={styles.rolEmoji}>{r.emoji}</span>
+                  <span className={styles.rolNombre}>{r.label}</span>
+                </button>
+              ))}
+            </div>
+
+          ) : (
+            <div className={styles.formReg}>
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Nombre <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="first_name" placeholder="Juan"
+                    value={regForm.first_name} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Apellido <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="last_name" placeholder="Pérez"
+                    value={regForm.last_name} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.labelReg}>Correo electrónico <span className={styles.req}>*</span></label>
+                <input className={styles.inputReg} type="email" name="email" placeholder="juan@email.com"
+                  value={regForm.email} onChange={cambiarForm} />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.labelReg}>Contraseña <span className={styles.req}>*</span></label>
+                <input className={styles.inputReg} type="password" name="password"
+                  placeholder="Mín. 8 caracteres, 1 letra y 1 número"
+                  value={regForm.password} onChange={cambiarForm} />
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Fecha de nacimiento <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} type="date" name="birth_date"
+                    value={regForm.birth_date} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Celular <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="phone" placeholder="1123456789"
+                    value={regForm.phone} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Calle <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="address" placeholder="Av. Corrientes"
+                    value={regForm.address} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Número <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="address_number" placeholder="1234"
+                    value={regForm.address_number} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Piso</label>
+                  <input className={styles.inputReg} name="address_floor" placeholder="3"
+                    value={regForm.address_floor} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Depto</label>
+                  <input className={styles.inputReg} name="address_apt" placeholder="A"
+                    value={regForm.address_apt} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              {conEsp && (
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Especialidades</label>
+                  <div className={styles.checkGrid}>
+                    {ESPECIALIDADES_OPTS.map(e => {
+                      const activo = regEsp.includes(e.value)
+                      return (
+                        <button key={e.value} type="button"
+                          className={`${styles.checkItem} ${activo ? styles.checkItemActive : ''}`}
+                          onClick={() => toggleEsp(e.value)}
+                        >
+                          <span className={`${styles.checkBox} ${activo ? styles.checkBoxActive : ''}`}>
+                            {activo && '✓'}
+                          </span>
+                          {e.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {regError && <p className={styles.msgError}>{regError}</p>}
+
+              <div className={styles.formFooter}>
+                <button className={styles.btnVolver}
+                  onClick={() => { setRegPaso(1); setRegError('') }}>
+                  ← Volver
+                </button>
+                <button className={styles.btnPrimary}
+                  onClick={handleRegistrar} disabled={regCargando}>
+                  {regCargando ? 'Registrando...' : 'Crear usuario'}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+    </section>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   HELPERS CALENDARIO SALAS
+   ══════════════════════════════════════════════════════════ */
+const MESES_CAL  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const DIAS_CAL   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+const DIAS_MAP   = { 'dom':0,'domingo':0,'lun':1,'lunes':1,'mar':2,'martes':2,'mié':3,'mie':3,'miércoles':3,'miercoles':3,'jue':4,'jueves':4,'vie':5,'viernes':5,'sáb':6,'sab':6,'sábado':6,'sabado':6 }
+
+function parseDiasSala(diasStr) {
+  const set = new Set()
+  ;(diasStr || '').split(/[/,]+/).forEach(p => {
+    const key = p.trim().toLowerCase()
+    const num = DIAS_MAP[key] ?? DIAS_MAP[key.normalize('NFD').replace(/[̀-ͯ]/g, '')]
+    if (num !== undefined) set.add(num)
+  })
+  return set
+}
+
+function toDs(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+}
+
+/* ── Calendario de una sala ─────────────────────────────── */
+function CalendarioSala({ sala }) {
+  const hoy      = new Date()
+  const [month, setMonth] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
+  const [diaSelec, setDia] = useState(null)
+
+  const year = month.getFullYear()
+  const mes  = month.getMonth()
+  const todayStr = toDs(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+
+  const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
+
+  function clasesDelDia(dia) {
+    const dow = new Date(year, mes, dia).getDay()
+    return clasesConDias.filter(c => c.diasSet.has(dow))
+  }
+
+  const primerDia = new Date(year, mes, 1).getDay()
+  const diasEnMes = new Date(year, mes + 1, 0).getDate()
+  const celdas    = [...Array(primerDia).fill(null), ...Array.from({ length: diasEnMes }, (_, i) => i + 1)]
+
+  const clasesSelec = diaSelec ? clasesDelDia(parseInt(diaSelec.split('-')[2])) : []
+
+  return (
+    <div className={styles.calSala}>
+      <div className={styles.calSalaNav}>
+        <button className={styles.calNavBtn} onClick={() => setMonth(new Date(year, mes-1, 1))}>‹</button>
+        <span className={styles.calSalaMes}>{MESES_CAL[mes]} {year}</span>
+        <button className={styles.calNavBtn} onClick={() => setMonth(new Date(year, mes+1, 1))}>›</button>
+      </div>
+
+      <div className={styles.calSalaGrid}>
+        {DIAS_CAL.map(d => <div key={d} className={styles.calSalaDayName}>{d}</div>)}
+        {celdas.map((dia, i) => {
+          if (!dia) return <div key={`e-${i}`} />
+          const ds         = toDs(year, mes, dia)
+          const clasesHoy  = clasesDelDia(dia)
+          const tieneClass = clasesHoy.length > 0
+          const esHoy      = ds === todayStr
+          return (
+            <button
+              key={ds}
+              className={[
+                styles.calSalaCell,
+                tieneClass ? styles.calCellClase : '',
+                esHoy      ? styles.calCellHoy   : '',
+                diaSelec === ds ? styles.calCellSelected : '',
+              ].join(' ')}
+              onClick={() => tieneClass && setDia(diaSelec === ds ? null : ds)}
+            >
+              {dia}
+              {tieneClass && <span className={styles.calDot} />}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Panel clases del día seleccionado */}
+      {diaSelec && clasesSelec.length > 0 && (
+        <div className={styles.calDiaPanel}>
+          <p className={styles.calDiaTitulo}>
+            {new Date(year, mes, parseInt(diaSelec.split('-')[2]))
+              .toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' })}
+          </p>
+          {clasesSelec.map(c => (
+            <div key={c.id} className={styles.calClaseItem}>
+              <span className={styles.calClaseNombre}>{c.nombre}</span>
+              <span className={styles.calClaseHorario}>{c.horario}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECCIÓN: SALAS
+   ══════════════════════════════════════════════════════════ */
+function AreaSalas() {
+  const [salas,    setSalas]    = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [crearModal, setCrear]  = useState(false)
+  const [calModal,   setCal]    = useState(null)   // sala seleccionada para ver calendario
+  const [form,     setForm]     = useState({ nombre: '', capacidad: '' })
+  const [error,    setError]    = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const cargarSalas = () => {
+    getSalasRequest()
+      .then(res => setSalas(res.data))
+      .catch(() => setSalas([]))
+      .finally(() => setCargando(false))
+  }
+
+  useEffect(() => { cargarSalas() }, [])
+
+  const handleCrear = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!form.nombre.trim() || !form.capacidad) { setError('Completá todos los campos.'); return }
+    setGuardando(true)
+    try {
+      await createSalaRequest({ nombre: form.nombre.trim(), capacidad: parseInt(form.capacidad) })
+      setCrear(false)
+      setForm({ nombre: '', capacidad: '' })
+      cargarSalas()
+    } catch (err) {
+      setError(err.response?.data?.detail ?? 'Error al crear la sala.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <h2 className={styles.sectionTitle}>Salas</h2>
+        <button className={styles.btnPrimary} onClick={() => { setCrear(true); setError('') }}>
+          + Crear sala
+        </button>
+      </div>
+
+      {cargando ? (
+        <p className={styles.noResultados}>Cargando salas...</p>
+      ) : salas.length === 0 ? (
+        <div className={styles.emptyState}>
+          <span className={styles.emptyIcon}>🏛️</span>
+          <p>No hay salas registradas aún</p>
+        </div>
+      ) : (
+        <div className={styles.salasList}>
+          {salas.map(s => (
+            <div key={s.id} className={styles.salaRow}>
+              <div className={styles.salaInfo}>
+                <p className={styles.salaNombre}>{s.nombre}</p>
+                <p className={styles.salaMeta}>Capacidad: {s.capacidad} personas</p>
+              </div>
+              <div className={styles.salaStats}>
+                <span className={styles.salaClasesBadge}>
+                  {s.total_clases} {s.total_clases === 1 ? 'clase' : 'clases'}
+                </span>
+              </div>
+              <button className={styles.verCalBtn} onClick={() => setCal(s)}>
+                📅 Ver calendario
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal crear sala */}
+      {crearModal && (
+        <Modal title="Nueva sala" onClose={() => setCrear(false)}>
+          <form onSubmit={handleCrear} className={styles.crearSalaForm}>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>Nombre de la sala</label>
+              <input
+                className={styles.formInput}
+                type="text"
+                placeholder="Ej: Sala A, Sala Principal..."
+                value={form.nombre}
+                onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+              />
+            </div>
+            <div className={styles.formField}>
+              <label className={styles.formLabel}>Capacidad máxima</label>
+              <input
+                className={styles.formInput}
+                type="number"
+                min="1"
+                placeholder="Ej: 15"
+                value={form.capacidad}
+                onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
+              />
+            </div>
+            {error && <p className={styles.formError}>{error}</p>}
+            <button type="submit" className={styles.btnPrimary} disabled={guardando}>
+              {guardando ? 'Guardando...' : 'Crear sala'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal calendario de sala */}
+      {calModal && (
+        <Modal
+          title={`Reservas — ${calModal.nombre}`}
+          onClose={() => setCal(null)}
+          wide
+        >
+          {calModal.total_clases === 0 ? (
+            <div className={styles.emptyState} style={{ padding: '1.5rem 0' }}>
+              <span className={styles.emptyIcon}>📅</span>
+              <p>Esta sala no tiene clases asignadas aún</p>
+            </div>
+          ) : (
+            <CalendarioSala sala={calModal} />
+          )}
         </Modal>
       )}
     </section>
