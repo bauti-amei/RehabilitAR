@@ -8,7 +8,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from django.contrib.auth import authenticate
-
 from django.core.mail import send_mail
 
 from .serializers import UserSerializer, RegisterSerializer, AdminRegisterSerializer
@@ -162,6 +161,24 @@ class RegisterView(APIView):
         )
 
 
+class UserListView(APIView):
+    """
+    GET /api/auth/users/
+    Devuelve la lista de todos los usuarios. Solo accesible para admins.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role not in (User.Role.ADMIN, User.Role.RECEPTIONIST):
+            return Response(
+                {'detail': 'No tenés permiso para ver esta información.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        users = User.objects.all().order_by('last_name', 'first_name')
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
+
+
 class AdminRegisterView(APIView):
     """
     POST /api/auth/admin-register/
@@ -211,21 +228,3 @@ class AdminRegisterView(APIView):
             {'detail': 'Usuario registrado exitosamente.'},
             status=status.HTTP_201_CREATED,
         )
-
-
-class UserListView(APIView):
-    """
-    GET /api/auth/users/
-    Devuelve la lista de todos los usuarios. Solo accesible para admins.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        if request.user.role not in (User.Role.ADMIN, User.Role.RECEPTIONIST):
-            return Response(
-                {'detail': 'No tenés permiso para ver esta información.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        users = User.objects.all().order_by('last_name', 'first_name')
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)

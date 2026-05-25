@@ -39,7 +39,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     address_apt    = models.CharField(max_length=20, blank=True)
     role           = models.CharField(max_length=20, choices=Role.choices, default=Role.CLIENT)
 
-    # ── Especialidades (solo para profesores y administrativos) ─
+    # ── Especialidades (solo para profesores) ─────────
     # Valores separados por coma: "tren_superior,tren_inferior,tren_medio"
     especialidades = models.CharField(max_length=200, blank=True, default='')
 

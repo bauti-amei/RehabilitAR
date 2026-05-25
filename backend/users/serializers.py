@@ -4,8 +4,6 @@ from rest_framework import serializers
 
 from .models import User
 
-ESPECIALIDADES_VALIDAS = {'tren_superior', 'tren_inferior', 'tren_medio'}
-
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -58,6 +56,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             role=User.Role.CLIENT,
             **validated_data,
         )
+
+
+ESPECIALIDADES_VALIDAS = {'tren_superior', 'tren_inferior', 'tren_medio'}
 
 
 class AdminRegisterSerializer(serializers.ModelSerializer):
