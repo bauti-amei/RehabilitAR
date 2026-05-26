@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-<<<<<<< HEAD
 import { getUsersRequest, deleteUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
-=======
-import { getUsersRequest, adminRegisterRequest, deleteUserRequest } from '../../api/auth'
->>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -624,11 +620,8 @@ function Usuarios() {
   const [busqueda, setBusqueda]   = useState('')
   const [filtroRol, setFiltroRol] = useState('todos')
   const [userModal, setUserModal] = useState(null)
-<<<<<<< HEAD
   const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
   
-  useEffect(() => {
-=======
 
   // ── Modal registro ────────────────────────────────────────
   const [regModal,    setRegModal]   = useState(false)
@@ -642,7 +635,6 @@ function Usuarios() {
 
   const cargarUsuarios = () => {
     setCargando(true)
->>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
     getUsersRequest()
       .then(res => setUsuarios(res.data))
       .catch(() => setUsuarios([]))
@@ -829,13 +821,10 @@ function Usuarios() {
         ))}
       </div>
 
-<<<<<<< HEAD
-=======
       <button className={styles.btnOutline} style={{ marginTop: '1rem' }} onClick={abrirRegModal}>
         + Registrar nuevo usuario como administrativo
       </button>
 
->>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
       {/* Modal detalle usuario */}
       {userModal && (
         <Modal title={`${userModal.first_name} ${userModal.last_name}`} onClose={() => setUserModal(null)}>
@@ -852,7 +841,6 @@ function Usuarios() {
         </Modal>
       )}
 
-<<<<<<< HEAD
       <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
         + Crear nuevo usuario
       </button>
@@ -907,142 +895,6 @@ function Usuarios() {
         </div>
       )}
 
-=======
-      {/* ── Modal registro ── */}
-      {regModal && (
-        <Modal
-          title={regPaso === 1 ? 'Seleccioná el tipo de usuario' : `Nuevo ${rolLabel}`}
-          onClose={() => setRegModal(false)}
-          wide
-        >
-          {regOk ? (
-            <div className={styles.regExito}>
-              <span className={styles.regExitoIcon}>✅</span>
-              <p>Usuario registrado correctamente.</p>
-              <p className={styles.regExitoEmail}>Se envió un correo a <strong>{regForm.email}</strong></p>
-              <button className={styles.btnPrimary} onClick={() => setRegModal(false)}>Cerrar</button>
-            </div>
-
-          ) : regPaso === 1 ? (
-            <div className={styles.rolGrid}>
-              {ROL_OPCIONES.map(r => (
-                <button
-                  key={r.value}
-                  className={styles.rolCard}
-                  onClick={() => { setRegRol(r.value); setRegPaso(2) }}
-                >
-                  <span className={styles.rolEmoji}>{r.emoji}</span>
-                  <span className={styles.rolNombre}>{r.label}</span>
-                </button>
-              ))}
-            </div>
-
-          ) : (
-            <div className={styles.formReg}>
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Nombre <span className={styles.req}>*</span></label>
-                  <input className={styles.inputReg} name="first_name" placeholder="Juan"
-                    value={regForm.first_name} onChange={cambiarForm} />
-                </div>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Apellido <span className={styles.req}>*</span></label>
-                  <input className={styles.inputReg} name="last_name" placeholder="Pérez"
-                    value={regForm.last_name} onChange={cambiarForm} />
-                </div>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.labelReg}>Correo electrónico <span className={styles.req}>*</span></label>
-                <input className={styles.inputReg} type="email" name="email" placeholder="juan@email.com"
-                  value={regForm.email} onChange={cambiarForm} />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.labelReg}>Contraseña <span className={styles.req}>*</span></label>
-                <input className={styles.inputReg} type="password" name="password"
-                  placeholder="Mín. 8 caracteres, 1 letra y 1 número"
-                  value={regForm.password} onChange={cambiarForm} />
-              </div>
-
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Fecha de nacimiento <span className={styles.req}>*</span></label>
-                  <input className={styles.inputReg} type="date" name="birth_date"
-                    value={regForm.birth_date} onChange={cambiarForm} />
-                </div>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Celular <span className={styles.req}>*</span></label>
-                  <input className={styles.inputReg} name="phone" placeholder="1123456789"
-                    value={regForm.phone} onChange={cambiarForm} />
-                </div>
-              </div>
-
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Calle <span className={styles.req}>*</span></label>
-                  <input className={styles.inputReg} name="address" placeholder="Av. Corrientes"
-                    value={regForm.address} onChange={cambiarForm} />
-                </div>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Número <span className={styles.req}>*</span></label>
-                  <input className={styles.inputReg} name="address_number" placeholder="1234"
-                    value={regForm.address_number} onChange={cambiarForm} />
-                </div>
-              </div>
-
-              <div className={styles.formRow}>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Piso</label>
-                  <input className={styles.inputReg} name="address_floor" placeholder="3"
-                    value={regForm.address_floor} onChange={cambiarForm} />
-                </div>
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Depto</label>
-                  <input className={styles.inputReg} name="address_apt" placeholder="A"
-                    value={regForm.address_apt} onChange={cambiarForm} />
-                </div>
-              </div>
-
-              {conEsp && (
-                <div className={styles.formGroup}>
-                  <label className={styles.labelReg}>Especialidades</label>
-                  <div className={styles.checkGrid}>
-                    {ESPECIALIDADES_OPTS.map(e => {
-                      const activo = regEsp.includes(e.value)
-                      return (
-                        <button key={e.value} type="button"
-                          className={`${styles.checkItem} ${activo ? styles.checkItemActive : ''}`}
-                          onClick={() => toggleEsp(e.value)}
-                        >
-                          <span className={`${styles.checkBox} ${activo ? styles.checkBoxActive : ''}`}>
-                            {activo && '✓'}
-                          </span>
-                          {e.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {regError && <p className={styles.msgError}>{regError}</p>}
-
-              <div className={styles.formFooter}>
-                <button className={styles.btnVolver}
-                  onClick={() => { setRegPaso(1); setRegError('') }}>
-                  ← Volver
-                </button>
-                <button className={styles.btnPrimary}
-                  onClick={handleRegistrar} disabled={regCargando}>
-                  {regCargando ? 'Registrando...' : 'Crear usuario'}
-                </button>
-              </div>
-            </div>
-          )}
-        </Modal>
-      )}
->>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
     </section>
   );
 }

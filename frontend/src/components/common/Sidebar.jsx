@@ -56,9 +56,6 @@ export default function Sidebar() {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
 
   const handleLogout = () => {
-    setMostrarConfirmacion(true)
-  }
-  const confirmarLogout = () => {
     logout()
     navigate('/login')
   }

@@ -90,6 +90,11 @@ export default function AdminLayout() {
     { label: 'Recepcionista', value: 'receptionist', emoji: '🗂️', current: false },
   ]
 
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+  
   return (
     <div className={styles.wrapper}>
 
