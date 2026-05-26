@@ -90,6 +90,25 @@ export default function AdminLayout() {
     { label: 'Recepcionista', value: 'receptionist', emoji: '🗂️', current: false },
   ]
 
+  if (user && !user.is_active) {
+    return (
+      <div style={{ minHeight:'100vh', background:'radial-gradient(circle at top left, #1d2140, #090b16 60%)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ background:'#13172e', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'20px', padding:'2.5rem 2.8rem', maxWidth:'420px', width:'90%', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
+          <p style={{ fontSize:'2.5rem', marginBottom:'1rem' }}>🔒</p>
+          <h2 style={{ color:'white', fontSize:'1.4rem', fontWeight:700, marginBottom:'0.8rem' }}>Cuenta suspendida</h2>
+          <p style={{ color:'#b0b3c7', fontSize:'0.95rem', lineHeight:1.6, marginBottom:'2rem' }}>
+            Tu cuenta ha sido suspendida. No podés acceder al sitio por el momento.<br />
+            Comunicate con el administrador para más información.
+          </p>
+          <button onClick={ejecutarLogoutDefinitivo}
+            style={{ width:'100%', padding:'0.75rem', borderRadius:'12px', border:'none', background:'#ef4444', color:'white', fontWeight:700, fontSize:'1rem', cursor:'pointer' }}>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.wrapper}>
 

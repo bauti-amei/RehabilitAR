@@ -43,18 +43,18 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        user = authenticate(request, username=email, password=password)
-
-        if user is None:
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
             return Response(
                 {'detail': 'Credenciales incorrectas.'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        if not user.is_active:
+        if not user.check_password(password):
             return Response(
-                {'detail': 'Tu cuenta está suspendida. Contactá al administrador.'},
-                status=status.HTTP_403_FORBIDDEN
+                {'detail': 'Credenciales incorrectas.'},
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
         tokens = get_tokens_for_user(user)
@@ -251,7 +251,13 @@ class DeleteUserView(APIView):
                 user.save() # Guardamos en BD
 
                 asunto = "Tu cuenta en RehabilitAR ha sido suspendida"
-                mensaje = f"Hola {user.first_name},\n\nTe informamos que tu cuenta ha sido suspendida.\nMotivo:\n\"{reason}\""
+                mensaje = (
+                    f"Hola {user.first_name},\n\n"
+                    f"Tu cuenta en RehabilitAR ha sido suspendida.\n\n"
+                    f"Motivo: {reason}\n\n"
+                    f"Si creés que se trata de un error, comunicate con el administrador del centro.\n\n"
+                    f"Saludos,\nEquipo RehabilitAR"
+                )
             else:
                 # ACCIÓN: ACTIVAR (Estaba inactivo, pasa a activo)
                 user.is_active = True

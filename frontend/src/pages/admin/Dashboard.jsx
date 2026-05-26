@@ -721,7 +721,7 @@ function Usuarios() {
   const ejecutarBorradoFisicoReal = async () => {
     if (!usuarioAEliminar) return
     try {
-      await deleteUserRequest(usuarioAEliminar.id, 'HARD_DELETE')
+      await hardDeleteUserRequest(usuarioAEliminar.id)
       setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id))
       setFeedbackModal({ texto: 'Usuario eliminado por completo de la base de datos.', tipo: 'exito' })
     } catch {
