@@ -71,10 +71,6 @@ export default function AdminLayout() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const ejecutarLogoutDefinitivo = () => {
-    logout()
-    navigate('/login')
-  }
   const openModal = (name) => { setModal(name); setUserMenu(false) }
   const pedirLogout = () => { setUserMenu(false); setModal('logout') }
 
@@ -90,7 +86,7 @@ export default function AdminLayout() {
     { label: 'Recepcionista', value: 'receptionist', emoji: '🗂️', current: false },
   ]
 
-  const handleLogout = () => {
+  const ejecutarLogoutDefinitivo = () => {
     logout()
     navigate('/login')
   }
