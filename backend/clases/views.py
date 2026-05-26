@@ -232,3 +232,20 @@ class SalaListCreateView(APIView):
             return Response({'detail': str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
         sala = serializer.save()
         return Response(SalaSerializer(sala).data, status=status.HTTP_201_CREATED)
+
+class HardDeleteUserView(APIView):
+    """
+    DELETE /api/clases/users/<int:pk>/hard-delete/
+    Borra físicamente a un usuario de la base de datos (Admin).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        if request.user.role != User.Role.ADMIN:
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+        try:
+            usuario = User.objects.get(pk=pk)
+            usuario.delete()  # 🟢 ¡ACÁ SÍ! Borrado físico real de la base de datos
+            return Response({'detail': 'Usuario eliminado definitivamente.'}, status=status.HTTP_204_NO_CONTENT)
+        except User.DoesNotExist:
+            return Response({'detail': 'Usuario no encontrado.'}, status=404)

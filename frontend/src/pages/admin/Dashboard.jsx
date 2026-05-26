@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getUsersRequest, deleteUserRequest } from '../../api/auth'
+import { getUsersRequest, deleteUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -71,22 +71,208 @@ function Modal({ title, onClose, children, wide }) {
    SECCIÓN: TAREAS IMPORTANTES
    ══════════════════════════════════════════════════════════ */
 function TareasImportantes() {
+  const [aptos, setAptos] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
+  const [aptoIdARechazar, setAptoIdARechazar] = useState(null);
+  const [motivoTexto, setMotivoTexto] = useState('');
+  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
+
+  useEffect(() => {
+    cargarAptos()
+  }, [])
+
+  const mostrarNotificacion = (texto, tipo = 'exito') => {
+    setAlerta({ mostrar: true, texto, tipo });
+    
+    // A los 3 segundos exactos se oculta solo
+    setTimeout(() => {
+      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
+    }, 3000);
+  };
+
+  const cargarAptos = async () => {
+    try {
+      const res = await getAptosPendientesRequest()
+      setAptos(res.data)
+    } catch (error) {
+      console.error("Error al cargar aptos pendientes:", error)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  // 2. Función para mandar la Aprobación
+  const handleAprobar = async (id) => {
+    try {
+      await validarAptoFisicoRequest(id, 'APROBAR')
+      mostrarNotificacion('Apto físico aprobado con éxito.', 'exito');
+      setAptos(prev => prev.filter(a => a.id !== id)) // Lo saca de la lista visual
+    } catch (error) {
+      console.error(error)
+      mostrarNotificacion('Error al intentar aprobar el apto.', 'error');
+    }
+  }
+
+   const handleRechazar = (id) => {
+    setAptoIdARechazar(id);
+    setMotivoTexto('');             // Limpiamos el texto que haya quedado de antes
+    setMostrarModalRechazo(true);   // Prende el cartel flotante en pantalla
+  };
+
+  const confirmarRechazoModerno = async (e) => {
+    e.preventDefault();
+    
+    if (!motivoTexto.trim()) return;
+
+    try {
+      // Le mandamos a Django el ID recordado y el texto de la caja de texto
+      await validarAptoFisicoRequest(aptoIdARechazar, 'RECHAZAR', motivoTexto);
+      mostrarNotificacion('Apto físico rechazado con éxito.', 'exito');
+      
+      // Lo sacamos de la lista de tareas pendientes
+      setAptos(prev => prev.filter(a => a.id !== aptoIdARechazar));
+      setMostrarModalRechazo(false); // Cerramos el modal
+    } catch (error) {
+      console.error(error);
+      mostrarNotificacion('Error al intentar rechazar el apto.', 'error');
+    }
+  };
+
   return (
-    <div className={styles.card}>
+    <div className={styles.card} style={{ position: 'relative' }}>
+       {alerta.mostrar && (
+        <div style={{
+          position: 'fixed',                  
+          top: '25px',                        
+          left: '50%',                        
+          transform: 'translateX(-50%)',      
+          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
+          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+          padding: '0.85rem 1.75rem', 
+          borderRadius: '8px', 
+          fontSize: '0.95rem',
+          fontWeight: '500', 
+          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          backdropFilter: 'blur(6px)'
+        }}>
+          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
+          {alerta.texto}
+        </div>
+      )}
       <h2 className={styles.cardTitle}>Tareas importantes</h2>
-      {TAREAS.length === 0 ? (
+      {cargando ? (
+        <div className={styles.emptyState}>
+          <p>Cargando aptos pendientes...</p>
+        </div>
+      ) : aptos.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon}>✅</span>
-          <p>Estás al día con todas tus tareas</p>
+          <p>Estás al día con todas tus tareas. No hay aptos pendientes.</p>
         </div>
       ) : (
         <div className={styles.tareasList}>
-          {TAREAS.map((t, i) => (
-            <div key={i} className={styles.tareaItem}>
-              <span className={styles.tareaTexto}>{t.texto}</span>
-              <button className={styles.verMasBtn}>Ver más</button>
+          {aptos.map((apto) => (
+            <div key={apto.id} className={styles.tareaItem} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className={styles.tareaTexto}>
+                  📄 Apto pendiente: <strong>{apto.usuario_email}</strong>
+                </span>
+                {/* Botón para abrir el PDF o la imagen del apto en una pestaña nueva */}
+                <a 
+                  href={`http://localhost:8000/media/aptos_medicos/${apto.documento_url.split('/').pop()}`}
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={styles.verMasBtn}
+                >
+                  Ver PDF
+                </a>
+              </div>
+              
+              {/* Botones de acción rápida para el Admin */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button 
+                  onClick={() => handleAprobar(apto.id)}
+                  style={{ background: '#22c55e', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Aprobar
+                </button>
+                <button 
+                  onClick={() => handleRechazar(apto.id)}
+                  style={{ background: '#ef4444', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Rechazar
+                </button>
+              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {mostrarModalRechazo && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setMostrarModalRechazo(false)}>
+          
+          <div style={{
+            backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
+            padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '450px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+          }} onClick={e => e.stopPropagation()}>
+            
+            <h3 style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '1.25rem' }}>
+              Rechazar Apto Físico
+            </h3>
+            
+            <form onSubmit={confirmarRechazoModerno}>
+              <label style={{ color: '#868e96', display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                Escribí el motivo detallado para el paciente:
+              </label>
+              
+              <textarea
+                value={motivoTexto}
+                onChange={(e) => setMotivoTexto(e.target.value)}
+                placeholder="Ej: El documento está borroso o la fecha de emisión expiró..."
+                required
+                style={{
+                  width: '100%', height: '100px', backgroundColor: '#151521',
+                  color: 'white', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px', padding: '0.5rem', fontSize: '0.95rem',
+                  resize: 'none', marginBottom: '1.5rem', outline: 'none'
+                }}
+              />
+              
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button"
+                  onClick={() => setMostrarModalRechazo(false)}
+                  style={{
+                    background: 'transparent', color: '#868e96', border: 'none',
+                    padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '600'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  style={{
+                    background: '#ef4444', color: 'white', border: 'none',
+                    padding: '0.5rem 1.2rem', borderRadius: '6px', cursor: 'pointer',
+                    fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  }}
+                >
+                  Confirmar Rechazo
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
@@ -394,7 +580,8 @@ function Usuarios() {
   const [busqueda, setBusqueda]   = useState('')
   const [filtroRol, setFiltroRol] = useState('todos')
   const [userModal, setUserModal] = useState(null)
-
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
+  
   useEffect(() => {
     getUsersRequest()
       .then(res => setUsuarios(res.data))
@@ -402,31 +589,58 @@ function Usuarios() {
       .finally(() => setCargando(false))
   }, [])
 
-  const handleDelete = async (user) => {
-    let reason = null;
-
-    // 1. Si el usuario está ACTIVO, significa que lo queremos SUSPENDER (pedimos motivo)
-    if (user.is_active) {
-      reason = prompt("Por favor, ingresa el motivo de la suspensión:");
-      if (!reason || reason.trim() === "") {
-        alert("El motivo es obligatorio para suspender al usuario.");
-        return;
-      }
+  const handleSuspender = async (user) => {
+    const reason = prompt(`Por favor, ingresa el motivo de la suspensión para ${user.first_name} ${user.last_name}:`);
+    if (!reason || reason.trim() === "") {
+      alert("El motivo es obligatorio para suspender al usuario.");
+      return;
     }
 
     try {
-      // Mandamos la petición al backend (pasa el id y el reason si lo hay)
       await deleteUserRequest(user.id, reason);
-
-      // 2. Invertimos el estado de is_active en la lista visual de React
       setUsuarios(prev =>
-        prev.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u)
+        prev.map(u => u.id === user.id ? { ...u, is_active: false } : u)
       );
-
-      alert(user.is_active ? 'Usuario suspendido con éxito' : 'Usuario reactivado con éxito');
+      alert('Usuario suspendido con éxito.');
     } catch (error) {
       console.error(error);
       alert('Error al cambiar el estado del usuario');
+    }
+  };
+
+  // ▶️ ACCIÓN: REACTIVAR (Volver a activar cuenta)
+  const handleReactivar = async (user) => {
+    try {
+      await deleteUserRequest(user.id, null);
+      setUsuarios(prev =>
+        prev.map(u => u.id === user.id ? { ...u, is_active: true } : u)
+      );
+      alert('Usuario reactivado con éxito.');
+    } catch (error) {
+      console.error(error);
+      alert('Error al cambiar el estado del usuario');
+    }
+  };
+
+  // 🗑️ ACCIÓN: ABRIR EL CARTEL DE ELIMINAR DEFINITIVO
+  const handleEliminarDefinitivo = (user) => {
+    setUsuarioAEliminar(user);
+  };
+
+ // 🔥 ACCIÓN REAL: BORRADO FÍSICO DE LA BASE DE DATOS (Manda HARD_DELETE a Django)
+  const ejecutarBorradoFisicoReal = async () => {
+    if (!usuarioAEliminar) return;
+
+    try {
+      await deleteUserRequest(usuarioAEliminar.id, "HARD_DELETE");
+
+      setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id));
+      alert('Usuario eliminado por completo de la base de datos.');
+    } catch (error) {
+      console.error(error);
+      alert('Error al intentar eliminar definitivamente al usuario.');
+    } finally {
+      setUsuarioAEliminar(null); // Cerramos el cartel flotante
     }
   };
 
@@ -482,21 +696,35 @@ function Usuarios() {
               {u.is_active ? 'Activo' : 'Suspendido'}
             </span>
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
-            {u.role !== "admin" && (
-              <button 
-                className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
-                onClick={() => handleDelete(u)} // 👈 Le pasamos todo el usuario 'u'
-              >
-                {u.is_active ? 'Eliminar' : 'Activar'}
-              </button>
+             {u.role !== "admin" && (
+              <>
+                {/* 1️⃣ BOTÓN DE ESTADO LÓGICO */}
+                <button 
+                  className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
+                  onClick={() => u.is_active ? handleSuspender(u) : handleReactivar(u)}
+                  style={{ marginRight: '8px' }}
+                >
+                  {u.is_active ? 'Suspender' : 'Activar'}
+                </button>
+
+                {/* 2️⃣ BOTÓN DE ELIMINACIÓN FÍSICA */}
+                <button 
+                  className={styles.eliminarBtn} 
+                  onClick={() => handleEliminarDefinitivo(u)}
+                  style={{ 
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    margin: 0
+                  }}
+                >
+                  Eliminar
+                </button>
+              </>
             )}
           </div>
         ))}
       </div>
-
-      <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
-        + Crear nuevo usuario
-      </button>
 
       {/* Modal detalle usuario */}
       {userModal && (
@@ -513,9 +741,65 @@ function Usuarios() {
           </div>
         </Modal>
       )}
+
+      <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
+        + Crear nuevo usuario
+      </button>
+
+      {/* ⚠️ MODAL DE ADVERTENCIA CRÍTICA FLOTANTE DE ELIMINACIÓN */}
+      {usuarioAEliminar && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setUsuarioAEliminar(null)}>
+          
+          <div style={{
+            backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
+            padding: '2.5rem 2rem', borderRadius: '12px', textAlign: 'center',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.6)', maxWidth: '430px', width: '90%'
+          }} onClick={e => e.stopPropagation()}>
+            
+            
+            <h4 style={{ color: 'white', marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: '400', lineHeight: '1.4' }}>
+              ¿Deseas eliminar definitivamente a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
+            </h4>
+            
+            <p style={{ color: '#868e96', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: '1.5' }}>
+              Esta acción es irreversible. Se borrará toda su información personal, turnos e historial de la base de datos de RehabilitAR.
+            </p>
+            
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button 
+                onClick={() => setUsuarioAEliminar(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)', color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.65rem 1.5rem',
+                  borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button 
+                onClick={ejecutarBorradoFisicoReal}
+                style={{
+                  background: '#ef4444', color: 'white', border: 'none',
+                  padding: '0.65rem 1.5rem', borderRadius: '8px', cursor: 'pointer',
+                  fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                }}
+              >
+                Eliminar para siempre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </section>
-  )
+  );
 }
+
 
 /* ══════════════════════════════════════════════════════════
    HELPERS CALENDARIO SALAS
@@ -748,6 +1032,7 @@ function AreaSalas() {
    ══════════════════════════════════════════════════════════ */
 export default function AdminDashboard() {
   const { user } = useAuth()
+  const [userModal, setUserModal] = useState(null);
 
   return (
     <div className={styles.container}>

@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 
@@ -12,7 +12,7 @@ from django.core.mail import EmailMessage
 from django.conf import settings
 
 from .serializers import UserSerializer, RegisterSerializer
-from .models import User
+from .models import User, AptoFisico
 from .services.dni_service import validate_dni
 
 
@@ -95,12 +95,29 @@ class MeView(APIView):
     """
     GET /api/auth/me/
     Devuelve los datos del usuario logueado.
+    PATCH /api/auth/me/ -> Actualiza los datos del usuario logueado.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        serializer = UserSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
 
+    def patch(self, request):
+        user = request.user
+        # partial=True le dice a Django que solo vamos a actualizar algunos campos (PATCH)
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        # Si hay un error de validación (ej: celular mal puesto), devolvemos el error
+        first_error = next(iter(serializer.errors.values()))[0]
+        return Response(
+            {'detail': str(first_error)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 class LogoutView(APIView):
     """
@@ -146,7 +163,9 @@ class RegisterView(APIView):
                 {'detail': 'No pudimos verificar que tu DNI sea válido.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
+        
+        data_completa = request.data.copy()
+        
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
             first_error = next(iter(serializer.errors.values()))[0]
@@ -188,19 +207,30 @@ class DeleteUserView(APIView):
             return Response({'detail': 'No tenés permiso.'}, status=status.HTTP_403_FORBIDDEN)
         
         try:
-            # 2. 🚨 CLAVE: Buscar al usuario en la base de datos primero
+            # 2. Buscar al usuario
             user = User.objects.get(id=user_id)
             
-            # 3. Determinar acción según el estado actual
+            # 🟢 NUEVO: Leer el motivo enviado desde React
+            reason = request.data.get('reason')
+
+            # 🟢 NUEVO CONTROL: Si es un borrado físico definitivo
+            if reason == "HARD_DELETE":
+                try:
+                    user.delete()  
+                    return Response({'message': 'Usuario eliminado definitivamente de la base de datos'}, status=status.HTTP_200_OK)
+                except Exception as db_error:
+                    print(f"❌ Error de base de datos al borrar: {str(db_error)}")
+                    return Response({'detail': 'No se puede borrar porque el usuario tiene turnos o clases asignadas.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 3. Determinar acción según el estado actual (Tu código original sigue igual abajo)
             if user.is_active:
                 # ACCIÓN: SUSPENDER (Estaba activo, pasa a inactivo)
-                reason = request.data.get('reason')
                 if not reason:
                     return Response({'detail': 'Debe indicar un motivo.'}, status=status.HTTP_400_BAD_REQUEST)
                 
                 user.is_active = False  
                 user.deleted_reason = reason
-                user.save() # Guardamos en BD
+                user.save() 
                 
                 asunto = "Tu cuenta en RehabilitAR ha sido suspendida"
                 mensaje = f"Hola {user.first_name},\n\nTe informamos que tu cuenta ha sido suspendida.\nMotivo:\n\"{reason}\""
@@ -208,12 +238,11 @@ class DeleteUserView(APIView):
                 # ACCIÓN: ACTIVAR (Estaba inactivo, pasa a activo)
                 user.is_active = True
                 user.deleted_reason = None  
-                user.save() # Guardamos en BD
+                user.save() 
                 
                 asunto = "Tu cuenta en RehabilitAR ha sido reactivada"
                 mensaje = f"Hola {user.first_name},\n\n¡Buenas noticias! Tu cuenta ha sido reactivada por el administrador. Ya podés volver a ingresar a la plataforma."
 
-            # 4. Enviar el mail de forma segura (Una sola vez, blindado contra ASCII/eñes)
             try:
                 email = EmailMessage(
                     subject=asunto,
@@ -221,13 +250,12 @@ class DeleteUserView(APIView):
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     to=[user.email]
                 )
-                email.encoding = 'utf-8' # Forzamos UTF-8
+                email.encoding = 'utf-8'
                 email.send(fail_silently=False)
                 print("📧 ¡Mail enviado/impreso con éxito!")
             except Exception as mail_error:
                 print(f"⚠️ Error al enviar el mail: {str(mail_error)}")
 
-            # 5. Respuesta exitosa al frontend
             return Response(
                 {'message': 'Estado del usuario actualizado', 'is_active': user.is_active},
                 status=status.HTTP_200_OK
@@ -235,3 +263,85 @@ class DeleteUserView(APIView):
 
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+class ListarAptosPendientesView(APIView):
+    permission_classes = [IsAdminUser]  # Solo administradores
+
+    def get(self, request):
+        # Escenario 1 y 2: Trae las tareas importantes (aptos pendientes)
+        aptos = AptoFisico.objects.filter(estado='PENDIENTE')
+        data = [{
+            'id': apto.id,
+            'usuario_email': apto.usuario.email,
+            'documento_url': request.build_absolute_uri(apto.documento.url),
+            'fecha_subida': apto.fecha_subida
+        } for apto in aptos]
+        return Response(data, status=status.HTTP_200_OK)
+
+class ValidarAptoFisicoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk):
+        try:
+            apto = AptoFisico.objects.get(pk=pk)
+        except AptoFisico.DoesNotExist:
+            return Response({'error': 'Apto físico no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        accion = request.data.get('accion')  # 'APROBAR' o 'RECHAZAR'
+        motivo = request.data.get('motivo_rechazo', '')
+
+        if accion == 'APROBAR':
+            apto.estado = 'APROBADO'
+            apto.motivo_rechazo = None
+            apto.save()
+    
+            return Response({'message': 'Apto físico aprobado con éxito y usuario notificado.'}, status=status.HTTP_200_OK)
+
+        elif accion == 'RECHAZAR':
+            if not motivo.strip():
+                return Response({'error': 'Debe especificar un motivo para el rechazo.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            apto.estado = 'RECHAZADO'
+            apto.motivo_rechazo = motivo
+            apto.save()
+    
+            return Response({'message': 'Apto físico rechazado y usuario notificado.'}, status=status.HTTP_200_OK)
+
+        return Response({'error': 'Acción no válida'}, status=status.HTTP_400_BAD_REQUEST)
+    
+from rest_framework.parsers import MultiPartParser, FormParser
+
+class SubirAptoFisicoView(APIView):
+    """
+    POST /api/auth/aptos/subir/
+    Permite al paciente logueado subir su archivo de apto físico (PDF o imagen).
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes     = [MultiPartParser, FormParser]  # 👈 Obligatorio para recibir archivos reales
+
+    def post(self, request):
+        documento = request.FILES.get('documento') # 👈 Lee el archivo que viene del frontend
+        
+        if not documento:
+            return Response(
+                {'detail': 'Por favor, adjunte un documento válido.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Creamos el registro del apto físico asignado al paciente actual
+            apto = AptoFisico.objects.create(
+                usuario=request.user,
+                documento=documento,
+                estado='PENDIENTE' # Al crearse arranca pendiente para que el admin lo vea
+            )
+            return Response(
+                {'detail': 'Apto físico subido correctamente y listo para revisión.'},
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            print(f"❌ Error al guardar el apto: {str(e)}")
+            return Response(
+                {'detail': 'Hubo un problema interno al guardar el archivo.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
