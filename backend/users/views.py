@@ -283,3 +283,92 @@ class DeleteUserView(APIView):
 
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# ══════════════════════════════════════════════════════════
+#  RECUPERAR CONTRASEÑA
+# ══════════════════════════════════════════════════════════
+
+class SolicitarCodigoView(APIView):
+    """POST /api/auth/recuperar-password/ — envía código al mail."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.cache import cache
+        import random, string
+
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({'detail': 'Ingresá un email.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not User.objects.filter(email=email).exists():
+            return Response({'detail': 'Este mail no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        codigo = ''.join(random.choices(string.digits, k=6))
+        cache.set(f'reset_code_{email}', codigo, timeout=600)  # 10 minutos
+
+        try:
+            send_mail(
+                subject='Código para restablecer tu contraseña — RehabilitAR',
+                message=f'Tu código de verificación es: {codigo}\n\nVence en 10 minutos.',
+                from_email='noreply@rehabilitar.com',
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception:
+            cache.delete(f'reset_code_{email}')
+            return Response({'detail': 'Ocurrio un error, intente nuevamente.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({'detail': 'Código enviado.'}, status=status.HTTP_200_OK)
+
+
+class VerificarCodigoView(APIView):
+    """POST /api/auth/verificar-codigo/ — verifica el código ingresado."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.cache import cache
+
+        email  = request.data.get('email', '').strip().lower()
+        codigo = request.data.get('codigo', '').strip()
+
+        guardado = cache.get(f'reset_code_{email}')
+        if not guardado or guardado != codigo:
+            return Response({'detail': 'Código inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Código verificado.'}, status=status.HTTP_200_OK)
+
+
+class NuevaPasswordView(APIView):
+    """POST /api/auth/nueva-password/ — establece la nueva contraseña."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.cache import cache
+
+        email    = request.data.get('email', '').strip().lower()
+        codigo   = request.data.get('codigo', '').strip()
+        password = request.data.get('password', '')
+
+        guardado = cache.get(f'reset_code_{email}')
+        if not guardado or guardado != codigo:
+            return Response({'detail': 'Código inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if (len(password) < 8
+                or not any(c.isalpha() for c in password)
+                or not any(c.isdigit() for c in password)):
+            return Response(
+                {'detail': 'La contraseña debe al menos un total de 8 caracteres, entre ellos numeros y letras.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'detail': 'Este mail no se encuentra registrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.set_password(password)
+        user.save()
+        cache.delete(f'reset_code_{email}')
+
+        return Response({'detail': 'Se restablecio la contraseña con exito.'}, status=status.HTTP_200_OK)

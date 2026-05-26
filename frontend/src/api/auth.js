@@ -32,3 +32,12 @@ export const deleteUserRequest = (id, reason) => {
   });
 };
  // api.delete(`/auth/users/${id}/`, {data: {reason}})
+
+export const solicitarCodigoRequest = (email) =>
+  api.post('/auth/recuperar-password/', { email })
+
+export const verificarCodigoRequest = (email, codigo) =>
+  api.post('/auth/verificar-codigo/', { email, codigo })
+
+export const nuevaPasswordRequest = (email, codigo, password) =>
+  api.post('/auth/nueva-password/', { email, codigo, password })
