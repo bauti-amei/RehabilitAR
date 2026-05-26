@@ -3,11 +3,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 
-from .models import Clase, Sala
+from .models import Clase, Sala, Suscripcion
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
     ClaseProfesorSerializer,
     SalaSerializer, SalaCreateSerializer,
+    SuscripcionSerializer,
 )
 from users.models import User
 from users.serializers import UserSerializer
@@ -310,6 +311,138 @@ class AsignarProfesorView(APIView):
         clase.save(update_fields=['profesor', 'ofertada'])
 
         return Response(ClaseSerializer(clase).data, status=200)
+
+
+class MisSuscripcionesView(APIView):
+    """
+    GET  /api/clases/mis-suscripciones/  — lista las suscripciones activas del cliente
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != User.Role.CLIENT:
+            return Response({'detail': 'Solo clientes pueden acceder.'}, status=403)
+        suscripciones = Suscripcion.objects.filter(cliente=request.user, activa=True)
+        return Response(SuscripcionSerializer(suscripciones, many=True).data)
+
+
+class CancelarSuscripcionView(APIView):
+    """
+    POST /api/clases/mis-suscripciones/<id>/cancelar/
+    Marca la suscripción como cancelada a partir del próximo mes
+    y libera el cupo en la clase fija asociada.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role != User.Role.CLIENT:
+            return Response({'detail': 'Solo clientes pueden cancelar suscripciones.'}, status=403)
+        try:
+            suscripcion = Suscripcion.objects.select_related('clase').get(
+                pk=pk, cliente=request.user, activa=True
+            )
+        except Suscripcion.DoesNotExist:
+            return Response({'detail': 'Suscripción no encontrada.'}, status=404)
+
+        # Siempre liberar el cupo — toda suscripción tiene clase asignada
+        suscripcion.clase.inscriptos.remove(request.user)
+
+        suscripcion.activa = False
+        suscripcion.save(update_fields=['activa'])
+
+        return Response(
+            {'detail': 'Suscripción cancelada. La baja se hará efectiva a partir del próximo mes.'},
+            status=200,
+        )
+
+
+class ClasesDisponiblesParaCambioView(APIView):
+    """
+    GET /api/clases/mis-suscripciones/<id>/clases-disponibles/
+    Devuelve clases de la misma especialidad con cupo disponible,
+    excluyendo la clase actual de la suscripción.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if request.user.role != User.Role.CLIENT:
+            return Response({'detail': 'Solo clientes pueden acceder.'}, status=403)
+        try:
+            suscripcion = Suscripcion.objects.select_related('clase').get(
+                pk=pk, cliente=request.user, activa=True
+            )
+        except Suscripcion.DoesNotExist:
+            return Response({'detail': 'Suscripción no encontrada.'}, status=404)
+
+        clases = (
+            Clase.objects
+            .filter(especialidad=suscripcion.especialidad, tipo_clase='fija')
+            .select_related('sala', 'profesor')
+            .prefetch_related('inscriptos')
+            .exclude(pk=suscripcion.clase_id)
+        )
+        # Solo las que tienen cupo disponible
+        disponibles = [c for c in clases if c.inscriptos.count() < c.cupo]
+        return Response(ClaseSerializer(disponibles, many=True).data)
+
+
+class CambiarTurnoView(APIView):
+    """
+    PATCH /api/clases/mis-suscripciones/<id>/cambiar-turno/
+    Body: { "clase_id": <int> }
+    Desvincula al cliente de la clase anterior, lo inscribe en la nueva
+    y actualiza turno + clase FK en la suscripción.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        if request.user.role != User.Role.CLIENT:
+            return Response({'detail': 'Solo clientes pueden cambiar el turno.'}, status=403)
+        try:
+            suscripcion = Suscripcion.objects.select_related('clase').get(
+                pk=pk, cliente=request.user, activa=True
+            )
+        except Suscripcion.DoesNotExist:
+            return Response({'detail': 'Suscripción no encontrada.'}, status=404)
+
+        clase_id = request.data.get('clase_id')
+        if not clase_id:
+            return Response({'detail': 'Debés indicar la nueva clase.'}, status=400)
+
+        try:
+            nueva_clase = Clase.objects.prefetch_related('inscriptos').get(pk=clase_id)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        # Validar que sea clase fija (recurrente), no individual
+        if nueva_clase.tipo_clase != Clase.TipoClase.FIJA:
+            return Response(
+                {'detail': 'Solo podés cambiar a una clase fija (recurrente).'},
+                status=400,
+            )
+
+        # Validar misma especialidad
+        if nueva_clase.especialidad != suscripcion.especialidad:
+            return Response(
+                {'detail': 'La clase debe ser del mismo tipo que la suscripción.'},
+                status=400,
+            )
+
+        # Validar cupo disponible
+        if nueva_clase.inscriptos.count() >= nueva_clase.cupo:
+            return Response({'detail': 'La clase seleccionada no tiene cupo disponible.'}, status=400)
+
+        # Desvincular de la clase anterior y anotar en la nueva
+        suscripcion.clase.inscriptos.remove(request.user)
+        nueva_clase.inscriptos.add(request.user)
+
+        # Actualizar suscripción
+        nuevo_turno = f'{nueva_clase.dias} {nueva_clase.horario_inicio.strftime("%H:%M")}'
+        suscripcion.clase = nueva_clase
+        suscripcion.turno = nuevo_turno
+        suscripcion.save(update_fields=['clase', 'turno'])
+
+        return Response(SuscripcionSerializer(suscripcion).data, status=200)
 
 
 class SalaListCreateView(APIView):

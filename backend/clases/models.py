@@ -90,3 +90,38 @@ class Clase(models.Model):
         from datetime import datetime
         ahora = datetime.now().time()
         return self.horario_inicio <= ahora <= self.horario_fin
+
+
+class Suscripcion(models.Model):
+
+    class Especialidad(models.TextChoices):
+        TREN_SUPERIOR = 'tren_superior', 'Tren Superior'
+        TREN_INFERIOR = 'tren_inferior', 'Tren Inferior'
+        TREN_MEDIO    = 'tren_medio',    'Tren Medio'
+
+    class EstadoPago(models.TextChoices):
+        PAGADA    = 'pagada',    'Pagada'
+        PENDIENTE = 'pendiente', 'Pendiente'
+        VENCIDA   = 'vencida',   'Vencida'
+
+    cliente      = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='suscripciones',
+        limit_choices_to={'role': 'client'},
+    )
+    especialidad = models.CharField(max_length=20, choices=Especialidad.choices)
+    turno        = models.CharField(max_length=50, blank=True, default='')  # ej: "Jueves 10:00"
+    clase        = models.ForeignKey(                                        # clase fija asociada al turno
+        'Clase',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='suscripciones',
+    )
+    monto        = models.DecimalField(max_digits=10, decimal_places=2)
+    estado_pago  = models.CharField(max_length=20, choices=EstadoPago.choices, default=EstadoPago.PENDIENTE)
+    activa       = models.BooleanField(default=True)
+    fecha_inicio = models.DateField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.cliente.full_name} — {self.get_especialidad_display()} ({self.estado_pago})'

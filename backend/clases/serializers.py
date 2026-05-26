@@ -1,6 +1,6 @@
 from datetime import datetime
 from rest_framework import serializers
-from .models import Clase, Sala, DIAS_SEMANA
+from .models import Clase, Sala, Suscripcion, DIAS_SEMANA
 
 
 class InscriptoSerializer(serializers.Serializer):
@@ -209,3 +209,23 @@ class ClaseCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return Clase.objects.create(**validated_data)
+
+
+# ── Suscripción ───────────────────────────────────────────
+class SuscripcionSerializer(serializers.ModelSerializer):
+    especialidad_display = serializers.SerializerMethodField()
+    estado_pago_display  = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = Suscripcion
+        fields = [
+            'id', 'especialidad', 'especialidad_display',
+            'turno', 'monto', 'estado_pago', 'estado_pago_display',
+            'activa', 'fecha_inicio',
+        ]
+
+    def get_especialidad_display(self, obj):
+        return obj.get_especialidad_display()
+
+    def get_estado_pago_display(self, obj):
+        return obj.get_estado_pago_display()
