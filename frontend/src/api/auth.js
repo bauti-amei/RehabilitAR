@@ -17,7 +17,7 @@ export const getUsersRequest = () =>
 export const adminRegisterRequest = (data) =>
   api.post('/auth/admin-register/', data)
 
-export const deleteUserRequest = (id, reason) => {
+export const suspenderUserRequest = (id, reason) => {
   const token = localStorage.getItem('token');
   return api.delete(`auth/users/${id}/`, {
     data: { reason: reason },
@@ -32,7 +32,7 @@ export const hardDeleteUserRequest = (id) => {
   const token = localStorage.getItem('token');
   return api({
     method: 'delete',
-    url: `clases/users/${id}/hard-delete/`,
+    url: `clases/users/${id}/hard-delete/`,// 🟢 Cambiado a clases/
     headers: {
       'Authorization': `Bearer ${token}`
     }
@@ -40,7 +40,7 @@ export const hardDeleteUserRequest = (id) => {
 };
 
 export const updateProfileRequest = (datosActualizados) =>
-  api.patch('/auth/me/', datosActualizados);
+  api.put('/auth/me/', datosActualizados);
 
 export const logoutRequest = (refreshToken) =>
   api.post('/auth/logout/', { refresh: refreshToken });

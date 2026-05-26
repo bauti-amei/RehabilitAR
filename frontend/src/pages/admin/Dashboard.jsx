@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { getUsersRequest, suspenderUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
 import { getUsersRequest, adminRegisterRequest, deleteUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
@@ -81,20 +82,10 @@ function TareasImportantes() {
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [aptoIdARechazar, setAptoIdARechazar] = useState(null);
   const [motivoTexto, setMotivoTexto] = useState('');
-  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
 
   useEffect(() => {
     cargarAptos()
   }, [])
-
-  const mostrarNotificacion = (texto, tipo = 'exito') => {
-    setAlerta({ mostrar: true, texto, tipo });
-    
-    // A los 3 segundos exactos se oculta solo
-    setTimeout(() => {
-      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
-    }, 3000);
-  };
 
   const cargarAptos = async () => {
     try {
@@ -146,30 +137,7 @@ function TareasImportantes() {
 
   return (
     <div className={styles.card} style={{ position: 'relative' }}>
-       {alerta.mostrar && (
-        <div style={{
-          position: 'fixed',                  
-          top: '25px',                        
-          left: '50%',                        
-          transform: 'translateX(-50%)',      
-          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
-          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
-          padding: '0.85rem 1.75rem', 
-          borderRadius: '8px', 
-          fontSize: '0.95rem',
-          fontWeight: '500', 
-          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px', 
-          backdropFilter: 'blur(6px)'
-        }}>
-          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
-          {alerta.texto}
-        </div>
-      )}
+       
       <h2 className={styles.cardTitle}>Tareas importantes</h2>
       {cargando ? (
         <div className={styles.emptyState}>
@@ -614,7 +582,7 @@ const FORM_VACIO = {
   address_floor: '', address_apt: '', phone: '',
 }
 
-function Usuarios() {
+function Usuarios({mostrarNotificacion}) {
   const [usuarios, setUsuarios]   = useState([])
   const [cargando, setCargando]   = useState(true)
   const [busqueda, setBusqueda]   = useState('')
@@ -694,23 +662,27 @@ function Usuarios() {
   const confirmarSuspension = async () => {
     if (!motivoSuspension.trim()) return
     try {
-      await deleteUserRequest(suspenderModal.id, motivoSuspension)
-      setUsuarios(prev => prev.map(u => u.id === suspenderModal.id ? { ...u, is_active: false } : u))
-      setFeedbackModal({ texto: 'Usuario suspendido con éxito.', tipo: 'exito' })
-    } catch {
-      setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
-    } finally {
-      setSuspenderModal(null)
+      await suspenderUserRequest(user.id, reason);
+      setUsuarios(prev =>
+        prev.map(u => u.id === user.id ? { ...u, is_active: false } : u)
+      );
+      mostrarNotificacion("Usuario suspendido con éxito.", 'exito');
+    } catch (error) {
+      console.error(error);
+      mostrarNotificacion("Error al cambiar el estado del usuario", 'error');
     }
   }
 
   const handleReactivar = async (user) => {
     try {
-      await deleteUserRequest(user.id, null)
-      setUsuarios(prev => prev.map(u => u.id === user.id ? { ...u, is_active: true } : u))
-      setFeedbackModal({ texto: 'Usuario reactivado con éxito.', tipo: 'exito' })
-    } catch {
-      setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
+      await suspenderUserRequest(user.id, null);
+      setUsuarios(prev =>
+        prev.map(u => u.id === user.id ? { ...u, is_active: true } : u)
+      );
+      mostrarNotificacion("Usuario reactivado con éxito.", 'exito');
+    } catch (error) {
+      console.error(error);
+      mostrarNotificacion("Error al cambiar el estado del usuario", 'error');
     }
   }
 
@@ -721,11 +693,13 @@ function Usuarios() {
   const ejecutarBorradoFisicoReal = async () => {
     if (!usuarioAEliminar) return
     try {
-      await hardDeleteUserRequest(usuarioAEliminar.id)
-      setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id))
-      setFeedbackModal({ texto: 'Usuario eliminado por completo de la base de datos.', tipo: 'exito' })
-    } catch {
-      setFeedbackModal({ texto: 'Error al intentar eliminar definitivamente al usuario.', tipo: 'error' })
+      await hardDeleteUserRequest(usuarioAEliminar.id);
+
+      setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id));
+      mostrarNotificacion("Usuario eliminado por completo de la base de datos.", 'exito');
+    } catch (error) {
+      console.error(error);
+      mostrarNotificacion("Error al intentar eliminar definitivamente al usuario.", 'error');
     } finally {
       setUsuarioAEliminar(null)
     }
@@ -817,7 +791,6 @@ function Usuarios() {
         + Registrar nuevo usuario como administrativo
       </button>
 
-
       {/* Modal detalle usuario */}
       {userModal && (
         <Modal title={`${userModal.first_name} ${userModal.last_name}`} onClose={() => setUserModal(null)}>
@@ -834,6 +807,9 @@ function Usuarios() {
         </Modal>
       )}
 
+      <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
+        + Crear nuevo usuario
+      </button>
       {/* ── MODAL SUSPENSIÓN ── */}
       {suspenderModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
@@ -897,7 +873,7 @@ function Usuarios() {
             boxShadow: '0 10px 30px rgba(0,0,0,0.6)', maxWidth: '430px', width: '90%'
           }} onClick={e => e.stopPropagation()}>
             <h4 style={{ color: 'white', marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: '400', lineHeight: '1.4' }}>
-              ¿Deseas eliminar definitivamente a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
+              ¿Deseas eliminar a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
             </h4>
             <p style={{ color: '#868e96', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: '1.5' }}>
               Esta acción es irreversible. Se borrará toda su información personal, turnos e historial de la base de datos de RehabilitAR.
@@ -921,7 +897,7 @@ function Usuarios() {
                   fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
                 }}
               >
-                Eliminar para siempre
+                Eliminar
               </button>
             </div>
           </div>
@@ -1297,6 +1273,16 @@ function AreaSalas() {
 export default function AdminDashboard() {
   const { user } = useAuth()
   const [userModal, setUserModal] = useState(null);
+  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
+  
+  const mostrarNotificacion = (texto, tipo = 'exito') => {
+    setAlerta({ mostrar: true, texto, tipo });
+    
+    // A los 3 segundos exactos se oculta solo
+    setTimeout(() => {
+      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
+    }, 3000);
+  };
 
   return (
     <div className={styles.container}>
@@ -1322,8 +1308,32 @@ export default function AdminDashboard() {
       <Estadisticas />
 
       {/* Usuarios */}
-      <Usuarios />
+      <Usuarios mostrarNotificacion={mostrarNotificacion}/>
 
+      {alerta.mostrar && (
+        <div style={{
+          position: 'fixed',                  
+          top: '25px',                        
+          left: '50%',                        
+          transform: 'translateX(-50%)',      
+          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
+          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+          padding: '0.85rem 1.75rem', 
+          borderRadius: '8px', 
+          fontSize: '0.95rem',
+          fontWeight: '500', 
+          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          backdropFilter: 'blur(6px)'
+        }}>
+          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
+          {alerta.texto}
+        </div>
+      )}
     </div>
   )
 }
