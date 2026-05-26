@@ -32,5 +32,8 @@ export const getClasesOfertadasRequest = () =>
 export const asignarseClaseRequest = (id) =>
   api.post(`/clases/${id}/asignarse/`)
 
+export const desasignarseClaseRequest = (id) =>
+  api.post(`/clases/${id}/desasignarse/`)
+
 export const asignarProfesorRequest = (claseId, profesorId) =>
   api.patch(`/clases/${claseId}/asignar-profesor/`, { profesor_id: profesorId })

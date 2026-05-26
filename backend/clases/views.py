@@ -238,6 +238,39 @@ class AsignarseClaseView(APIView):
         return Response({'detail': 'Te asignaste correctamente a la clase.'}, status=200)
 
 
+class DesasignarseClaseView(APIView):
+    """
+    POST /api/clases/<id>/desasignarse/
+    El profesor logueado se desasigna de una clase a la que estaba asignado.
+    Regla de negocio: el profesor debe estar asignado a la clase.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role != User.Role.TEACHER:
+            return Response({'detail': 'Solo profesores pueden desasignarse de clases.'}, status=403)
+
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        if clase.profesor_id != request.user.id:
+            return Response(
+                {'detail': 'No estás asignado a esta clase.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        clase.profesor = None
+        clase.ofertada = True    # vuelve a estar disponible para otros profesores
+        clase.save(update_fields=['profesor', 'ofertada'])
+
+        return Response(
+            {'detail': 'Te desasignaste de la clase con éxito'},
+            status=status.HTTP_200_OK,
+        )
+
+
 class AsignarProfesorView(APIView):
     """
     PATCH /api/clases/<id>/asignar-profesor/
