@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, adminRegisterRequest, deleteUserRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, getListaEsperaRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, getListaEsperaRequest, cambiarCapacidadRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
 
@@ -170,6 +170,13 @@ function AreaClases() {
   const [asignando,       setAsignando] = useState(false)
   const [asignarError,    setAsignarError] = useState('')
 
+  // ── Cambiar capacidad ─────────────────────────────────────
+  const [capacidadModal,  setCapacidadModal]  = useState(null)  // clase seleccionada
+  const [nuevoCupo,       setNuevoCupo]       = useState('')
+  const [capacidadError,  setCapacidadError]  = useState('')
+  const [capacidadOk,     setCapacidadOk]     = useState('')
+  const [guardando,       setGuardando]       = useState(false)
+
   const cargarClases = () => {
     getClasesRequest()
       .then(res => setClases(res.data))
@@ -187,6 +194,38 @@ function AreaClases() {
       .then(res => setListaData(res.data))
       .catch(() => setListaData({ error: true }))
       .finally(() => setListaCarg(false))
+  }
+
+  const abrirCambiarCapacidad = (clase) => {
+    setCapacidadModal(clase)
+    setNuevoCupo(String(clase.cupo))
+    setCapacidadError('')
+    setCapacidadOk('')
+  }
+
+  const handleCambiarCapacidad = async () => {
+    const cupo = parseInt(nuevoCupo)
+    if (!nuevoCupo || isNaN(cupo) || cupo <= 0) {
+      setCapacidadError('Ingresá un número entero positivo.')
+      return
+    }
+    setGuardando(true)
+    setCapacidadError('')
+    setCapacidadOk('')
+    try {
+      const res = await cambiarCapacidadRequest(capacidadModal.id, cupo)
+      setCapacidadOk(res.data.detail)
+      if (res.data.cancelada) {
+        // La clase fue eliminada → cerrar modal y recargar lista
+        setTimeout(() => { setCapacidadModal(null); cargarClases() }, 2000)
+      } else {
+        cargarClases()
+      }
+    } catch (err) {
+      setCapacidadError(err.response?.data?.detail ?? 'Error al cambiar la capacidad.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const abrirAsignar = (clase) => {
@@ -294,6 +333,12 @@ function AreaClases() {
                 {c.lista_espera.length > 0 && (
                   <span className={styles.listaCount}>{c.lista_espera.length}</span>
                 )}
+              </button>
+              <button
+                className={styles.capacidadBtn}
+                onClick={() => abrirCambiarCapacidad(c)}
+              >
+                Cambiar capacidad
               </button>
             </div>
           </div>
@@ -428,6 +473,51 @@ function AreaClases() {
                 {asignando ? 'Guardando...' : 'Confirmar asignación'}
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal cambiar capacidad */}
+      {capacidadModal && (
+        <Modal
+          title={`Cambiar capacidad — ${capacidadModal.nombre}`}
+          onClose={() => setCapacidadModal(null)}
+        >
+          <div className={styles.capacidadForm}>
+            <p className={styles.capacidadInfo}>
+              Inscriptos actuales: <strong>{capacidadModal.cantidad_inscriptos}</strong> / Cupo actual: <strong>{capacidadModal.cupo}</strong>
+            </p>
+            {!capacidadOk && (
+              <>
+                <p className={styles.capacidadWarning}>
+                  ⚠️ Si la nueva capacidad es menor a los inscriptos actuales, la clase será <strong>cancelada</strong>.
+                </p>
+                <label className={styles.formLabel}>Nueva capacidad</label>
+                <input
+                  type="number"
+                  min="1"
+                  className={styles.formInput}
+                  value={nuevoCupo}
+                  onChange={e => setNuevoCupo(e.target.value)}
+                />
+                {capacidadError && <p className={styles.formError}>{capacidadError}</p>}
+                <div className={styles.modalFooter}>
+                  <button className={styles.btnOutline} onClick={() => setCapacidadModal(null)}>Cancelar</button>
+                  <button
+                    className={styles.btnPrimary}
+                    onClick={handleCambiarCapacidad}
+                    disabled={guardando}
+                  >
+                    {guardando ? 'Guardando...' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </>
+            )}
+            {capacidadOk && (
+              <p className={`${styles.formOk} ${capacidadOk.includes('cancelada') ? styles.formOkCancel : ''}`}>
+                {capacidadOk}
+              </p>
+            )}
           </div>
         </Modal>
       )}

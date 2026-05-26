@@ -54,3 +54,7 @@ export const getClasesDisponiblesParaCambioRequest = (id) =>
 // ── Lista de espera (admin) ───────────────────────────────
 export const getListaEsperaRequest = (id) =>
   api.get(`/clases/${id}/lista-espera/`)
+
+// ── Cambiar capacidad (admin) ─────────────────────────────
+export const cambiarCapacidadRequest = (id, cupo) =>
+  api.patch(`/clases/${id}/cambiar-capacidad/`, { cupo })

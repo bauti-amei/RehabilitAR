@@ -254,6 +254,58 @@
 .listaUserNombre { font-size: 0.9rem; font-weight: 600; color: white; margin: 0 0 0.15rem; }
 .listaUserEmail  { font-size: 0.78rem; color: #5c619a; margin: 0; }
 
+/* ── Cambiar capacidad ───────────────────────────────────── */
+.capacidadBtn {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid rgba(251,191,36,0.35);
+  border-radius: 8px;
+  background: rgba(251,191,36,0.08);
+  color: #fbbf24;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.capacidadBtn:hover { background: rgba(251,191,36,0.18); }
+
+.capacidadForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.capacidadInfo {
+  font-size: 0.88rem;
+  color: #b0b3c7;
+  margin: 0;
+}
+
+.capacidadWarning {
+  font-size: 0.82rem;
+  color: #fbbf24;
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  margin: 0;
+}
+
+.formOk {
+  font-size: 0.88rem;
+  color: #4ade80;
+  background: rgba(34,197,94,0.08);
+  border: 1px solid rgba(34,197,94,0.2);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0;
+}
+
+.formOkCancel {
+  color: #f87171;
+  background: rgba(239,68,68,0.08);
+  border-color: rgba(239,68,68,0.2);
+}
+
 /* Lista de espera — clase fija (abonados / no abonados) */
 .listaEsperaFija {
   display: flex;

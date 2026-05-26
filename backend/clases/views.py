@@ -445,6 +445,59 @@ class CambiarTurnoView(APIView):
         return Response(SuscripcionSerializer(suscripcion).data, status=200)
 
 
+class CambiarCapacidadView(APIView):
+    """
+    PATCH /clases/<pk>/cambiar-capacidad/
+    Body: { "cupo": <int> }
+    - Nueva capacidad >= inscriptos actuales → actualiza cupo.
+    - Nueva capacidad <  inscriptos actuales → cancela (elimina) la clase.
+    Solo admin.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        if request.user.role != User.Role.ADMIN:
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+
+        try:
+            clase = Clase.objects.prefetch_related('inscriptos').get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        nuevo_cupo = request.data.get('cupo')
+        if nuevo_cupo is None:
+            return Response({'detail': 'Debés indicar el nuevo cupo.'}, status=400)
+        try:
+            nuevo_cupo = int(nuevo_cupo)
+            if nuevo_cupo <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'detail': 'El cupo debe ser un número entero positivo.'}, status=400)
+
+        cantidad_inscriptos = clase.inscriptos.count()
+
+        if nuevo_cupo >= cantidad_inscriptos:
+            # Caso normal: actualizar cupo
+            clase.cupo = nuevo_cupo
+            clase.save(update_fields=['cupo'])
+            return Response(
+                {'detail': 'Capacidad actualizada con éxito.', 'cancelada': False},
+                status=200,
+            )
+
+        # Nueva capacidad < inscriptos → cancelar (eliminar) la clase
+        nombre_clase = clase.nombre
+        clase.delete()
+        return Response(
+            {
+                'detail': f'La clase "{nombre_clase}" fue cancelada porque la nueva capacidad '
+                          f'({nuevo_cupo}) es menor a la cantidad de inscriptos actuales ({cantidad_inscriptos}).',
+                'cancelada': True,
+            },
+            status=200,
+        )
+
+
 class ListaEsperaView(APIView):
     """
     GET /clases/<pk>/lista-espera/
