@@ -37,3 +37,16 @@ export const desasignarseClaseRequest = (id) =>
 
 export const asignarProfesorRequest = (claseId, profesorId) =>
   api.patch(`/clases/${claseId}/asignar-profesor/`, { profesor_id: profesorId })
+
+// ── Suscripciones del cliente ─────────────────────────────
+export const getMisSuscripcionesRequest = () =>
+  api.get('/clases/mis-suscripciones/')
+
+export const cancelarSuscripcionRequest = (id) =>
+  api.post(`/clases/mis-suscripciones/${id}/cancelar/`)
+
+export const cambiarTurnoRequest = (id, claseId) =>
+  api.patch(`/clases/mis-suscripciones/${id}/cambiar-turno/`, { clase_id: claseId })
+
+export const getClasesDisponiblesParaCambioRequest = (id) =>
+  api.get(`/clases/mis-suscripciones/${id}/clases-disponibles/`)

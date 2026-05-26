@@ -538,3 +538,296 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   MIS SUSCRIPCIONES — Modal
+   ══════════════════════════════════════════════════════════ */
+.susModal {
+  background: #12162e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  animation: slideUp 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Lista de suscripciones */
+.susLista {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Card de cada suscripción */
+.susCard {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.susCardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.susEspecialidad {
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.3rem;
+}
+
+.susTurno {
+  font-size: 0.85rem;
+  color: #8b90b0;
+  margin: 0;
+}
+
+.susRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.susMonto {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #a78bfa;
+  margin: 0;
+}
+
+.susEstado {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.estadoPagada   { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.estadoPendiente{ background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+.estadoVencida  { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+/* Botones de acción */
+.susAcciones {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.btnCambiarTurno {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(124,92,255,0.4);
+  border-radius: 8px;
+  background: rgba(124,92,255,0.1);
+  color: #a78bfa;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btnCambiarTurno:hover { background: rgba(124,92,255,0.22); }
+
+.btnCancelar {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(239,68,68,0.35);
+  border-radius: 8px;
+  background: rgba(239,68,68,0.08);
+  color: #f87171;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btnCancelar:hover { background: rgba(239,68,68,0.18); }
+
+/* Sub-paneles de confirmación */
+.subPanel {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.subPanelLabel {
+  font-size: 0.85rem;
+  color: #b0b3c7;
+  margin: 0;
+}
+
+.subPanelRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.subPanelInput {
+  flex: 1;
+  min-width: 140px;
+  padding: 0.45rem 0.75rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.88rem;
+  outline: none;
+}
+.subPanelInput:focus { border-color: rgba(124,92,255,0.5); }
+
+.btnConfirmar {
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #7c5cff, #5a3df0);
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btnConfirmar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnConfirmarCancelar {
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: 8px;
+  background: #dc2626;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btnConfirmarCancelar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnSubCancelar {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  background: transparent;
+  color: #8b90b0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btnSubCancelar:hover { background: rgba(255,255,255,0.06); }
+
+/* Feedback y estados vacíos */
+.feedbackMsg {
+  font-size: 0.88rem;
+  color: #4ade80;
+  background: rgba(34,197,94,0.08);
+  border: 1px solid rgba(34,197,94,0.2);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0;
+  cursor: pointer;
+}
+
+.susEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+.susEmptyIcon { font-size: 2.2rem; opacity: 0.5; }
+.susEmpty p   { color: #5c619a; font-size: 0.95rem; margin: 0; font-weight: 500; }
+
+.susMsg      { color: #8b90b0; text-align: center; padding: 1rem 0; margin: 0; }
+.susMsgError { color: #f87171; text-align: center; padding: 1rem 0; margin: 0; }
+
+/* ── Selector de clases disponibles (cambio de turno) ────── */
+.clasesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.claseOpcion {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 0.75rem;
+  row-gap: 0.15rem;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.claseOpcion:hover {
+  background: rgba(124,92,255,0.1);
+  border-color: rgba(124,92,255,0.3);
+}
+
+.claseOpcionActiva {
+  background: rgba(124,92,255,0.18) !important;
+  border-color: rgba(124,92,255,0.55) !important;
+  box-shadow: 0 0 0 1px rgba(124,92,255,0.35);
+}
+
+/* Columna izquierda fila 1: día */
+.claseOpcionDia {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: white;
+}
+
+/* Columna derecha fila 1: horario */
+.claseOpcionHorario {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a78bfa;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Columna izquierda fila 2: cupo */
+.claseOpcionCupo {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 0.75rem;
+  color: #4ade80;
+}
+
+/* Columna derecha fila 2: sala */
+.claseOpcionSala {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: 0.75rem;
+  color: #6b70a0;
+  text-align: right;
+}

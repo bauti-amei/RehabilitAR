@@ -1,17 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import {
+  getMisSuscripcionesRequest,
+  cancelarSuscripcionRequest,
+  cambiarTurnoRequest,
+  getClasesDisponiblesParaCambioRequest,
+} from '../../api/clases'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
-   MOCK DATA — reemplazar con llamadas a la API cuando estén
+   MOCK DATA
    ══════════════════════════════════════════════════════════ */
+const PROXIMA_CLASE = null
 
-// Cuando exista la API, reemplazar null/[] por la respuesta del backend
-const PROXIMA_CLASE = null   // null = sin clases pendientes
-
-const MI_PLAN = []           // [] = sin reservas ni suscripciones
-
-// Días con clase — clave: 'YYYY-MM-DD' (vacío hasta que el usuario reserve)
 const MIS_CLASES = {}
 
 // Feriados nacionales argentinos 2026
@@ -187,11 +188,216 @@ function Calendario() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   SECCIÓN: MIS SUSCRIPCIONES
+   ══════════════════════════════════════════════════════════ */
+function MisSuscripciones({ onClose }) {
+  const [suscripciones,    setSuscripciones]    = useState([])
+  const [cargando,         setCargando]         = useState(true)
+  const [error,            setError]            = useState('')
+  const [accion,           setAccion]           = useState(null) // { tipo: 'cancelar'|'turno', susId }
+  const [clasesDisp,       setClasesDisp]       = useState([])
+  const [cargandoClases,   setCargandoClases]   = useState(false)
+  const [claseElegida,     setClaseElegida]     = useState(null)
+  const [procesando,       setProcesando]       = useState(false)
+  const [feedback,         setFeedback]         = useState('')
+
+  useEffect(() => {
+    getMisSuscripcionesRequest()
+      .then(res => setSuscripciones(res.data))
+      .catch(() => setError('No se pudieron cargar las suscripciones.'))
+      .finally(() => setCargando(false))
+  }, [])
+
+  const recargar = () => {
+    setCargando(true)
+    setError('')
+    getMisSuscripcionesRequest()
+      .then(res => setSuscripciones(res.data))
+      .catch(() => setError('No se pudieron cargar las suscripciones.'))
+      .finally(() => setCargando(false))
+  }
+
+  const abrirCambioTurno = (susId) => {
+    setAccion({ tipo: 'turno', susId })
+    setClaseElegida(null)
+    setCargandoClases(true)
+    getClasesDisponiblesParaCambioRequest(susId)
+      .then(res => setClasesDisp(res.data))
+      .catch(() => setClasesDisp([]))
+      .finally(() => setCargandoClases(false))
+  }
+
+  const handleCancelar = async (id) => {
+    setProcesando(true)
+    try {
+      const res = await cancelarSuscripcionRequest(id)
+      setFeedback(res.data.detail)
+      setAccion(null)
+      recargar()
+    } catch {
+      setFeedback('Error al cancelar la suscripción.')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  const handleCambiarTurno = async (susId) => {
+    if (!claseElegida) return
+    setProcesando(true)
+    try {
+      await cambiarTurnoRequest(susId, claseElegida)
+      setFeedback('Turno actualizado correctamente.')
+      setAccion(null)
+      setClaseElegida(null)
+      recargar()
+    } catch (e) {
+      setFeedback(e.response?.data?.detail ?? 'Error al cambiar el turno.')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  const estadoClass = (estado) => {
+    if (estado === 'pagada')  return styles.estadoPagada
+    if (estado === 'vencida') return styles.estadoVencida
+    return styles.estadoPendiente
+  }
+
+  return (
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.susModal} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>Mis suscripciones</h3>
+          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+        </div>
+
+        {/* Feedback */}
+        {feedback && (
+          <p className={styles.feedbackMsg} onClick={() => setFeedback('')}>{feedback} <span style={{fontSize:'0.75rem', opacity:0.7}}>(clic para cerrar)</span></p>
+        )}
+
+        {/* Contenido */}
+        {cargando ? (
+          <p className={styles.susMsg}>Cargando...</p>
+        ) : error ? (
+          <p className={styles.susMsgError}>{error}</p>
+        ) : suscripciones.length === 0 ? (
+          <div className={styles.susEmpty}>
+            <span className={styles.susEmptyIcon}>🏋️</span>
+            <p>No posee una suscripción activa</p>
+          </div>
+        ) : (
+          <div className={styles.susLista}>
+            {suscripciones.map(s => (
+              <div key={s.id} className={styles.susCard}>
+
+                {/* Info principal */}
+                <div className={styles.susCardTop}>
+                  <div>
+                    <p className={styles.susEspecialidad}>{s.especialidad_display}</p>
+                    <p className={styles.susTurno}>🕐 {s.turno}</p>
+                  </div>
+                  <div className={styles.susRight}>
+                    <p className={styles.susMonto}>${Number(s.monto).toLocaleString('es-AR')}</p>
+                    <span className={`${styles.susEstado} ${estadoClass(s.estado_pago)}`}>
+                      {s.estado_pago_display}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Botones de acción — siempre ambos */}
+                <div className={styles.susAcciones}>
+                  <button
+                    className={styles.btnCambiarTurno}
+                    onClick={() => abrirCambioTurno(s.id)}
+                  >
+                    Cambiar turno
+                  </button>
+                  <button
+                    className={styles.btnCancelar}
+                    onClick={() => setAccion({ tipo: 'cancelar', susId: s.id })}
+                  >
+                    Cancelar suscripción
+                  </button>
+                </div>
+
+                {/* Sub-panel: Selector de clases disponibles */}
+                {accion?.tipo === 'turno' && accion?.susId === s.id && (
+                  <div className={styles.subPanel}>
+                    <p className={styles.subPanelLabel}>Seleccioná el nuevo turno disponible:</p>
+                    {cargandoClases ? (
+                      <p className={styles.susMsg}>Cargando clases...</p>
+                    ) : clasesDisp.length === 0 ? (
+                      <p className={styles.susMsgError}>No hay clases disponibles del mismo tipo con cupo.</p>
+                    ) : (
+                      <div className={styles.clasesList}>
+                        {clasesDisp.map(c => (
+                          <button
+                            key={c.id}
+                            className={`${styles.claseOpcion} ${claseElegida === c.id ? styles.claseOpcionActiva : ''}`}
+                            onClick={() => setClaseElegida(c.id)}
+                          >
+                            <span className={styles.claseOpcionDia}>{c.dias}</span>
+                            <span className={styles.claseOpcionHorario}>{c.horario}</span>
+                            <span className={styles.claseOpcionCupo}>
+                              {c.cupo - c.cantidad_inscriptos} lugar{c.cupo - c.cantidad_inscriptos !== 1 ? 'es' : ''} disponible{c.cupo - c.cantidad_inscriptos !== 1 ? 's' : ''}
+                            </span>
+                            {c.aula && <span className={styles.claseOpcionSala}>{c.aula}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className={styles.subPanelRow} style={{ marginTop: '0.75rem' }}>
+                      <button
+                        className={styles.btnConfirmar}
+                        disabled={procesando || !claseElegida}
+                        onClick={() => handleCambiarTurno(s.id)}
+                      >
+                        {procesando ? '...' : 'Confirmar'}
+                      </button>
+                      <button className={styles.btnSubCancelar} onClick={() => setAccion(null)}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-panel: Confirmar cancelación */}
+                {accion?.tipo === 'cancelar' && accion?.susId === s.id && (
+                  <div className={styles.subPanel}>
+                    <p className={styles.subPanelLabel}>¿Confirmás la cancelación de esta suscripción?</p>
+                    <div className={styles.subPanelRow}>
+                      <button
+                        className={styles.btnConfirmarCancelar}
+                        disabled={procesando}
+                        onClick={() => handleCancelar(s.id)}
+                      >
+                        {procesando ? '...' : 'Confirmar'}
+                      </button>
+                      <button className={styles.btnSubCancelar} onClick={() => setAccion(null)}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
    DASHBOARD PRINCIPAL
    ══════════════════════════════════════════════════════════ */
 export default function ClientDashboard() {
-  const { user }           = useAuth()
-  const [planModal, setPlanModal] = useState(null)
+  const { user } = useAuth()
+  const [verSuscripciones, setVerSuscripciones] = useState(false)
 
   const todayStr = getTodayStr()
   const fechaProxima = PROXIMA_CLASE
@@ -209,7 +415,7 @@ export default function ClientDashboard() {
         <p>Bienvenido a tu espacio en RehabilitAR</p>
       </div>
 
-      {/* ── Fila superior: Próxima clase + Mi plan ── */}
+      {/* ── Fila superior: Próxima clase + Accesos rápidos ── */}
       <div className={styles.topRow}>
 
         {/* Próxima clase */}
@@ -233,39 +439,22 @@ export default function ClientDashboard() {
           )}
         </div>
 
-        {/* Mi plan */}
+        {/* Accesos rápidos */}
         <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Mi plan</h2>
-
-          {MI_PLAN.length > 0 ? (
-            <div className={styles.planLista}>
-              {MI_PLAN.map(item => (
-                <div key={item.id} className={styles.planItem}>
-                  <div className={styles.planLeft}>
-                    <span className={`${styles.tipoBadge} ${item.tipo === 'suscripcion' ? styles.badgeSub : styles.badgeRes}`}>
-                      {item.tipo === 'suscripcion' ? 'Suscripción' : 'Reserva'}
-                    </span>
-                    <div>
-                      <p className={styles.planNombre}>{item.nombre}</p>
-                      <p className={styles.planDesc}>{item.descripcion}</p>
-                    </div>
-                  </div>
-                  <button className={styles.verMasBtn} onClick={() => setPlanModal(item)}>
-                    Ver más
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.emptyState}>
-              <span className={styles.emptyIcon}>🏋️</span>
-              <p>Reservá tu clase o comprá tu suscripción ahora</p>
-            </div>
-          )}
-
+          <h2 className={styles.cardTitle}>Accesos rápidos</h2>
           <div className={styles.planAcciones}>
-            <button className={styles.btnPrimary}>Reservar clase</button>
-            <button className={styles.btnOutline}>Comprar suscripción</button>
+            <button
+              className={styles.btnPrimary}
+              onClick={() => setVerSuscripciones(true)}
+            >
+              🏋️ Mis suscripciones
+            </button>
+            <button className={styles.btnOutline}>
+              📅 Reservar clase
+            </button>
+            <button className={styles.btnOutline}>
+              💳 Comprar suscripción
+            </button>
           </div>
         </div>
 
@@ -274,26 +463,9 @@ export default function ClientDashboard() {
       {/* ── Calendario ── */}
       <Calendario />
 
-      {/* ── Modal detalle del plan ── */}
-      {planModal && (
-        <Modal title={planModal.nombre} onClose={() => setPlanModal(null)}>
-          <div className={styles.planDetail}>
-            <div className={styles.planDetailRow}>
-              <span>Tipo</span>
-              <span className={`${styles.tipoBadge} ${planModal.tipo === 'suscripcion' ? styles.badgeSub : styles.badgeRes}`}>
-                {planModal.tipo === 'suscripcion' ? 'Suscripción' : 'Reserva de clase'}
-              </span>
-            </div>
-            <div className={styles.planDetailRow}><span>Estado</span><span className={styles.estadoOk}>{planModal.estado}</span></div>
-            <div className={styles.planDetailRow}><span>Fecha</span><span>{formatFecha(planModal.fecha)}</span></div>
-            <div className={styles.planDetailRow}><span>Hora</span><span>{planModal.hora} hs</span></div>
-            <div className={styles.planDetailRow}><span>Profesor</span><span>{planModal.profesor}</span></div>
-            <div className={styles.planDetailRow}><span>Aula</span><span>{planModal.aula}</span></div>
-            {planModal.descripcion && (
-              <div className={styles.planDetailRow}><span>Detalle</span><span>{planModal.descripcion}</span></div>
-            )}
-          </div>
-        </Modal>
+      {/* ── Modal Mis Suscripciones ── */}
+      {verSuscripciones && (
+        <MisSuscripciones onClose={() => setVerSuscripciones(false)} />
       )}
 
     </div>
