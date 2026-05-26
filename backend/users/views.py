@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 
@@ -12,7 +12,7 @@ from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 
 from .serializers import UserSerializer, RegisterSerializer, AdminRegisterSerializer
-from .models import User
+from .models import User, AptoFisico
 from .services.dni_service import validate_dni
 
 
@@ -372,3 +372,79 @@ class NuevaPasswordView(APIView):
         cache.delete(f'reset_code_{email}')
 
         return Response({'detail': 'Se restablecio la contraseña con exito.'}, status=status.HTTP_200_OK)
+
+
+# ══════════════════════════════════════════════════════════
+#  APTOS FÍSICOS
+# ══════════════════════════════════════════════════════════
+
+class ListarAptosPendientesView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        aptos = AptoFisico.objects.filter(estado='PENDIENTE')
+        data = [{
+            'id': apto.id,
+            'usuario_email': apto.usuario.email,
+            'documento_url': request.build_absolute_uri(apto.documento.url),
+            'fecha_subida': apto.fecha_subida
+        } for apto in aptos]
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class ValidarAptoFisicoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk):
+        try:
+            apto = AptoFisico.objects.get(pk=pk)
+        except AptoFisico.DoesNotExist:
+            return Response({'error': 'Apto físico no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        accion = request.data.get('accion')
+        motivo = request.data.get('motivo_rechazo', '')
+
+        if accion == 'APROBAR':
+            apto.estado = 'APROBADO'
+            apto.motivo_rechazo = None
+            apto.save()
+            return Response({'message': 'Apto físico aprobado con éxito y usuario notificado.'}, status=status.HTTP_200_OK)
+
+        elif accion == 'RECHAZAR':
+            if not motivo.strip():
+                return Response({'error': 'Debe especificar un motivo para el rechazo.'}, status=status.HTTP_400_BAD_REQUEST)
+            apto.estado = 'RECHAZADO'
+            apto.motivo_rechazo = motivo
+            apto.save()
+            return Response({'message': 'Apto físico rechazado y usuario notificado.'}, status=status.HTTP_200_OK)
+
+        return Response({'error': 'Acción no válida'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SubirAptoFisicoView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes     = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        documento = request.FILES.get('documento')
+        if not documento:
+            return Response(
+                {'detail': 'Por favor, adjunte un documento válido.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            AptoFisico.objects.create(
+                usuario=request.user,
+                documento=documento,
+                estado='PENDIENTE'
+            )
+            return Response(
+                {'detail': 'Apto físico subido correctamente y listo para revisión.'},
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            print(f"Error al guardar el apto: {str(e)}")
+            return Response(
+                {'detail': 'Hubo un problema interno al guardar el archivo.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

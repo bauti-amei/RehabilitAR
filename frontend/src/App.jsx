@@ -10,6 +10,7 @@ import ClientLayout   from './components/client/ClientLayout'
 import AdminLayout    from './components/admin/AdminLayout'
 import TeacherLayout      from './components/teacher/TeacherLayout'
 import ReceptionistLayout from './components/receptionist/ReceptionistLayout'
+import MiPerfil from './components/common/MiPerfil'
 
 // Public
 import Login        from './pages/public/Login'
@@ -46,6 +47,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/perfil" element={<MiPerfil />} />
           </Route>
 
           {/* Rutas del profesor — layout con navbar superior */}
@@ -55,6 +57,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/teacher" element={<TeacherDashboard />} />
+            <Route path="/teacher/perfil" element={<MiPerfil />} />
           </Route>
 
           {/* Rutas del recepcionista — layout con navbar superior */}
@@ -64,6 +67,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/receptionist" element={<ReceptionistDashboard />} />
+            <Route path="/receptionist/perfil" element={<MiPerfil />} />
           </Route>
 
           {/* Rutas del cliente — layout con navbar superior */}
@@ -73,6 +77,7 @@ export default function App() {
             </ProtectedRoute>
           }>
             <Route path="/client" element={<ClientDashboard />} />
+            <Route path="/client/perfil" element={<MiPerfil />} />
           </Route>
 
           {/* Redirigir raíz al login */}

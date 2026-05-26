@@ -106,3 +106,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'info.rehabilitar.unlp@gmail.com'
 EMAIL_HOST_PASSWORD = 'nkzzhbyaowjyocfq'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR

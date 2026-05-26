@@ -28,17 +28,24 @@ const ChevronIcon = () => (
 )
 
 /* ── Modal genérico ──────────────────────────────────────── */
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children, small }) {
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>{title}</h3>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+        
+        {/* Cabecera del modal modificada */}
+        <div className={styles.modalHeader} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', position: 'relative' }}>
+          <h3 className={styles.modalTitle} style={{ fontSize: '1.4rem', textAlign: 'center', margin: '0 auto', width: '100%', paddingRight: '20px' }}>
+            {title}
+          </h3>
+          <button className={styles.closeBtn} onClick={onClose} style={{ position: 'absolute', right: '0', top: '0' }}>
+            ✕
+          </button>
         </div>
+
         <div className={styles.modalBody}>{children}</div>
       </div>
-    </div>
+      </div>
   )
 }
 
@@ -63,10 +70,10 @@ export default function ReceptionistLayout() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+  const ejecutarLogoutDefinitivo = () => {
+  logout()
+  navigate('/login')
+}
 
   const pedirLogout = () => { setUserMenu(false); setModal('logout') }
 
@@ -118,14 +125,23 @@ export default function ReceptionistLayout() {
 
             {userMenuOpen && (
               <div className={styles.dropdown}>
-                <button className={styles.dropItem} onClick={() => navigate('/receptionist/perfil')}>
+                <button className={styles.dropItem} onClick={() => {
+                  setUserMenu(false);
+                  navigate('/receptionist/perfil');
+                }}>
                   <span>👤</span> Mi perfil
                 </button>
-                <button className={styles.dropItem} onClick={() => navigate('/receptionist/cambiar-contrasena')}>
+                <button className={styles.dropItem} onClick={() => {
+                  setUserMenu(false);
+                  navigate('/receptionist/cambiar-contrasena');
+                }}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
                 <div className={styles.dropDivider} />
-                <button className={`${styles.dropItem} ${styles.dropLogout}`} onClick={pedirLogout}>
+                <button className={`${styles.dropItem} ${styles.dropLogout}`} onClick={() => {
+                  setUserMenu(false);
+                  setModal('logout');
+                }}>
                   <span>🚪</span> Cerrar sesión
                 </button>
               </div>
@@ -174,6 +190,53 @@ export default function ReceptionistLayout() {
       {modal === 'settings' && (
         <Modal title="Configuración" onClose={() => setModal(null)}>
           <p className={styles.emptyMsg}>Próximamente podés configurar tus preferencias aquí.</p>
+        </Modal>
+      )}
+      {modal === 'logout' && (
+      <Modal title="Deseas cerrar sesión en RehabilitAR?" onClose={() => setModal(null)}>
+    
+      <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+      
+      <p style={{ color: '#868e96', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+        Tendrás que volver a ingresar tus credenciales para acceder al centro.
+      </p>
+      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        
+        {/* Botón Cancelar */}
+        <button 
+          onClick={() => setModal(null)}
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            color: 'white',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '0.6rem 1.5rem',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600'
+          }}
+        >
+          Cancelar
+        </button>
+
+        {/* Botón Confirmar */}
+        <button 
+          onClick={ejecutarLogoutDefinitivo}
+          style={{
+            background: '#ef4444', 
+            color: 'white',
+            border: 'none',
+            padding: '0.6rem 1.5rem',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+          }}
+        >
+          Cerrar Sesión
+        </button>
+
+      </div>
+    </div>
         </Modal>
       )}
 

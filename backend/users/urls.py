@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import LoginView, RefreshView, MeView, LogoutView, RegisterView, UserListView, AdminRegisterView, DeleteUserView, SolicitarCodigoView, VerificarCodigoView, NuevaPasswordView
+from .views import LoginView, RefreshView, MeView, LogoutView, RegisterView, UserListView, AdminRegisterView, DeleteUserView, SolicitarCodigoView, VerificarCodigoView, NuevaPasswordView, ListarAptosPendientesView, ValidarAptoFisicoView, SubirAptoFisicoView
 
 urlpatterns = [
     path('login/',              LoginView.as_view(),          name='auth-login'),
@@ -13,4 +13,7 @@ urlpatterns = [
     path('recuperar-password/', SolicitarCodigoView.as_view(), name='recuperar-password'),
     path('verificar-codigo/',   VerificarCodigoView.as_view(), name='verificar-codigo'),
     path('nueva-password/',     NuevaPasswordView.as_view(),   name='nueva-password'),
+    path('aptos/pendientes/',   ListarAptosPendientesView.as_view(), name='aptos-pendientes'),
+    path('aptos/<int:pk>/validar/', ValidarAptoFisicoView.as_view(), name='validar-apto'),
+    path('aptos/subir/',        SubirAptoFisicoView.as_view(), name='subir-apto'),
 ]
