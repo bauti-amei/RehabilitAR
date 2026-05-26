@@ -140,14 +140,10 @@ export default function AdminLayout() {
                   <span>🔒</span> Cambiar contraseña
                 </button>
                 <div className={styles.dropDivider} />
-<<<<<<< HEAD
                 <button className={`${styles.dropItem} ${styles.dropLogout}`} onClick={() => {
                   setUserMenu(false);
                   setModal('logout');
                 }}>
-=======
-                <button className={`${styles.dropItem} ${styles.dropLogout}`} onClick={pedirLogout}>
->>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
                   <span>🚪</span> Cerrar sesión
                 </button>
               </div>
