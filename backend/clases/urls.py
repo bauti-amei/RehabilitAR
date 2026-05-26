@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     ClaseListView, ClaseEnCursoListView, ClasePublicaListView,
     MisClasesView, ClasesOfertadasView, AsignarseClaseView, DesasignarseClaseView,
-    AsignarProfesorView,
+    AsignarProfesorView, ListaEsperaView,
     SalaListCreateView, ProfesoresPorEspecialidadView,
     MisSuscripcionesView, CancelarSuscripcionView, CambiarTurnoView,
     ClasesDisponiblesParaCambioView,
@@ -17,6 +17,7 @@ urlpatterns = [
     path('<int:pk>/asignarse/',        AsignarseClaseView.as_view(),            name='clase-asignarse'),
     path('<int:pk>/desasignarse/',     DesasignarseClaseView.as_view(),         name='clase-desasignarse'),
     path('<int:pk>/asignar-profesor/', AsignarProfesorView.as_view(),           name='clase-asignar-profesor'),
+    path('<int:pk>/lista-espera/',     ListaEsperaView.as_view(),               name='clase-lista-espera'),
     path('salas/',                     SalaListCreateView.as_view(),            name='sala-list-create'),
     path('profesores/',                ProfesoresPorEspecialidadView.as_view(), name='profesores-especialidad'),
     # Suscripciones del cliente

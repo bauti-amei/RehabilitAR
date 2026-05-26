@@ -50,3 +50,7 @@ export const cambiarTurnoRequest = (id, claseId) =>
 
 export const getClasesDisponiblesParaCambioRequest = (id) =>
   api.get(`/clases/mis-suscripciones/${id}/clases-disponibles/`)
+
+// ── Lista de espera (admin) ───────────────────────────────
+export const getListaEsperaRequest = (id) =>
+  api.get(`/clases/${id}/lista-espera/`)

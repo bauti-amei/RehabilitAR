@@ -254,6 +254,33 @@
 .listaUserNombre { font-size: 0.9rem; font-weight: 600; color: white; margin: 0 0 0.15rem; }
 .listaUserEmail  { font-size: 0.78rem; color: #5c619a; margin: 0; }
 
+/* Lista de espera — clase fija (abonados / no abonados) */
+.listaEsperaFija {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.listaEsperaGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.listaEsperaSubtitulo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5c619a;
+  margin: 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
 /* ── Estadísticas ────────────────────────────────────────── */
 .statsBtns { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .statBtn {

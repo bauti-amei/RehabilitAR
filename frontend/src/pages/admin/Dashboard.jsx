@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, adminRegisterRequest, deleteUserRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, getListaEsperaRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
 
@@ -159,8 +159,10 @@ function AreaClases() {
   const [cargando,        setCargando]  = useState(true)
   const [filtro,          setFiltro]    = useState('todas')
   const [filtroTipo,      setFiltroTipo] = useState('todos')
-  const [listaEsperaModal, setLista]   = useState(null)
-  const [userModal,       setUserModal] = useState(null)
+  const [listaEsperaModal, setLista]        = useState(null)  // clase seleccionada
+  const [listaEsperaData,  setListaData]    = useState(null)  // datos del endpoint
+  const [listaEsperaCarg,  setListaCarg]    = useState(false)
+  const [userModal,        setUserModal]    = useState(null)
   const [crearClase,      setCrear]    = useState(false)
   const [asignarModal,    setAsignar]  = useState(null)   // clase a la que se asigna profesor
   const [profesores,      setProfesores] = useState([])
@@ -176,6 +178,16 @@ function AreaClases() {
   }
 
   useEffect(() => { cargarClases() }, [])
+
+  const abrirListaEspera = (clase) => {
+    setLista(clase)
+    setListaData(null)
+    setListaCarg(true)
+    getListaEsperaRequest(clase.id)
+      .then(res => setListaData(res.data))
+      .catch(() => setListaData({ error: true }))
+      .finally(() => setListaCarg(false))
+  }
 
   const abrirAsignar = (clase) => {
     setAsignar(clase)
@@ -276,7 +288,7 @@ function AreaClases() {
             <div className={styles.claseAcciones}>
               <button
                 className={styles.listaEsperaBtn}
-                onClick={() => setLista(c)}
+                onClick={() => abrirListaEspera(c)}
               >
                 Ver lista de espera
                 {c.lista_espera.length > 0 && (
@@ -292,24 +304,80 @@ function AreaClases() {
       {listaEsperaModal && (
         <Modal
           title={`Lista de espera — ${listaEsperaModal.nombre}`}
-          onClose={() => { setLista(null); setUserModal(null) }}
+          onClose={() => { setLista(null); setListaData(null); setUserModal(null) }}
           wide
         >
-          {listaEsperaModal.lista_espera.length === 0 ? (
-            <p className={styles.emptyMsg}>No hay usuarios en lista de espera.</p>
-          ) : (
-            <div className={styles.listaEsperaList}>
-              {listaEsperaModal.lista_espera.map(u => (
-                <div key={u.id} className={styles.listaEsperaItem}>
-                  <div>
-                    <p className={styles.listaUserNombre}>{u.nombre}</p>
-                    <p className={styles.listaUserEmail}>{u.email}</p>
+          {listaEsperaCarg ? (
+            <p className={styles.emptyMsg}>Cargando...</p>
+          ) : listaEsperaData?.error ? (
+            <p className={styles.formError}>No se pudo cargar la lista de espera.</p>
+          ) : listaEsperaData?.tipo_clase === 'fija' ? (
+            /* ── Clase fija: abonados + no abonados ── */
+            <div className={styles.listaEsperaFija}>
+              {/* Abonados */}
+              <div className={styles.listaEsperaGrupo}>
+                <h4 className={styles.listaEsperaSubtitulo}>
+                  Abonados
+                  <span className={styles.listaCount}>{listaEsperaData.abonados.length}</span>
+                </h4>
+                {listaEsperaData.abonados.length === 0 ? (
+                  <p className={styles.emptyMsg}>No hay clientes en lista de espera.</p>
+                ) : (
+                  <div className={styles.listaEsperaList}>
+                    {listaEsperaData.abonados.map(u => (
+                      <div key={u.id} className={styles.listaEsperaItem}>
+                        <div>
+                          <p className={styles.listaUserNombre}>{u.nombre}</p>
+                          <p className={styles.listaUserEmail}>{u.email}</p>
+                        </div>
+                        <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+                      </div>
+                    ))}
                   </div>
-                  <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
-                </div>
-              ))}
+                )}
+              </div>
+
+              {/* No abonados */}
+              <div className={styles.listaEsperaGrupo}>
+                <h4 className={styles.listaEsperaSubtitulo}>
+                  No abonados
+                  <span className={styles.listaCount}>{listaEsperaData.no_abonados.length}</span>
+                </h4>
+                {listaEsperaData.no_abonados.length === 0 ? (
+                  <p className={styles.emptyMsg}>No hay clientes en lista de espera.</p>
+                ) : (
+                  <div className={styles.listaEsperaList}>
+                    {listaEsperaData.no_abonados.map(u => (
+                      <div key={u.id} className={styles.listaEsperaItem}>
+                        <div>
+                          <p className={styles.listaUserNombre}>{u.nombre}</p>
+                          <p className={styles.listaUserEmail}>{u.email}</p>
+                        </div>
+                        <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          ) : listaEsperaData?.tipo_clase === 'individual' ? (
+            /* ── Clase individual: lista general ── */
+            listaEsperaData.lista_espera.length === 0 ? (
+              <p className={styles.emptyMsg}>No hay clientes en lista de espera.</p>
+            ) : (
+              <div className={styles.listaEsperaList}>
+                {listaEsperaData.lista_espera.map(u => (
+                  <div key={u.id} className={styles.listaEsperaItem}>
+                    <div>
+                      <p className={styles.listaUserNombre}>{u.nombre}</p>
+                      <p className={styles.listaUserEmail}>{u.email}</p>
+                    </div>
+                    <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : null}
         </Modal>
       )}
 

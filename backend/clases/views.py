@@ -445,6 +445,55 @@ class CambiarTurnoView(APIView):
         return Response(SuscripcionSerializer(suscripcion).data, status=200)
 
 
+class ListaEsperaView(APIView):
+    """
+    GET /clases/<pk>/lista-espera/
+    Devuelve la lista de espera de una clase (solo admin).
+    - Clase fija:       { tipo_clase, abonados: [...], no_abonados: [...] }
+    - Clase individual: { tipo_clase, lista_espera: [...] }
+    Un usuario es "abonado" si tiene al menos una Suscripcion activa.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if request.user.role != User.Role.ADMIN:
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+
+        try:
+            clase = Clase.objects.prefetch_related('lista_espera').get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        def serialize_user(u):
+            return {
+                'id':       u.id,
+                'nombre':   u.full_name,
+                'email':    u.email,
+                'telefono': u.phone or '',
+            }
+
+        usuarios = list(clase.lista_espera.all())
+
+        if clase.tipo_clase == Clase.TipoClase.FIJA:
+            abonados, no_abonados = [], []
+            for u in usuarios:
+                if Suscripcion.objects.filter(cliente=u, activa=True).exists():
+                    abonados.append(serialize_user(u))
+                else:
+                    no_abonados.append(serialize_user(u))
+            return Response({
+                'tipo_clase':  'fija',
+                'abonados':    abonados,
+                'no_abonados': no_abonados,
+            })
+
+        # Clase individual → lista general
+        return Response({
+            'tipo_clase':   'individual',
+            'lista_espera': [serialize_user(u) for u in usuarios],
+        })
+
+
 class SalaListCreateView(APIView):
     """
     GET  /api/clases/salas/ — lista salas (admin)
