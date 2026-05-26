@@ -8,11 +8,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from django.contrib.auth import authenticate
-from django.core.mail import EmailMessage
+from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 
+<<<<<<< HEAD
 from .serializers import UserSerializer, RegisterSerializer
 from .models import User, AptoFisico
+=======
+from .serializers import UserSerializer, RegisterSerializer, AdminRegisterSerializer
+from .models import User
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
 from .services.dni_service import validate_dni
 
 
@@ -198,6 +203,54 @@ class UserListView(APIView):
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class AdminRegisterView(APIView):
+    """
+    POST /api/auth/admin-register/
+    Crea un usuario de cualquier rol. Solo accesible para administrativos.
+    Envía un mail de bienvenida al nuevo usuario.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role not in (User.Role.ADMIN, User.Role.RECEPTIONIST):
+            return Response(
+                {'detail': 'No tenés permiso para registrar usuarios.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = AdminRegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {'detail': str(first_error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = serializer.save()
+
+        try:
+            send_mail(
+                subject='Bienvenido/a a RehabilitAR',
+                message=(
+                    f'Hola {user.first_name},\n\n'
+                    f'Tu cuenta fue creada exitosamente en RehabilitAR.\n'
+                    f'Podés ingresar con tu correo: {user.email}\n\n'
+                    f'Saludos,\nEquipo RehabilitAR'
+                ),
+                from_email='noreply@rehabilitar.com',
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+        return Response(
+            {'detail': 'Usuario registrado exitosamente.'},
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class DeleteUserView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -205,10 +258,11 @@ class DeleteUserView(APIView):
         # 1. Validar permisos de Admin
         if request.user.role != User.Role.ADMIN:
             return Response({'detail': 'No tenés permiso.'}, status=status.HTTP_403_FORBIDDEN)
-        
+
         try:
             # 2. Buscar al usuario
             user = User.objects.get(id=user_id)
+<<<<<<< HEAD
             
             # 🟢 NUEVO: Leer el motivo enviado desde React
             reason = request.data.get('reason')
@@ -223,23 +277,38 @@ class DeleteUserView(APIView):
                     return Response({'detail': 'No se puede borrar porque el usuario tiene turnos o clases asignadas.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # 3. Determinar acción según el estado actual (Tu código original sigue igual abajo)
+=======
+
+            # 3. Determinar acción según el estado actual
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
             if user.is_active:
                 # ACCIÓN: SUSPENDER (Estaba activo, pasa a inactivo)
                 if not reason:
                     return Response({'detail': 'Debe indicar un motivo.'}, status=status.HTTP_400_BAD_REQUEST)
-                
-                user.is_active = False  
+
+                user.is_active = False
                 user.deleted_reason = reason
+<<<<<<< HEAD
                 user.save() 
                 
+=======
+                user.save() # Guardamos en BD
+
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
                 asunto = "Tu cuenta en RehabilitAR ha sido suspendida"
                 mensaje = f"Hola {user.first_name},\n\nTe informamos que tu cuenta ha sido suspendida.\nMotivo:\n\"{reason}\""
             else:
                 # ACCIÓN: ACTIVAR (Estaba inactivo, pasa a activo)
                 user.is_active = True
+<<<<<<< HEAD
                 user.deleted_reason = None  
                 user.save() 
                 
+=======
+                user.deleted_reason = None
+                user.save() # Guardamos en BD
+
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
                 asunto = "Tu cuenta en RehabilitAR ha sido reactivada"
                 mensaje = f"Hola {user.first_name},\n\n¡Buenas noticias! Tu cuenta ha sido reactivada por el administrador. Ya podés volver a ingresar a la plataforma."
 
@@ -263,6 +332,7 @@ class DeleteUserView(APIView):
 
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+<<<<<<< HEAD
 
 class ListarAptosPendientesView(APIView):
     permission_classes = [IsAdminUser]  # Solo administradores
@@ -345,3 +415,5 @@ class SubirAptoFisicoView(APIView):
                 {'detail': 'Hubo un problema interno al guardar el archivo.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+=======
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac

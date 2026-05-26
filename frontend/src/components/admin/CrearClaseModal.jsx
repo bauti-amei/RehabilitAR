@@ -84,13 +84,19 @@ export default function CrearClaseModal({ onClose, onCreada }) {
     getSalasRequest().then(r => setSalas(r.data)).catch(() => setSalas([]))
   }, [])
 
-  // Cargar profesores cuando cambia especialidad
+  // Cargar profesores cuando cambia especialidad, horario o día/fecha
   useEffect(() => {
     if (!form.especialidad) { setProfesores([]); return }
-    getProfesoresPorEspecialidadRequest(form.especialidad)
+    getProfesoresPorEspecialidadRequest(form.especialidad, {
+      tipo_clase:     form.tipo_clase,
+      dia:            form.dia,
+      fecha:          form.fecha,
+      horario_inicio: form.horario_inicio,
+      horario_fin:    form.horario_fin,
+    })
       .then(r => setProfesores(r.data))
       .catch(() => setProfesores([]))
-  }, [form.especialidad])
+  }, [form.especialidad, form.tipo_clase, form.dia, form.fecha, form.horario_inicio, form.horario_fin])
 
   // Cuando se selecciona sala → auto-completar cupo con capacidad
   useEffect(() => {
@@ -99,6 +105,18 @@ export default function CrearClaseModal({ onClose, onCreada }) {
   }, [form.sala_id, salas])
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
+
+  const HORAS   = Array.from({ length: 13 }, (_, i) => String(i + 8).padStart(2, '0'))  // 08..20
+  const MINUTOS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))       // 00..59
+
+  const getH = (val) => val ? val.split(':')[0] : ''
+  const getM = (val) => val ? val.split(':')[1] : ''
+  const setHorario = (field, h, m) => {
+    const hVal = h ?? getH(form[field])
+    const mVal = m ?? getM(form[field]) ?? '00'
+    if (hVal) set(field, `${hVal}:${mVal || '00'}`)
+  }
+
 
   const salaSeleccionada = salas.find(s => String(s.id) === String(form.sala_id))
 
@@ -233,13 +251,35 @@ export default function CrearClaseModal({ onClose, onCreada }) {
           <div className={styles.row2}>
             <div className={styles.field}>
               <label className={styles.label}>Horario inicio *</label>
-              <input className={styles.input} type="time"
-                value={form.horario_inicio} onChange={e => set('horario_inicio', e.target.value)} />
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <select className={styles.select} value={getH(form.horario_inicio)}
+                  onChange={e => setHorario('horario_inicio', e.target.value, null)}>
+                  <option value="">HH</option>
+                  {HORAS.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <select className={styles.select} value={getM(form.horario_inicio)}
+                  onChange={e => setHorario('horario_inicio', null, e.target.value)}
+                  disabled={!getH(form.horario_inicio)}>
+                  <option value="">MM</option>
+                  {MINUTOS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
             </div>
             <div className={styles.field}>
               <label className={styles.label}>Horario fin *</label>
-              <input className={styles.input} type="time"
-                value={form.horario_fin} onChange={e => set('horario_fin', e.target.value)} />
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <select className={styles.select} value={getH(form.horario_fin)}
+                  onChange={e => setHorario('horario_fin', e.target.value, null)}>
+                  <option value="">HH</option>
+                  {HORAS.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <select className={styles.select} value={getM(form.horario_fin)}
+                  onChange={e => setHorario('horario_fin', null, e.target.value)}
+                  disabled={!getH(form.horario_fin)}>
+                  <option value="">MM</option>
+                  {MINUTOS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -315,7 +355,9 @@ export default function CrearClaseModal({ onClose, onCreada }) {
                 {!form.especialidad ? (
                   <p className={styles.sinSalas}>Primero seleccioná la especialidad para ver los profesores disponibles.</p>
                 ) : profesores.length === 0 ? (
-                  <p className={styles.sinSalas}>No hay profesores con la especialidad "{ESPECIALIDADES.find(e => e.value === form.especialidad)?.label}" registrados.</p>
+                  <p className={styles.sinSalas}>
+                    No hay profesores disponibles para el horario seleccionado.
+                  </p>
                 ) : (
                   <select className={styles.select} value={form.profesor_id}
                     onChange={e => set('profesor_id', e.target.value)}>

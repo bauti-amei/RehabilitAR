@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+<<<<<<< HEAD
 import { getUsersRequest, deleteUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
+=======
+import { getUsersRequest, adminRegisterRequest, deleteUserRequest } from '../../api/auth'
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -23,6 +27,11 @@ const FILTROS_HORARIO = [
   { label: 'Mañana', value: 'manana' },
   { label: 'Tarde',  value: 'tarde' },
   { label: 'Noche',  value: 'noche' },
+]
+
+const FILTROS_TIPO = [
+  { label: '🔁 Fija',       value: 'fija' },
+  { label: '📅 Individual', value: 'individual' },
 ]
 
 const FILTROS_ROL = [
@@ -339,6 +348,7 @@ function AreaClases() {
   const [clases,          setClases]    = useState([])
   const [cargando,        setCargando]  = useState(true)
   const [filtro,          setFiltro]    = useState('todas')
+  const [filtroTipo,      setFiltroTipo] = useState('todos')
   const [listaEsperaModal, setLista]   = useState(null)
   const [userModal,       setUserModal] = useState(null)
   const [crearClase,      setCrear]    = useState(false)
@@ -382,9 +392,11 @@ function AreaClases() {
     }
   }
 
-  const clasesFiltradas = clases.filter(c =>
-    filtro === 'todas' ? true : getHorarioFiltro(c.horario) === filtro
-  )
+  const clasesFiltradas = clases.filter(c => {
+    const matchHorario = filtro === 'todas' || getHorarioFiltro(c.horario) === filtro
+    const matchTipo    = filtroTipo === 'todos' || c.tipo_clase === filtroTipo
+    return matchHorario && matchTipo
+  })
 
   return (
     <section className={styles.section}>
@@ -398,8 +410,21 @@ function AreaClases() {
         {FILTROS_HORARIO.map(f => (
           <button
             key={f.value}
-            className={`${styles.filtroBtn} ${filtro === f.value ? styles.filtroBtnActive : ''}`}
-            onClick={() => setFiltro(f.value)}
+            className={`${styles.filtroBtn} ${filtro === f.value && (f.value !== 'todas' || filtroTipo === 'todos') ? styles.filtroBtnActive : ''}`}
+            onClick={() => {
+              setFiltro(f.value)
+              if (f.value === 'todas') setFiltroTipo('todos')
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+        <div className={styles.filtroSeparador} />
+        {FILTROS_TIPO.map(f => (
+          <button
+            key={f.value}
+            className={`${styles.filtroBtn} ${filtroTipo === f.value ? styles.filtroBtnActive : ''}`}
+            onClick={() => setFiltroTipo(f.value)}
           >
             {f.label}
           </button>
@@ -574,20 +599,98 @@ function Estadisticas() {
 /* ══════════════════════════════════════════════════════════
    SECCIÓN: USUARIOS
    ══════════════════════════════════════════════════════════ */
+const ESPECIALIDADES_OPTS = [
+  { value: 'tren_superior', label: 'Tren Superior' },
+  { value: 'tren_inferior', label: 'Tren Inferior' },
+  { value: 'tren_medio',    label: 'Tren Medio'    },
+]
+
+const ROL_OPCIONES = [
+  { value: 'admin',        label: 'Administrativo', emoji: '🛡️' },
+  { value: 'teacher',      label: 'Profesor',        emoji: '👨‍🏫' },
+  { value: 'receptionist', label: 'Recepcionista',   emoji: '🗂️' },
+  { value: 'client',       label: 'Cliente',          emoji: '👤' },
+]
+
+const FORM_VACIO = {
+  first_name: '', last_name: '', email: '', password: '',
+  birth_date: '', address: '', address_number: '',
+  address_floor: '', address_apt: '', phone: '',
+}
+
 function Usuarios() {
   const [usuarios, setUsuarios]   = useState([])
   const [cargando, setCargando]   = useState(true)
   const [busqueda, setBusqueda]   = useState('')
   const [filtroRol, setFiltroRol] = useState('todos')
   const [userModal, setUserModal] = useState(null)
+<<<<<<< HEAD
   const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
   
   useEffect(() => {
+=======
+
+  // ── Modal registro ────────────────────────────────────────
+  const [regModal,    setRegModal]   = useState(false)
+  const [regPaso,     setRegPaso]    = useState(1)
+  const [regRol,      setRegRol]     = useState(null)
+  const [regForm,     setRegForm]    = useState(FORM_VACIO)
+  const [regEsp,      setRegEsp]     = useState([])
+  const [regError,    setRegError]   = useState('')
+  const [regOk,       setRegOk]      = useState(false)
+  const [regCargando, setRegCarg]    = useState(false)
+
+  const cargarUsuarios = () => {
+    setCargando(true)
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
     getUsersRequest()
       .then(res => setUsuarios(res.data))
       .catch(() => setUsuarios([]))
       .finally(() => setCargando(false))
-  }, [])
+  }
+
+  useEffect(() => { cargarUsuarios() }, [])
+
+  const abrirRegModal = () => {
+    setRegModal(true); setRegPaso(1); setRegRol(null)
+    setRegForm(FORM_VACIO); setRegEsp([])
+    setRegError(''); setRegOk(false)
+  }
+
+  const cambiarForm  = e => setRegForm(p => ({ ...p, [e.target.name]: e.target.value }))
+  const toggleEsp    = val => setRegEsp(p => p.includes(val) ? p.filter(v => v !== val) : [...p, val])
+  const conEsp       = regRol === 'admin' || regRol === 'teacher'
+
+  const handleRegistrar = async () => {
+    const { first_name, last_name, email, password, birth_date, address, address_number, phone } = regForm
+    if (!first_name || !last_name || !email || !password || !birth_date || !address || !address_number || !phone) {
+      setRegError('Completá todos los campos obligatorios.')
+      return
+    }
+    if (birth_date) {
+      const hoy  = new Date()
+      const nac  = new Date(birth_date)
+      let edad   = hoy.getFullYear() - nac.getFullYear()
+      const m    = hoy.getMonth() - nac.getMonth()
+      if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--
+      if (edad < 18) {
+        setRegError('El usuario debe ser mayor de edad.')
+        return
+      }
+    }
+    setRegCarg(true); setRegError('')
+    try {
+      await adminRegisterRequest({ ...regForm, role: regRol, especialidades: regEsp.join(',') })
+      setRegOk(true)
+      cargarUsuarios()
+    } catch (e) {
+      setRegError(e.response?.data?.detail || 'Error, intente nuevamente')
+    } finally {
+      setRegCarg(false)
+    }
+  }
+
+  const rolLabel = ROL_OPCIONES.find(r => r.value === regRol)?.label ?? ''
 
   const handleSuspender = async (user) => {
     const reason = prompt(`Por favor, ingresa el motivo de la suspensión para ${user.first_name} ${user.last_name}:`);
@@ -726,6 +829,13 @@ function Usuarios() {
         ))}
       </div>
 
+<<<<<<< HEAD
+=======
+      <button className={styles.btnOutline} style={{ marginTop: '1rem' }} onClick={abrirRegModal}>
+        + Registrar nuevo usuario como administrativo
+      </button>
+
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
       {/* Modal detalle usuario */}
       {userModal && (
         <Modal title={`${userModal.first_name} ${userModal.last_name}`} onClose={() => setUserModal(null)}>
@@ -742,6 +852,7 @@ function Usuarios() {
         </Modal>
       )}
 
+<<<<<<< HEAD
       <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
         + Crear nuevo usuario
       </button>
@@ -796,6 +907,142 @@ function Usuarios() {
         </div>
       )}
 
+=======
+      {/* ── Modal registro ── */}
+      {regModal && (
+        <Modal
+          title={regPaso === 1 ? 'Seleccioná el tipo de usuario' : `Nuevo ${rolLabel}`}
+          onClose={() => setRegModal(false)}
+          wide
+        >
+          {regOk ? (
+            <div className={styles.regExito}>
+              <span className={styles.regExitoIcon}>✅</span>
+              <p>Usuario registrado correctamente.</p>
+              <p className={styles.regExitoEmail}>Se envió un correo a <strong>{regForm.email}</strong></p>
+              <button className={styles.btnPrimary} onClick={() => setRegModal(false)}>Cerrar</button>
+            </div>
+
+          ) : regPaso === 1 ? (
+            <div className={styles.rolGrid}>
+              {ROL_OPCIONES.map(r => (
+                <button
+                  key={r.value}
+                  className={styles.rolCard}
+                  onClick={() => { setRegRol(r.value); setRegPaso(2) }}
+                >
+                  <span className={styles.rolEmoji}>{r.emoji}</span>
+                  <span className={styles.rolNombre}>{r.label}</span>
+                </button>
+              ))}
+            </div>
+
+          ) : (
+            <div className={styles.formReg}>
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Nombre <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="first_name" placeholder="Juan"
+                    value={regForm.first_name} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Apellido <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="last_name" placeholder="Pérez"
+                    value={regForm.last_name} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.labelReg}>Correo electrónico <span className={styles.req}>*</span></label>
+                <input className={styles.inputReg} type="email" name="email" placeholder="juan@email.com"
+                  value={regForm.email} onChange={cambiarForm} />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.labelReg}>Contraseña <span className={styles.req}>*</span></label>
+                <input className={styles.inputReg} type="password" name="password"
+                  placeholder="Mín. 8 caracteres, 1 letra y 1 número"
+                  value={regForm.password} onChange={cambiarForm} />
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Fecha de nacimiento <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} type="date" name="birth_date"
+                    value={regForm.birth_date} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Celular <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="phone" placeholder="1123456789"
+                    value={regForm.phone} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Calle <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="address" placeholder="Av. Corrientes"
+                    value={regForm.address} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Número <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="address_number" placeholder="1234"
+                    value={regForm.address_number} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Piso</label>
+                  <input className={styles.inputReg} name="address_floor" placeholder="3"
+                    value={regForm.address_floor} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Depto</label>
+                  <input className={styles.inputReg} name="address_apt" placeholder="A"
+                    value={regForm.address_apt} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              {conEsp && (
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Especialidades</label>
+                  <div className={styles.checkGrid}>
+                    {ESPECIALIDADES_OPTS.map(e => {
+                      const activo = regEsp.includes(e.value)
+                      return (
+                        <button key={e.value} type="button"
+                          className={`${styles.checkItem} ${activo ? styles.checkItemActive : ''}`}
+                          onClick={() => toggleEsp(e.value)}
+                        >
+                          <span className={`${styles.checkBox} ${activo ? styles.checkBoxActive : ''}`}>
+                            {activo && '✓'}
+                          </span>
+                          {e.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {regError && <p className={styles.msgError}>{regError}</p>}
+
+              <div className={styles.formFooter}>
+                <button className={styles.btnVolver}
+                  onClick={() => { setRegPaso(1); setRegError('') }}>
+                  ← Volver
+                </button>
+                <button className={styles.btnPrimary}
+                  onClick={handleRegistrar} disabled={regCargando}>
+                  {regCargando ? 'Registrando...' : 'Crear usuario'}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+>>>>>>> 735e7c4372bcfe42da509f3898aa1746fa73cdac
     </section>
   );
 }
@@ -1027,9 +1274,6 @@ function AreaSalas() {
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   DASHBOARD PRINCIPAL
-   ══════════════════════════════════════════════════════════ */
 export default function AdminDashboard() {
   const { user } = useAuth()
   const [userModal, setUserModal] = useState(null);

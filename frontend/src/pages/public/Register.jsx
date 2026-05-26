@@ -37,7 +37,13 @@ export default function Register() {
     e.preventDefault()
     setError('')
 
-    if (!dniFile) {
+    const camposObligatorios = [
+      form.first_name, form.last_name, form.email,
+      form.password, form.birth_date, form.phone,
+      form.address, form.address_number,
+    ]
+
+    if (camposObligatorios.some(v => !v.trim()) || !dniFile) {
       setError('Por favor, complete todos los campos.')
       return
     }
@@ -52,7 +58,8 @@ export default function Register() {
       await registerRequest(formData)
       setSuccess(true)
     } catch (err) {
-      setError(err.response?.data?.detail ?? 'Error al registrarse. Intentá nuevamente.')
+      const msg = err.response?.data?.email?.[0] ?? err.response?.data?.detail ?? 'Error al registrarse. Intentá nuevamente.'
+      setError(msg.includes('Ya existe') ? 'Ya existe un usuario con este email.' : msg)
     } finally {
       setLoading(false)
     }

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { ROLES } from '../../utils/roles'
@@ -51,6 +52,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const items = NAV_ITEMS[user?.role] ?? []
+  const [confirmar, setConfirmar] = useState(false)
 
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
 
@@ -63,6 +65,19 @@ export default function Sidebar() {
   }
 
   return (
+    <>
+    {/* Modal de confirmación */}
+    {confirmar && (
+      <div className={styles.logoutOverlay}>
+        <div className={styles.logoutModal}>
+          <p className={styles.logoutPregunta}>¿Está seguro que desea cerrar sesión?</p>
+          <div className={styles.logoutBtns}>
+            <button className={styles.logoutSi} onClick={handleLogout}>Sí</button>
+            <button className={styles.logoutNo} onClick={() => setConfirmar(false)}>No</button>
+          </div>
+        </div>
+      </div>
+    )}
     <aside className={styles.sidebar}>
       {/* Logo + nombre del sistema */}
       <div className={styles.brand}>
@@ -101,7 +116,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Logout */}
-      <button className={styles.logoutBtn} onClick={handleLogout}>
+      <button className={styles.logoutBtn} onClick={() => setConfirmar(true)}>
         <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
         Cerrar sesión
       </button>
@@ -171,5 +186,6 @@ export default function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   )
 }
