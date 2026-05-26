@@ -95,11 +95,28 @@ class MeView(APIView):
     """
     GET /api/auth/me/
     Devuelve los datos del usuario logueado.
+    PUT  /api/auth/me/ — Actualiza los datos del usuario logueado.
+    
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+    
+    def put(self, request):
+        # partial=True permite actualizar solo los campos que envías desde el formulario
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        
+        if not serializer.is_valid():
+            # Extrae el primer error para mantener el formato limpio que usás en las otras vistas
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {'detail': str(first_error)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class LogoutView(APIView):

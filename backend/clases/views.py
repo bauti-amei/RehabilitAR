@@ -347,7 +347,7 @@ class HardDeleteUserView(APIView):
             return Response({'detail': 'No tenés permiso.'}, status=403)
         try:
             usuario = User.objects.get(pk=pk)
-            usuario.delete()  # 🟢 ¡ACÁ SÍ! Borrado físico real de la base de datos
+            usuario.delete() 
             return Response({'detail': 'Usuario eliminado definitivamente.'}, status=status.HTTP_204_NO_CONTENT)
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado.'}, status=404)

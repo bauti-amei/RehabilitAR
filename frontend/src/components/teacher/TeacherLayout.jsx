@@ -165,7 +165,7 @@ export default function TeacherLayout() {
                 ¿Está seguro que desea cerrar sesión?
               </p>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-                <button onClick={handleLogout} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}>Sí</button>
+                <button onClick={ejecutarLogoutDefinitivo} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}>Sí</button>
                 <button onClick={() => setModal(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#c8cbdf', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}>No</button>
               </div>
             </div>

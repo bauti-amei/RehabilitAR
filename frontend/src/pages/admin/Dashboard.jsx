@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getUsersRequest, deleteUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
+import { getUsersRequest, suspenderUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -81,20 +81,10 @@ function TareasImportantes() {
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
   const [aptoIdARechazar, setAptoIdARechazar] = useState(null);
   const [motivoTexto, setMotivoTexto] = useState('');
-  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
 
   useEffect(() => {
     cargarAptos()
   }, [])
-
-  const mostrarNotificacion = (texto, tipo = 'exito') => {
-    setAlerta({ mostrar: true, texto, tipo });
-    
-    // A los 3 segundos exactos se oculta solo
-    setTimeout(() => {
-      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
-    }, 3000);
-  };
 
   const cargarAptos = async () => {
     try {
@@ -146,30 +136,7 @@ function TareasImportantes() {
 
   return (
     <div className={styles.card} style={{ position: 'relative' }}>
-       {alerta.mostrar && (
-        <div style={{
-          position: 'fixed',                  
-          top: '25px',                        
-          left: '50%',                        
-          transform: 'translateX(-50%)',      
-          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
-          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
-          padding: '0.85rem 1.75rem', 
-          borderRadius: '8px', 
-          fontSize: '0.95rem',
-          fontWeight: '500', 
-          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px', 
-          backdropFilter: 'blur(6px)'
-        }}>
-          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
-          {alerta.texto}
-        </div>
-      )}
+       
       <h2 className={styles.cardTitle}>Tareas importantes</h2>
       {cargando ? (
         <div className={styles.emptyState}>
@@ -614,7 +581,7 @@ const FORM_VACIO = {
   address_floor: '', address_apt: '', phone: '',
 }
 
-function Usuarios() {
+function Usuarios({mostrarNotificacion}) {
   const [usuarios, setUsuarios]   = useState([])
   const [cargando, setCargando]   = useState(true)
   const [busqueda, setBusqueda]   = useState('')
@@ -692,28 +659,28 @@ function Usuarios() {
     }
 
     try {
-      await deleteUserRequest(user.id, reason);
+      await suspenderUserRequest(user.id, reason);
       setUsuarios(prev =>
         prev.map(u => u.id === user.id ? { ...u, is_active: false } : u)
       );
-      alert('Usuario suspendido con éxito.');
+      mostrarNotificacion("Usuario suspendido con éxito.", 'exito');
     } catch (error) {
       console.error(error);
-      alert('Error al cambiar el estado del usuario');
+      mostrarNotificacion("Error al cambiar el estado del usuario", 'error');
     }
   };
 
   // ▶️ ACCIÓN: REACTIVAR (Volver a activar cuenta)
   const handleReactivar = async (user) => {
     try {
-      await deleteUserRequest(user.id, null);
+      await suspenderUserRequest(user.id, null);
       setUsuarios(prev =>
         prev.map(u => u.id === user.id ? { ...u, is_active: true } : u)
       );
-      alert('Usuario reactivado con éxito.');
+      mostrarNotificacion("Usuario reactivado con éxito.", 'exito');
     } catch (error) {
       console.error(error);
-      alert('Error al cambiar el estado del usuario');
+      mostrarNotificacion("Error al cambiar el estado del usuario", 'error');
     }
   };
 
@@ -727,13 +694,13 @@ function Usuarios() {
     if (!usuarioAEliminar) return;
 
     try {
-      await deleteUserRequest(usuarioAEliminar.id, "HARD_DELETE");
+      await hardDeleteUserRequest(usuarioAEliminar.id);
 
       setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id));
-      alert('Usuario eliminado por completo de la base de datos.');
+      mostrarNotificacion("Usuario eliminado por completo de la base de datos.", 'exito');
     } catch (error) {
       console.error(error);
-      alert('Error al intentar eliminar definitivamente al usuario.');
+      mostrarNotificacion("Error al intentar eliminar definitivamente al usuario.", 'error');
     } finally {
       setUsuarioAEliminar(null); // Cerramos el cartel flotante
     }
@@ -861,7 +828,7 @@ function Usuarios() {
             
             
             <h4 style={{ color: 'white', marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: '400', lineHeight: '1.4' }}>
-              ¿Deseas eliminar definitivamente a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
+              ¿Deseas eliminar a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
             </h4>
             
             <p style={{ color: '#868e96', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: '1.5' }}>
@@ -888,7 +855,7 @@ function Usuarios() {
                   fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
                 }}
               >
-                Eliminar para siempre
+                Eliminar
               </button>
             </div>
           </div>
@@ -1129,6 +1096,16 @@ function AreaSalas() {
 export default function AdminDashboard() {
   const { user } = useAuth()
   const [userModal, setUserModal] = useState(null);
+  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
+  
+  const mostrarNotificacion = (texto, tipo = 'exito') => {
+    setAlerta({ mostrar: true, texto, tipo });
+    
+    // A los 3 segundos exactos se oculta solo
+    setTimeout(() => {
+      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
+    }, 3000);
+  };
 
   return (
     <div className={styles.container}>
@@ -1154,8 +1131,32 @@ export default function AdminDashboard() {
       <Estadisticas />
 
       {/* Usuarios */}
-      <Usuarios />
+      <Usuarios mostrarNotificacion={mostrarNotificacion}/>
 
+      {alerta.mostrar && (
+        <div style={{
+          position: 'fixed',                  
+          top: '25px',                        
+          left: '50%',                        
+          transform: 'translateX(-50%)',      
+          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
+          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+          padding: '0.85rem 1.75rem', 
+          borderRadius: '8px', 
+          fontSize: '0.95rem',
+          fontWeight: '500', 
+          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          backdropFilter: 'blur(6px)'
+        }}>
+          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
+          {alerta.texto}
+        </div>
+      )}
     </div>
   )
 }
