@@ -621,6 +621,9 @@ function Usuarios() {
   const [filtroRol, setFiltroRol] = useState('todos')
   const [userModal, setUserModal] = useState(null)
   const [usuarioAEliminar, setUsuarioAEliminar] = useState(null)
+  const [suspenderModal, setSuspenderModal]     = useState(null)  // user a suspender
+  const [motivoSuspension, setMotivoSuspension] = useState('')
+  const [feedbackModal, setFeedbackModal]       = useState(null)  // { texto, tipo: 'exito'|'error' }
 
   // ── Modal registro ────────────────────────────────────────
   const [regModal,    setRegModal]   = useState(false)
@@ -683,60 +686,50 @@ function Usuarios() {
 
   const rolLabel = ROL_OPCIONES.find(r => r.value === regRol)?.label ?? ''
 
-  const handleSuspender = async (user) => {
-    const reason = prompt(`Por favor, ingresa el motivo de la suspensión para ${user.first_name} ${user.last_name}:`);
-    if (!reason || reason.trim() === "") {
-      alert("El motivo es obligatorio para suspender al usuario.");
-      return;
-    }
+  const handleSuspender = (user) => {
+    setMotivoSuspension('')
+    setSuspenderModal(user)
+  }
 
+  const confirmarSuspension = async () => {
+    if (!motivoSuspension.trim()) return
     try {
-      await deleteUserRequest(user.id, reason);
-      setUsuarios(prev =>
-        prev.map(u => u.id === user.id ? { ...u, is_active: false } : u)
-      );
-      alert('Usuario suspendido con éxito.');
-    } catch (error) {
-      console.error(error);
-      alert('Error al cambiar el estado del usuario');
+      await deleteUserRequest(suspenderModal.id, motivoSuspension)
+      setUsuarios(prev => prev.map(u => u.id === suspenderModal.id ? { ...u, is_active: false } : u))
+      setFeedbackModal({ texto: 'Usuario suspendido con éxito.', tipo: 'exito' })
+    } catch {
+      setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
+    } finally {
+      setSuspenderModal(null)
     }
-  };
+  }
 
-  // ▶️ ACCIÓN: REACTIVAR (Volver a activar cuenta)
   const handleReactivar = async (user) => {
     try {
-      await deleteUserRequest(user.id, null);
-      setUsuarios(prev =>
-        prev.map(u => u.id === user.id ? { ...u, is_active: true } : u)
-      );
-      alert('Usuario reactivado con éxito.');
-    } catch (error) {
-      console.error(error);
-      alert('Error al cambiar el estado del usuario');
+      await deleteUserRequest(user.id, null)
+      setUsuarios(prev => prev.map(u => u.id === user.id ? { ...u, is_active: true } : u))
+      setFeedbackModal({ texto: 'Usuario reactivado con éxito.', tipo: 'exito' })
+    } catch {
+      setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
     }
-  };
+  }
 
-  // 🗑️ ACCIÓN: ABRIR EL CARTEL DE ELIMINAR DEFINITIVO
   const handleEliminarDefinitivo = (user) => {
-    setUsuarioAEliminar(user);
-  };
+    setUsuarioAEliminar(user)
+  }
 
- // 🔥 ACCIÓN REAL: BORRADO FÍSICO DE LA BASE DE DATOS (Manda HARD_DELETE a Django)
   const ejecutarBorradoFisicoReal = async () => {
-    if (!usuarioAEliminar) return;
-
+    if (!usuarioAEliminar) return
     try {
-      await deleteUserRequest(usuarioAEliminar.id, "HARD_DELETE");
-
-      setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id));
-      alert('Usuario eliminado por completo de la base de datos.');
-    } catch (error) {
-      console.error(error);
-      alert('Error al intentar eliminar definitivamente al usuario.');
+      await deleteUserRequest(usuarioAEliminar.id, 'HARD_DELETE')
+      setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id))
+      setFeedbackModal({ texto: 'Usuario eliminado por completo de la base de datos.', tipo: 'exito' })
+    } catch {
+      setFeedbackModal({ texto: 'Error al intentar eliminar definitivamente al usuario.', tipo: 'error' })
     } finally {
-      setUsuarioAEliminar(null); // Cerramos el cartel flotante
+      setUsuarioAEliminar(null)
     }
-  };
+  }
 
   const usuariosFiltrados = usuarios.filter(u => {
     const matchRol = filtroRol === 'todos' || u.role === filtroRol
@@ -839,6 +832,56 @@ function Usuarios() {
             </span>
           </div>
         </Modal>
+      )}
+
+      {/* ── MODAL SUSPENSIÓN ── */}
+      {suspenderModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
+          onClick={() => setSuspenderModal(null)}>
+          <div style={{ background:'#13172e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'20px', padding:'2rem 2.2rem', width:'100%', maxWidth:'420px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ color:'white', fontSize:'1.2rem', fontWeight:700, marginBottom:'0.5rem' }}>Suspender usuario</h3>
+            <p style={{ color:'#b0b3c7', fontSize:'0.9rem', marginBottom:'1.2rem' }}>
+              Ingresá el motivo de la suspensión de <strong style={{ color:'#a78bfa' }}>{suspenderModal.first_name} {suspenderModal.last_name}</strong>.
+            </p>
+            <textarea
+              value={motivoSuspension}
+              onChange={e => setMotivoSuspension(e.target.value)}
+              placeholder="Motivo de suspensión..."
+              rows={3}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:'12px', border:'1px solid #2c3157', background:'#111527', color:'white', fontSize:'0.95rem', resize:'vertical', boxSizing:'border-box', outline:'none', fontFamily:'inherit' }}
+            />
+            {motivoSuspension.trim() === '' && (
+              <p style={{ color:'#f87171', fontSize:'0.85rem', marginTop:'0.4rem' }}>El motivo es obligatorio.</p>
+            )}
+            <div style={{ display:'flex', gap:'1rem', marginTop:'1.4rem' }}>
+              <button onClick={() => setSuspenderModal(null)}
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#c8cbdf', fontWeight:600, cursor:'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarSuspension} disabled={!motivoSuspension.trim()}
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'none', background: motivoSuspension.trim() ? '#f59e0b' : '#4b4b4b', color:'white', fontWeight:600, cursor: motivoSuspension.trim() ? 'pointer' : 'not-allowed' }}>
+                Suspender
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL FEEDBACK (éxito / error) ── */}
+      {feedbackModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
+          onClick={() => setFeedbackModal(null)}>
+          <div style={{ background:'#13172e', border:`1px solid ${feedbackModal.tipo === 'exito' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius:'20px', padding:'2rem 2.4rem', width:'100%', maxWidth:'380px', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize:'2rem', marginBottom:'0.8rem' }}>{feedbackModal.tipo === 'exito' ? '✅' : '❌'}</p>
+            <p style={{ color:'white', fontSize:'1rem', fontWeight:600, marginBottom:'1.5rem', lineHeight:1.5 }}>{feedbackModal.texto}</p>
+            <button onClick={() => setFeedbackModal(null)}
+              style={{ padding:'0.65rem 2rem', borderRadius:'12px', border:'none', background: feedbackModal.tipo === 'exito' ? '#22c55e' : '#ef4444', color:'white', fontWeight:600, fontSize:'0.95rem', cursor:'pointer' }}>
+              Aceptar
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ⚠️ MODAL DE ADVERTENCIA CRÍTICA FLOTANTE DE ELIMINACIÓN */}

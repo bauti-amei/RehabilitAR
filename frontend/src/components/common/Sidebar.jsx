@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { ROLES } from '../../utils/roles'
 import styles from './Sidebar.module.css'
-import { useState } from 'react'
 
 /* Íconos SVG inline simples */
 const Icon = ({ d }) => (
