@@ -460,7 +460,7 @@ class CambiarCapacidadView(APIView):
             return Response({'detail': 'No tenés permiso.'}, status=403)
 
         try:
-            clase = Clase.objects.prefetch_related('inscriptos').get(pk=pk)
+            clase = Clase.objects.select_related('sala').prefetch_related('inscriptos').get(pk=pk)
         except Clase.DoesNotExist:
             return Response({'detail': 'Clase no encontrada.'}, status=404)
 
@@ -473,6 +473,16 @@ class CambiarCapacidadView(APIView):
                 raise ValueError
         except (ValueError, TypeError):
             return Response({'detail': 'El cupo debe ser un número entero positivo.'}, status=400)
+
+        # Validar que no supere la capacidad de la sala
+        if clase.sala and nuevo_cupo > clase.sala.capacidad:
+            return Response(
+                {
+                    'detail': f'El cupo ({nuevo_cupo}) supera la capacidad máxima '
+                              f'de la sala "{clase.sala.nombre}" ({clase.sala.capacidad}).'
+                },
+                status=400,
+            )
 
         cantidad_inscriptos = clase.inscriptos.count()
 
