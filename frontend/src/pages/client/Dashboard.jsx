@@ -192,7 +192,7 @@ function Calendario() {
 export default function ClientDashboard() {
   const { user }           = useAuth()
   const [planModal, setPlanModal] = useState(null)
-
+  const [vistaActual, setVistaActual] = useState('inicio')
   const todayStr = getTodayStr()
   const fechaProxima = PROXIMA_CLASE
     ? PROXIMA_CLASE.fecha === todayStr
