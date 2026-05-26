@@ -216,14 +216,10 @@ class AdminRegisterView(APIView):
                 ),
                 from_email='noreply@rehabilitar.com',
                 recipient_list=[user.email],
-                fail_silently=False,
+                fail_silently=True,
             )
         except Exception:
-            user.delete()
-            return Response(
-                {'detail': 'Error, intente nuevamente'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            pass
 
         return Response(
             {'detail': 'Usuario registrado exitosamente.'},
