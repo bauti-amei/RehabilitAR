@@ -95,11 +95,6 @@ export default function AdminLayout() {
 
         <div className={styles.navActions}>
 
-          {/* Cambiar rol */}
-          <button className={styles.cambiarRolBtn} onClick={() => openModal('cambiarRol')}>
-            ⇄ Cambiar rol
-          </button>
-
           {/* Notificaciones */}
           <button className={styles.iconBtn} onClick={() => openModal('notifications')}>
             <BellIcon />

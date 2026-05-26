@@ -471,6 +471,17 @@ function Usuarios() {
       setRegError('Completá todos los campos obligatorios.')
       return
     }
+    if (birth_date) {
+      const hoy  = new Date()
+      const nac  = new Date(birth_date)
+      let edad   = hoy.getFullYear() - nac.getFullYear()
+      const m    = hoy.getMonth() - nac.getMonth()
+      if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--
+      if (edad < 18) {
+        setRegError('El usuario debe ser mayor de edad.')
+        return
+      }
+    }
     setRegCarg(true); setRegError('')
     try {
       await adminRegisterRequest({ ...regForm, role: regRol, especialidades: regEsp.join(',') })

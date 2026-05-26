@@ -87,6 +87,14 @@ class AdminRegisterSerializer(serializers.ModelSerializer):
             'role':           {'required': True},
         }
 
+    def validate_birth_date(self, value):
+        from datetime import date
+        hoy = date.today()
+        edad = hoy.year - value.year - ((hoy.month, hoy.day) < (value.month, value.day))
+        if edad < 18:
+            raise serializers.ValidationError('El usuario debe ser mayor de edad.')
+        return value
+
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
             raise serializers.ValidationError('El mail ya se encuentra registrado.')

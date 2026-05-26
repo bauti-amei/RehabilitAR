@@ -145,6 +145,15 @@ class ClaseCreateSerializer(serializers.ModelSerializer):
         especialidad = data.get('especialidad')
         profesor     = data.get('profesor')
 
+        # Rango horario permitido: 08:00 - 20:00
+        from datetime import time as Time
+        HORA_MIN = Time(8, 0)
+        HORA_MAX = Time(20, 0)
+        if horario_ini and (horario_ini < HORA_MIN or horario_ini > HORA_MAX):
+            raise serializers.ValidationError('El horario de inicio debe estar entre las 08:00 y las 20:00.')
+        if horario_fin and (horario_fin < HORA_MIN or horario_fin > HORA_MAX):
+            raise serializers.ValidationError('El horario de fin debe estar entre las 08:00 y las 20:00.')
+
         # Horario consistente
         if horario_ini and horario_fin and horario_ini >= horario_fin:
             raise serializers.ValidationError('El horario de inicio debe ser anterior al horario de fin.')
