@@ -3,6 +3,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 
+from django.core.mail import EmailMessage
+from django.conf import settings
+
 from .models import Clase, Sala
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
@@ -347,7 +350,39 @@ class HardDeleteUserView(APIView):
             return Response({'detail': 'No tenés permiso.'}, status=403)
         try:
             usuario = User.objects.get(pk=pk)
-            usuario.delete() 
+
+            tiene_inscripciones = Clase.objects.filter(inscriptos=usuario).exists()
+
+            if tiene_inscripciones:
+                mensaje = (
+                    f"Hola {usuario.first_name},\n\n"
+                    f"Tu cuenta en RehabilitAR ha sido eliminada.\n\n"
+                    f"Dado que tenías clases o reservas activas, se realizó el reintegro del dinero correspondiente.\n\n"
+                    f"Saludos,\nEquipo RehabilitAR"
+                )
+            else:
+                mensaje = (
+                    f"Hola {usuario.first_name},\n\n"
+                    f"Tu cuenta en RehabilitAR ha sido eliminada.\n\n"
+                    f"Saludos,\nEquipo RehabilitAR"
+                )
+
+            email_destino = usuario.email
+            nombre = usuario.first_name
+
+            try:
+                mail = EmailMessage(
+                    subject="Tu cuenta en RehabilitAR ha sido eliminada",
+                    body=mensaje,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[email_destino],
+                )
+                mail.encoding = 'utf-8'
+                mail.send(fail_silently=True)
+            except Exception as e:
+                print(f"Error al enviar mail de eliminacion: {e}")
+
+            usuario.delete()
             return Response({'detail': 'Usuario eliminado definitivamente.'}, status=status.HTTP_204_NO_CONTENT)
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado.'}, status=404)

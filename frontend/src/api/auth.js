@@ -20,7 +20,7 @@ export const adminRegisterRequest = (data) =>
 export const suspenderUserRequest = (id, reason) => {
   const token = localStorage.getItem('token');
   return api.delete(`auth/users/${id}/`, {
-    data: { reason: reason }, // 🟢 Axios requiere que en métodos DELETE el body vaya dentro de una propiedad 'data' en el segundo argumento
+    data: { reason: reason },
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
@@ -49,11 +49,21 @@ export const getAptosPendientesRequest = () =>
   api.get('/auth/aptos/pendientes/')
 
 export const validarAptoFisicoRequest = (id, accion, motivoRechazo = '') =>
-  api.post(`/auth/aptos/${id}/validar/`, { 
-    accion, 
-    motivo_rechazo: motivoRechazo 
+  api.post(`/auth/aptos/${id}/validar/`, {
+    accion,
+    motivo_rechazo: motivoRechazo
   })
+
 export const subirAptoFisicoRequest = (formData) =>
   api.post('/auth/aptos/subir/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' } // Le avisa al navegador que viaja un archivo binario
+    headers: { 'Content-Type': 'multipart/form-data' }
   })
+
+export const solicitarCodigoRequest = (email) =>
+  api.post('/auth/recuperar-password/', { email })
+
+export const verificarCodigoRequest = (email, codigo) =>
+  api.post('/auth/verificar-codigo/', { email, codigo })
+
+export const nuevaPasswordRequest = (email, codigo, password) =>
+  api.post('/auth/nueva-password/', { email, codigo, password })

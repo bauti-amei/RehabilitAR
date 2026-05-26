@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, suspenderUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
+import { getUsersRequest, adminRegisterRequest, deleteUserRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
 import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
@@ -587,8 +588,10 @@ function Usuarios({mostrarNotificacion}) {
   const [busqueda, setBusqueda]   = useState('')
   const [filtroRol, setFiltroRol] = useState('todos')
   const [userModal, setUserModal] = useState(null)
-  const [usuarioAEliminar, setUsuarioAEliminar] = useState(null);
-  
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState(null)
+  const [suspenderModal, setSuspenderModal]     = useState(null)  // user a suspender
+  const [motivoSuspension, setMotivoSuspension] = useState('')
+  const [feedbackModal, setFeedbackModal]       = useState(null)  // { texto, tipo: 'exito'|'error' }
 
   // ── Modal registro ────────────────────────────────────────
   const [regModal,    setRegModal]   = useState(false)
@@ -651,13 +654,13 @@ function Usuarios({mostrarNotificacion}) {
 
   const rolLabel = ROL_OPCIONES.find(r => r.value === regRol)?.label ?? ''
 
-  const handleSuspender = async (user) => {
-    const reason = prompt(`Por favor, ingresa el motivo de la suspensión para ${user.first_name} ${user.last_name}:`);
-    if (!reason || reason.trim() === "") {
-      alert("El motivo es obligatorio para suspender al usuario.");
-      return;
-    }
+  const handleSuspender = (user) => {
+    setMotivoSuspension('')
+    setSuspenderModal(user)
+  }
 
+  const confirmarSuspension = async () => {
+    if (!motivoSuspension.trim()) return
     try {
       await suspenderUserRequest(user.id, reason);
       setUsuarios(prev =>
@@ -668,9 +671,8 @@ function Usuarios({mostrarNotificacion}) {
       console.error(error);
       mostrarNotificacion("Error al cambiar el estado del usuario", 'error');
     }
-  };
+  }
 
-  // ▶️ ACCIÓN: REACTIVAR (Volver a activar cuenta)
   const handleReactivar = async (user) => {
     try {
       await suspenderUserRequest(user.id, null);
@@ -682,17 +684,14 @@ function Usuarios({mostrarNotificacion}) {
       console.error(error);
       mostrarNotificacion("Error al cambiar el estado del usuario", 'error');
     }
-  };
+  }
 
-  // 🗑️ ACCIÓN: ABRIR EL CARTEL DE ELIMINAR DEFINITIVO
   const handleEliminarDefinitivo = (user) => {
-    setUsuarioAEliminar(user);
-  };
+    setUsuarioAEliminar(user)
+  }
 
- // 🔥 ACCIÓN REAL: BORRADO FÍSICO DE LA BASE DE DATOS (Manda HARD_DELETE a Django)
   const ejecutarBorradoFisicoReal = async () => {
-    if (!usuarioAEliminar) return;
-
+    if (!usuarioAEliminar) return
     try {
       await hardDeleteUserRequest(usuarioAEliminar.id);
 
@@ -702,9 +701,9 @@ function Usuarios({mostrarNotificacion}) {
       console.error(error);
       mostrarNotificacion("Error al intentar eliminar definitivamente al usuario.", 'error');
     } finally {
-      setUsuarioAEliminar(null); // Cerramos el cartel flotante
+      setUsuarioAEliminar(null)
     }
-  };
+  }
 
   const usuariosFiltrados = usuarios.filter(u => {
     const matchRol = filtroRol === 'todos' || u.role === filtroRol
@@ -811,6 +810,55 @@ function Usuarios({mostrarNotificacion}) {
       <button className={styles.btnOutline} style={{ marginTop: '1rem' }}>
         + Crear nuevo usuario
       </button>
+      {/* ── MODAL SUSPENSIÓN ── */}
+      {suspenderModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
+          onClick={() => setSuspenderModal(null)}>
+          <div style={{ background:'#13172e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'20px', padding:'2rem 2.2rem', width:'100%', maxWidth:'420px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ color:'white', fontSize:'1.2rem', fontWeight:700, marginBottom:'0.5rem' }}>Suspender usuario</h3>
+            <p style={{ color:'#b0b3c7', fontSize:'0.9rem', marginBottom:'1.2rem' }}>
+              Ingresá el motivo de la suspensión de <strong style={{ color:'#a78bfa' }}>{suspenderModal.first_name} {suspenderModal.last_name}</strong>.
+            </p>
+            <textarea
+              value={motivoSuspension}
+              onChange={e => setMotivoSuspension(e.target.value)}
+              placeholder="Motivo de suspensión..."
+              rows={3}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:'12px', border:'1px solid #2c3157', background:'#111527', color:'white', fontSize:'0.95rem', resize:'vertical', boxSizing:'border-box', outline:'none', fontFamily:'inherit' }}
+            />
+            {motivoSuspension.trim() === '' && (
+              <p style={{ color:'#f87171', fontSize:'0.85rem', marginTop:'0.4rem' }}>El motivo es obligatorio.</p>
+            )}
+            <div style={{ display:'flex', gap:'1rem', marginTop:'1.4rem' }}>
+              <button onClick={() => setSuspenderModal(null)}
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#c8cbdf', fontWeight:600, cursor:'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarSuspension} disabled={!motivoSuspension.trim()}
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'none', background: motivoSuspension.trim() ? '#f59e0b' : '#4b4b4b', color:'white', fontWeight:600, cursor: motivoSuspension.trim() ? 'pointer' : 'not-allowed' }}>
+                Suspender
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL FEEDBACK (éxito / error) ── */}
+      {feedbackModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
+          onClick={() => setFeedbackModal(null)}>
+          <div style={{ background:'#13172e', border:`1px solid ${feedbackModal.tipo === 'exito' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius:'20px', padding:'2rem 2.4rem', width:'100%', maxWidth:'380px', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize:'2rem', marginBottom:'0.8rem' }}>{feedbackModal.tipo === 'exito' ? '✅' : '❌'}</p>
+            <p style={{ color:'white', fontSize:'1rem', fontWeight:600, marginBottom:'1.5rem', lineHeight:1.5 }}>{feedbackModal.texto}</p>
+            <button onClick={() => setFeedbackModal(null)}
+              style={{ padding:'0.65rem 2rem', borderRadius:'12px', border:'none', background: feedbackModal.tipo === 'exito' ? '#22c55e' : '#ef4444', color:'white', fontWeight:600, fontSize:'0.95rem', cursor:'pointer' }}>
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ⚠️ MODAL DE ADVERTENCIA CRÍTICA FLOTANTE DE ELIMINACIÓN */}
       {usuarioAEliminar && (
@@ -819,24 +867,19 @@ function Usuarios({mostrarNotificacion}) {
           backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
         }} onClick={() => setUsuarioAEliminar(null)}>
-          
           <div style={{
             backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
             padding: '2.5rem 2rem', borderRadius: '12px', textAlign: 'center',
             boxShadow: '0 10px 30px rgba(0,0,0,0.6)', maxWidth: '430px', width: '90%'
           }} onClick={e => e.stopPropagation()}>
-            
-            
             <h4 style={{ color: 'white', marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: '400', lineHeight: '1.4' }}>
               ¿Deseas eliminar a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
             </h4>
-            
             <p style={{ color: '#868e96', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: '1.5' }}>
               Esta acción es irreversible. Se borrará toda su información personal, turnos e historial de la base de datos de RehabilitAR.
             </p>
-            
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-              <button 
+              <button
                 onClick={() => setUsuarioAEliminar(null)}
                 style={{
                   background: 'rgba(255, 255, 255, 0.05)', color: 'white',
@@ -846,8 +889,7 @@ function Usuarios({mostrarNotificacion}) {
               >
                 Cancelar
               </button>
-
-              <button 
+              <button
                 onClick={ejecutarBorradoFisicoReal}
                 style={{
                   background: '#ef4444', color: 'white', border: 'none',
@@ -862,6 +904,141 @@ function Usuarios({mostrarNotificacion}) {
         </div>
       )}
 
+
+      {/* ── Modal registro ── */}
+      {regModal && (
+        <Modal
+          title={regPaso === 1 ? 'Seleccioná el tipo de usuario' : `Nuevo ${rolLabel}`}
+          onClose={() => setRegModal(false)}
+          wide
+        >
+          {regOk ? (
+            <div className={styles.regExito}>
+              <span className={styles.regExitoIcon}>✅</span>
+              <p>Usuario registrado correctamente.</p>
+              <p className={styles.regExitoEmail}>Se envió un correo a <strong>{regForm.email}</strong></p>
+              <button className={styles.btnPrimary} onClick={() => setRegModal(false)}>Cerrar</button>
+            </div>
+
+          ) : regPaso === 1 ? (
+            <div className={styles.rolGrid}>
+              {ROL_OPCIONES.map(r => (
+                <button
+                  key={r.value}
+                  className={styles.rolCard}
+                  onClick={() => { setRegRol(r.value); setRegPaso(2) }}
+                >
+                  <span className={styles.rolEmoji}>{r.emoji}</span>
+                  <span className={styles.rolNombre}>{r.label}</span>
+                </button>
+              ))}
+            </div>
+
+          ) : (
+            <div className={styles.formReg}>
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Nombre <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="first_name" placeholder="Juan"
+                    value={regForm.first_name} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Apellido <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="last_name" placeholder="Pérez"
+                    value={regForm.last_name} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.labelReg}>Correo electrónico <span className={styles.req}>*</span></label>
+                <input className={styles.inputReg} type="email" name="email" placeholder="juan@email.com"
+                  value={regForm.email} onChange={cambiarForm} />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.labelReg}>Contraseña <span className={styles.req}>*</span></label>
+                <input className={styles.inputReg} type="password" name="password"
+                  placeholder="Mín. 8 caracteres, 1 letra y 1 número"
+                  value={regForm.password} onChange={cambiarForm} />
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Fecha de nacimiento <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} type="date" name="birth_date"
+                    value={regForm.birth_date} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Celular <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="phone" placeholder="1123456789"
+                    value={regForm.phone} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Calle <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="address" placeholder="Av. Corrientes"
+                    value={regForm.address} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Número <span className={styles.req}>*</span></label>
+                  <input className={styles.inputReg} name="address_number" placeholder="1234"
+                    value={regForm.address_number} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Piso</label>
+                  <input className={styles.inputReg} name="address_floor" placeholder="3"
+                    value={regForm.address_floor} onChange={cambiarForm} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Depto</label>
+                  <input className={styles.inputReg} name="address_apt" placeholder="A"
+                    value={regForm.address_apt} onChange={cambiarForm} />
+                </div>
+              </div>
+
+              {conEsp && (
+                <div className={styles.formGroup}>
+                  <label className={styles.labelReg}>Especialidades</label>
+                  <div className={styles.checkGrid}>
+                    {ESPECIALIDADES_OPTS.map(e => {
+                      const activo = regEsp.includes(e.value)
+                      return (
+                        <button key={e.value} type="button"
+                          className={`${styles.checkItem} ${activo ? styles.checkItemActive : ''}`}
+                          onClick={() => toggleEsp(e.value)}
+                        >
+                          <span className={`${styles.checkBox} ${activo ? styles.checkBoxActive : ''}`}>
+                            {activo && '✓'}
+                          </span>
+                          {e.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {regError && <p className={styles.msgError}>{regError}</p>}
+
+              <div className={styles.formFooter}>
+                <button className={styles.btnVolver}
+                  onClick={() => { setRegPaso(1); setRegError('') }}>
+                  ← Volver
+                </button>
+                <button className={styles.btnPrimary}
+                  onClick={handleRegistrar} disabled={regCargando}>
+                  {regCargando ? 'Registrando...' : 'Crear usuario'}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
     </section>
   );
 }

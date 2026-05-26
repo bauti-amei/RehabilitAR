@@ -1,6 +1,9 @@
 import os
+import certifi
 from pathlib import Path
 from datetime import timedelta
+
+os.environ.setdefault('SSL_CERT_FILE', certifi.where())
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -95,7 +98,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DNI_VALIDATION_MOCK = True
 OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', 'helloworld')
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# ── Email ─────────────────────────────────────────
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'info.rehabilitar.unlp@gmail.com'
+EMAIL_HOST_PASSWORD = 'nkzzhbyaowjyocfq'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR
