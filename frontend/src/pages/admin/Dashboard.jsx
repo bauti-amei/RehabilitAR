@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, suspenderUserRequest, adminRegisterRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
 
@@ -349,11 +349,23 @@ function AreaClases() {
   const [userModal,       setUserModal] = useState(null)
   const [crearClase,      setCrear]    = useState(false)
   const [asignarModal,    setAsignar]  = useState(null)   // clase a la que se asigna profesor
+  const [desasignarModal, setDesasignar] = useState(null) // clase de la que se quita profesor
+  const [desasignando,    setDesasignando] = useState(false)
+  const [infoProfesorSel, setInfoProfesorSel] = useState(null)
+  const [confirmarPaso,   setConfirmarPaso] = useState(false)
   const [profesores,      setProfesores] = useState([])
   const [profesorSel,     setProfesorSel] = useState('')
   const [asignando,       setAsignando] = useState(false)
   const [asignarError,    setAsignarError] = useState('')
 
+  const mostrarNotificacion = (texto, tipo = 'exito') => {
+    setAlerta({ mostrar: true, texto, tipo });
+    
+    // A los 3 segundos exactos se oculta solo
+    setTimeout(() => {
+      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
+    }, 3000);
+  };
   const cargarClases = () => {
     getClasesRequest()
       .then(res => setClases(res.data))
@@ -385,6 +397,24 @@ function AreaClases() {
       setAsignarError(err.response?.data?.detail ?? 'Error al asignar el profesor.')
     } finally {
       setAsignando(false)
+    }
+  }
+
+  const handleDesasignarProfesor = async () => {
+    if (!desasignarModal) return
+    setDesasignando(true)
+    try {
+      // Reutiliza la misma petición pasándole un valor vacío o llamando a tu endpoint desasignar
+      await desasignarProfesorRequest(desasignarModal.id) 
+      setDesasignar(null)
+      cargarClases() // Refresca la lista automáticamente en pantalla
+      mostrarNotificacion("Profesor desasignado con éxito", "exito")
+
+    } catch (err) {
+      const mensajeError = err.response?.data?.detail ?? 'Error al desasignar el profesor.'
+      mostrarNotificacion(mensajeError, "error")
+    } finally {
+      setDesasignando(false)
     }
   }
 
@@ -443,9 +473,35 @@ function AreaClases() {
                 <p className={styles.claseNombre}>{c.nombre}</p>
                 <p className={styles.claseMeta}>{c.especialidad_display} · {c.dias} · {c.horario} · {c.aula}</p>
               </div>
-              <div className={styles.claseProfesor}>
-                {c.profesor_nombre ? (
-                  <span className={styles.profesorNombre}>👤 {c.profesor_nombre}</span>
+            <div className={styles.claseProfesor}>
+              {c.profesor_nombre ? (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <button 
+                  className={styles.verMasBtn} // <-- Usamos la clase nativa del CSS
+                  onClick={() => {
+                    setDesasignar(c);
+                    setInfoProfesorSel(null);
+                    setConfirmarPaso(false);
+                    
+                    getProfesoresPorEspecialidadRequest(c.especialidad)
+                      .then(res => {
+                        const profeDetalle = res.data.find(p => p.nombre === c.profesor_nombre);
+                        if (profeDetalle) setInfoProfesorSel(profeDetalle);
+                      })
+                      .catch(() => setInfoProfesorSel(null));
+                  }}
+                  title="Ver información del profesor"
+                  style={{ 
+                    padding: '0.5rem 1rem',   /* Mucho más alto y ancho, resalta un montón */
+                    fontSize: '1rem',           /* Tamaño de letra estándar grande (mayor al primario) */
+                    borderRadius: '30px',       /* Esquinas un toque más curvas para acompañar el tamaño */
+                    letterSpacing: '0.5px',     /* Separa un poquito las letras para que respire el texto */
+                    boxShadow: '0 2px 8px rgba(124, 92, 255, 0.05)' /* Una sombrita violeta muy sutil de fondo */
+                  }}
+                >
+                  👤 {c.profesor_nombre}
+                </button>
+              </div>
                 ) : (
                   <div className={styles.sinProfesor}>
                     <span className={styles.sinAsignar}>SIN ASIGNAR</span>
@@ -471,8 +527,9 @@ function AreaClases() {
               </button>
             </div>
           </div>
-        ))}
+          ))}
       </div>
+     
 
       {/* Modal lista de espera */}
       {listaEsperaModal && (
@@ -549,6 +606,95 @@ function AreaClases() {
           </div>
         </Modal>
       )}
+        {/* Modal Detalle — Información y Remoción del Profesor */}
+      {desasignarModal && (
+        <Modal 
+          title={confirmarPaso ? "Confirmar acción" : (infoProfesorSel ? infoProfesorSel.nombre : desasignarModal.profesor_nombre)} 
+          onClose={() => { setDesasignar(null); setInfoProfesorSel(null); }}
+        >
+          {!confirmarPaso ? (
+           <>
+
+          <div className={styles.detalleGrid}>
+            <span>Email</span>      <span>{infoProfesorSel?.email || 'Cargando...'}</span>
+            <span>Rol</span>        <span>Profesor</span>
+            <span>Teléfono</span>   <span>{infoProfesorSel?.telefono || infoProfesorSel?.phone || '—'}</span>
+            {/* Si el backend de profesores no devuelve fecha de nacimiento, podemos poner la Especialidad */}
+            <span>Especialidad</span> <span>{desasignarModal.especialidad_display}</span>
+            <span>Estado</span>
+            {infoProfesorSel ? (
+              <span className={infoProfesorSel.is_active !== false ? styles.estadoActivo : styles.estadoSuspendido}>
+                {infoProfesorSel.is_active !== false ? 'Activo' : 'Suspendido'}
+              </span>
+            ) : (
+              <span>—</span>
+            )}
+          </div>
+
+          <div style={{ borderTop: '1px solid #e9ecef', marginTop: '20px', paddingTop: '15px' }}>
+                <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button className={styles.btnOutline} onClick={() => { setDesasignar(null); setInfoProfesorSel(null); }}>
+                    Cerrar
+                  </button>
+                  {/* Este botón avanza al paso de confirmación */}
+                  <button className={styles.btnPrimary} onClick={() => setConfirmarPaso(true)}>
+                    Quitar de la clase
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ══════════════════════════════════════════════════════════
+               PANTALLA 2: ADVERTENCIA DE SEGURIDAD ESTILIZADA
+               ══════════════════════════════════════════════════════════ */
+            <div style={{ padding: '5px', textAlign: 'center' }}>
+              <h4 style={{ color: '#ffffff', marginBottom: '10px', fontSize: '1.1rem', fontWeight: '600' }}>
+                ¿Estás seguro?
+              </h4>
+              <p style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '25px', lineHeight: '1.4' }}>
+                Vas a desasignar a <strong>{desasignarModal.profesor_nombre}</strong> de la clase de <strong>{desasignarModal.nombre}</strong>. 
+              </p>
+
+              <div style={{ paddingTop: '18px' }}>
+                <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                  {/* Botón para arrepentirse y volver a la ficha */}
+                  <button className={styles.btnOutline} onClick={() => setConfirmarPaso(false)}>
+                    No, volver
+                  </button>
+                  
+                  <button
+                    onClick={handleDesasignarProfesor}
+                    disabled={desasignando}
+                    style={{ 
+                      padding: '0.55rem 1.3rem',
+                      border: '1px solid rgba(220, 53, 69, 0.4)', /* Borde rojo suave */
+                      borderRadius: '10px',
+                      background: 'rgba(220, 53, 69, 0.05)',       /* Fondo blanco con un toque rojo traslúcido */
+                      color: '#dc3545',                            /* Letras rojas claras */
+                      fontSize: '0.88rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => { 
+                      e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.15)'; /* Se oscurece el fondo al pasar el mouse */
+                      e.target.style.borderColor = '#dc3545';
+                    }}
+                    onMouseLeave={(e) => { 
+                      e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.05)'; 
+                      e.target.style.borderColor = 'rgba(220, 53, 69, 0.4)';
+                    }}
+                  >
+                    {desasignando ? 'Quitando...' : 'Sí, desasignar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
 
       {/* Modal crear clase */}
       {crearClase && (
