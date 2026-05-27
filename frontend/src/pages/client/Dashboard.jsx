@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { getMisReservasRequest, getMisSuscripcionesRequest } from '../../api/clases'
+import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
+import ReservarClaseModal from '../../components/client/ReservarClaseModal'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -11,8 +14,7 @@ const PROXIMA_CLASE = null   // null = sin clases pendientes
 
 const MI_PLAN = []           // [] = sin reservas ni suscripciones
 
-// Días con clase — clave: 'YYYY-MM-DD' (vacío hasta que el usuario reserve)
-const MIS_CLASES = {}
+// MIS_CLASES se carga dinámicamente desde la API
 
 // Feriados nacionales argentinos 2026
 const FERIADOS = {
@@ -74,7 +76,7 @@ function Modal({ title, onClose, children }) {
 /* ══════════════════════════════════════════════════════════
    CALENDARIO
    ══════════════════════════════════════════════════════════ */
-function Calendario() {
+function Calendario({ misClases = {} }) {
   const today      = new Date()
   const [month, setMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [dayModal, setDayModal] = useState(null)  // string 'YYYY-MM-DD'
@@ -89,14 +91,13 @@ function Calendario() {
   const diasEnMes   = new Date(year, mes + 1, 0).getDate()
   const todayStr    = getTodayStr()
 
-  // Construir celdas: nulls para el relleno inicial + días
   const celdas = [
     ...Array(primerDia).fill(null),
     ...Array.from({ length: diasEnMes }, (_, i) => i + 1),
   ]
 
-  const selectedClase  = dayModal ? MIS_CLASES[dayModal]  : null
-  const selectedFeria  = dayModal ? FERIADOS[dayModal]    : null
+  const selectedClase  = dayModal ? misClases[dayModal]  : null
+  const selectedFeria  = dayModal ? FERIADOS[dayModal]   : null
 
   return (
     <section className={styles.calSection}>
@@ -117,8 +118,9 @@ function Calendario() {
           if (!dia) return <div key={`empty-${i}`} />
 
           const ds        = toDateStr(year, mes, dia)
-          const esFeriado = !!FERIADOS[ds]
-          const tieneClase = !!MIS_CLASES[ds]
+          const esFeriado  = !!FERIADOS[ds]
+          const tieneClase = !!misClases[ds]
+          const pendientePago = misClases[ds]?.pendiente_pago
           const esHoy     = ds === todayStr
           const clickable = esFeriado || tieneClase
 
@@ -128,14 +130,15 @@ function Calendario() {
               onClick={() => clickable && setDayModal(ds)}
               className={[
                 styles.calDay,
-                esFeriado    ? styles.feriado   : '',
-                tieneClase   ? styles.conClase  : '',
+                esFeriado     ? styles.feriado        : '',
+                tieneClase && !pendientePago ? styles.conClase  : '',
+                tieneClase && pendientePago  ? styles.conClasePendiente : '',
                 esHoy        ? styles.hoy       : '',
                 clickable    ? styles.clickable : '',
               ].filter(Boolean).join(' ')}
             >
               <span className={styles.calDayNum}>{dia}</span>
-              {tieneClase && !esFeriado && <span className={styles.claseDot} />}
+              {tieneClase && !esFeriado && <span className={`${styles.claseDot} ${pendientePago ? styles.claseDotPendiente : ''}`} />}
             </div>
           )
         })}
@@ -144,16 +147,16 @@ function Calendario() {
       {/* Referencias */}
       <div className={styles.calLeyenda}>
         <span className={styles.leyendaItem}>
-          <span className={styles.leyendaDot} style={{ background: '#ef4444' }} />
-          Feriado
+          <span className={styles.leyendaDot} style={{ background: '#ef4444' }} />Feriado
         </span>
         <span className={styles.leyendaItem}>
-          <span className={styles.leyendaDot} style={{ background: '#22c55e' }} />
-          Tengo clase
+          <span className={styles.leyendaDot} style={{ background: '#22c55e' }} />Clase activa
         </span>
         <span className={styles.leyendaItem}>
-          <span className={`${styles.leyendaDot} ${styles.leyendaHoy}`} />
-          Hoy
+          <span className={styles.leyendaDot} style={{ background: '#6b7280' }} />Pendiente de pago
+        </span>
+        <span className={styles.leyendaItem}>
+          <span className={`${styles.leyendaDot} ${styles.leyendaHoy}`} />Hoy
         </span>
       </div>
 
@@ -166,11 +169,11 @@ function Calendario() {
           <div className={styles.dayDetail}>
             {selectedClase && (
               <div className={styles.dayClase}>
-                <div className={styles.dayClaseTag}>Clase</div>
-                <p><span>Nombre</span>{selectedClase.nombre}</p>
-                <p><span>Hora</span>{selectedClase.hora} hs</p>
-                <p><span>Profesor</span>{selectedClase.profesor}</p>
-                <p><span>Aula</span>{selectedClase.aula}</p>
+                <div className={styles.dayClaseTag}>{selectedClase.pendiente_pago ? 'Pendiente de pago' : selectedClase.lista_espera ? 'Lista de espera' : 'Clase'}</div>
+                <p><span>Nombre</span>{selectedClase.clase_nombre}</p>
+                <p><span>Hora</span>{selectedClase.horario}</p>
+                <p><span>Profesor</span>{selectedClase.profesor_nombre || '—'}</p>
+                <p><span>Aula</span>{selectedClase.aula || '—'}</p>
               </div>
             )}
             {selectedFeria && (
@@ -190,14 +193,61 @@ function Calendario() {
    DASHBOARD PRINCIPAL
    ══════════════════════════════════════════════════════════ */
 export default function ClientDashboard() {
-  const { user }           = useAuth()
-  const [planModal, setPlanModal] = useState(null)
-  const [vistaActual, setVistaActual] = useState('inicio')
+  const { user } = useAuth()
+  const hoy = new Date()
   const todayStr = getTodayStr()
-  const fechaProxima = PROXIMA_CLASE
-    ? PROXIMA_CLASE.fecha === todayStr
-      ? `Hoy — ${PROXIMA_CLASE.hora} hs`
-      : `${formatFecha(PROXIMA_CLASE.fecha)} — ${PROXIMA_CLASE.hora} hs`
+
+  const [misClases,        setMisClases]        = useState({})
+  const [proximaClase,     setProximaClase]     = useState(null)
+  const [modalSusc,        setModalSusc]        = useState(false)
+  const [modalReserva,     setModalReserva]     = useState(false)
+  const [suscripciones,    setSuscripciones]    = useState([])
+  const [reservasUnicas,   setReservasUnicas]   = useState([])
+  const [detalleSusc,      setDetalleSusc]      = useState(null)   // suscripción seleccionada para ver más
+
+  const cargarReservas = useCallback(async () => {
+    try {
+      const mes  = hoy.getMonth() + 1
+      const anio = hoy.getFullYear()
+      const mesSig  = mes === 12 ? 1 : mes + 1
+      const anioSig = mes === 12 ? anio + 1 : anio
+
+      const [r1, r2, rSusc] = await Promise.all([
+        getMisReservasRequest(mes, anio),
+        getMisReservasRequest(mesSig, anioSig),
+        getMisSuscripcionesRequest(),
+      ])
+
+      const map = {}
+      const todas = [...r1.data, ...r2.data]
+      todas.forEach(r => {
+        if (r.estado !== 'cancelada') map[r.fecha] = r
+      })
+      setMisClases(map)
+      setSuscripciones(rSusc.data)
+
+      // Reservas únicas (tipo='unica') para "Mi plan"
+      const hoyStr = getTodayStr()
+      const unicas = todas
+        .filter(r => r.tipo === 'unica' && r.estado !== 'cancelada' && r.fecha >= hoyStr)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      setReservasUnicas(unicas)
+
+      const proxima = todas
+        .filter(r => r.fecha >= todayStr && r.estado === 'activa' && !r.lista_espera && !r.pendiente_pago)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))[0] || null
+      setProximaClase(proxima)
+    } catch {
+      // silencioso
+    }
+  }, [])
+
+  useEffect(() => { cargarReservas() }, [cargarReservas])
+
+  const fechaProximaLabel = proximaClase
+    ? proximaClase.fecha === todayStr
+      ? `Hoy — ${proximaClase.horario}`
+      : `${formatFecha(proximaClase.fecha)} — ${proximaClase.horario}`
     : null
 
   return (
@@ -209,21 +259,20 @@ export default function ClientDashboard() {
         <p>Bienvenido a tu espacio en RehabilitAR</p>
       </div>
 
-      {/* ── Fila superior: Próxima clase + Mi plan ── */}
+      {/* ── Fila superior ── */}
       <div className={styles.topRow}>
 
         {/* Próxima clase */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Próxima clase</h2>
-          {PROXIMA_CLASE ? (
+          {proximaClase ? (
             <div className={styles.proximaBody}>
-              <p className={styles.proximaNombre}>{PROXIMA_CLASE.nombre}</p>
+              <p className={styles.proximaNombre}>{proximaClase.clase_nombre}</p>
               <div className={styles.proximaInfo}>
-                <div className={styles.infoRow}><span className={styles.infoLabel}>Fecha</span><span>{fechaProxima}</span></div>
-                <div className={styles.infoRow}><span className={styles.infoLabel}>Profesor</span><span>{PROXIMA_CLASE.profesor}</span></div>
-                <div className={styles.infoRow}><span className={styles.infoLabel}>Aula</span><span>{PROXIMA_CLASE.aula}</span></div>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Fecha</span><span>{fechaProximaLabel}</span></div>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Profesor</span><span>{proximaClase.profesor_nombre || '—'}</span></div>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Aula</span><span>{proximaClase.aula || '—'}</span></div>
               </div>
-              <button className={styles.linkBtn}>Ver detalle →</button>
             </div>
           ) : (
             <div className={styles.emptyState}>
@@ -237,64 +286,232 @@ export default function ClientDashboard() {
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Mi plan</h2>
 
-          {MI_PLAN.length > 0 ? (
-            <div className={styles.planLista}>
-              {MI_PLAN.map(item => (
-                <div key={item.id} className={styles.planItem}>
-                  <div className={styles.planLeft}>
-                    <span className={`${styles.tipoBadge} ${item.tipo === 'suscripcion' ? styles.badgeSub : styles.badgeRes}`}>
-                      {item.tipo === 'suscripcion' ? 'Suscripción' : 'Reserva'}
-                    </span>
-                    <div>
-                      <p className={styles.planNombre}>{item.nombre}</p>
-                      <p className={styles.planDesc}>{item.descripcion}</p>
-                    </div>
-                  </div>
-                  <button className={styles.verMasBtn} onClick={() => setPlanModal(item)}>
-                    Ver más
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
+          {suscripciones.length === 0 && reservasUnicas.length === 0 ? (
             <div className={styles.emptyState}>
               <span className={styles.emptyIcon}>🏋️</span>
-              <p>Reservá tu clase o comprá tu suscripción ahora</p>
+              <p>Comprá una suscripción o reservá una clase para empezar</p>
+            </div>
+          ) : (
+            <div className={styles.planLista}>
+
+              {/* Suscripciones */}
+              {suscripciones.map(s => {
+                const activa = s.estado === 'activa'
+                return (
+                  <div key={`s-${s.id}`} className={styles.planItem}>
+                    {/* Col 1 — Nombre + tipo */}
+                    <div className={styles.planColNombre}>
+                      <p className={styles.planNombre}>{s.clase_nombre}</p>
+                      <span className={`${styles.planBadge} ${styles.planBadgeSusc}`}>Suscripción</span>
+                    </div>
+                    {/* Col 2 — Detalles */}
+                    <div className={styles.planColDetalle}>
+                      <span className={styles.planDetalleItem}>📅 {s.dias}</span>
+                      <span className={styles.planDetalleItem}>🕐 {s.horario}</span>
+                      <span className={styles.planDetalleItem}>🏠 {s.aula || 'Sin aula'}</span>
+                    </div>
+                    {/* Col 3 — Estado + botón */}
+                    <div className={styles.planColAccion}>
+                      <span className={styles.planEstadoBadge} style={{
+                        background: activa ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color:      activa ? '#22c55e'              : '#f59e0b',
+                        border: `1px solid ${activa ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      }}>{activa ? '✅ Activa' : '⏳ Pendiente'}</span>
+                      {s.en_espera && (
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
+                          border: '1px solid rgba(245,158,11,0.3)',
+                        }}>📋 En espera</span>
+                      )}
+                      <button className={styles.verMasBtn} onClick={() => setDetalleSusc(s)}>Ver más</button>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Reservas únicas */}
+              {reservasUnicas.map(r => (
+                <div key={`r-${r.id}`} className={styles.planItem}>
+                  {/* Col 1 — Nombre + tipo */}
+                  <div className={styles.planColNombre}>
+                    <p className={styles.planNombre}>{r.clase_nombre}</p>
+                    <span className={`${styles.planBadge} ${styles.planBadgeUnica}`}>Reserva única</span>
+                  </div>
+                  {/* Col 2 — Detalles */}
+                  <div className={styles.planColDetalle}>
+                    <span className={styles.planDetalleItem}>📅 {formatFecha(r.fecha)}</span>
+                    <span className={styles.planDetalleItem}>🕐 {r.horario}</span>
+                    <span className={styles.planDetalleItem}>🏠 {r.aula || 'Sin aula'}</span>
+                  </div>
+                  {/* Col 3 — Estado + botón */}
+                  <div className={styles.planColAccion}>
+                    <span className={styles.planEstadoBadge} style={{
+                      background: r.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
+                      color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
+                      border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                    }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
+                    <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
+                  </div>
+                </div>
+              ))}
+
             </div>
           )}
 
           <div className={styles.planAcciones}>
-            <button className={styles.btnPrimary}>Reservar clase</button>
-            <button className={styles.btnOutline}>Comprar suscripción</button>
+            <button className={styles.btnOutline} onClick={() => setModalSusc(true)}>
+              + Comprar suscripción
+            </button>
+            <button className={styles.btnOutline} onClick={() => setModalReserva(true)}
+              style={{ borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' }}>
+              📅 Reservar clase
+            </button>
           </div>
         </div>
 
       </div>
 
       {/* ── Calendario ── */}
-      <Calendario />
+      <Calendario misClases={misClases} />
 
-      {/* ── Modal detalle del plan ── */}
-      {planModal && (
-        <Modal title={planModal.nombre} onClose={() => setPlanModal(null)}>
-          <div className={styles.planDetail}>
-            <div className={styles.planDetailRow}>
-              <span>Tipo</span>
-              <span className={`${styles.tipoBadge} ${planModal.tipo === 'suscripcion' ? styles.badgeSub : styles.badgeRes}`}>
-                {planModal.tipo === 'suscripcion' ? 'Suscripción' : 'Reserva de clase'}
-              </span>
-            </div>
-            <div className={styles.planDetailRow}><span>Estado</span><span className={styles.estadoOk}>{planModal.estado}</span></div>
-            <div className={styles.planDetailRow}><span>Fecha</span><span>{formatFecha(planModal.fecha)}</span></div>
-            <div className={styles.planDetailRow}><span>Hora</span><span>{planModal.hora} hs</span></div>
-            <div className={styles.planDetailRow}><span>Profesor</span><span>{planModal.profesor}</span></div>
-            <div className={styles.planDetailRow}><span>Aula</span><span>{planModal.aula}</span></div>
-            {planModal.descripcion && (
-              <div className={styles.planDetailRow}><span>Detalle</span><span>{planModal.descripcion}</span></div>
-            )}
-          </div>
-        </Modal>
+      {/* ── Modal comprar suscripción ── */}
+      {modalSusc && (
+        <ComprarSuscripcionModal
+          onClose={() => setModalSusc(false)}
+          onSuscripcionOk={() => cargarReservas()}
+        />
       )}
+
+      {/* ── Modal reservar clase única ── */}
+      {modalReserva && (
+        <ReservarClaseModal
+          onClose={() => setModalReserva(false)}
+          onReservaOk={() => cargarReservas()}
+        />
+      )}
+
+      {/* ── Modal detalle (suscripción o reserva única) ── */}
+      {detalleSusc && (() => {
+        const esUnica = detalleSusc._tipo === 'unica'
+        const MESES_L = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 9000, padding: '1rem'
+          }} onClick={() => setDetalleSusc(null)}>
+            <div style={{
+              background: '#13172e', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '20px', width: '100%', maxWidth: '480px',
+              maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
+            }} onClick={e => e.stopPropagation()}>
+
+              {/* Header */}
+              <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <h3 style={{ color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {detalleSusc.clase_nombre}
+                  </h3>
+                  <span style={{
+                    background: esUnica ? 'rgba(34,197,94,0.12)' : 'rgba(124,58,237,0.15)',
+                    color: esUnica ? '#22c55e' : '#a78bfa',
+                    border: `1px solid ${esUnica ? 'rgba(34,197,94,0.3)' : 'rgba(124,58,237,0.3)'}`,
+                    borderRadius: '5px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0
+                  }}>{esUnica ? 'Reserva única' : 'Suscripción'}</span>
+                </div>
+                <button onClick={() => setDetalleSusc(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', width: 32, height: 32, minWidth: 32, cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: '1.4rem 1.8rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+
+                {/* Badges de estado */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {esUnica ? (
+                    <span style={{
+                      background: detalleSusc.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
+                      color: detalleSusc.lista_espera ? '#f59e0b' : '#22c55e',
+                      border: `1px solid ${detalleSusc.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                      borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
+                    }}>
+                      {detalleSusc.lista_espera ? '📋 Lista de espera' : '✅ Confirmada'}
+                    </span>
+                  ) : (
+                    <>
+                      <span style={{
+                        background: detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color: detalleSusc.estado === 'activa' ? '#22c55e' : '#f59e0b',
+                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                        borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
+                      }}>
+                        {detalleSusc.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
+                      </span>
+                      {detalleSusc.en_espera && (
+                        <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>
+                          📋 Lista de espera
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Info grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 1rem', fontSize: '0.88rem' }}>
+                  {(esUnica ? [
+                    ['Fecha',     formatFecha(detalleSusc.fecha)],
+                    ['Horario',   detalleSusc.horario],
+                    ['Aula',      detalleSusc.aula || '—'],
+                    ['Profesor',  detalleSusc.profesor_nombre || 'Sin asignar'],
+                  ] : [
+                    ['Especialidad',     detalleSusc.especialidad],
+                    ['Día',             detalleSusc.dias],
+                    ['Horario',         detalleSusc.horario],
+                    ['Aula',            detalleSusc.aula || '—'],
+                    ['Profesor',        detalleSusc.profesor || 'Sin asignar'],
+                    ['Período',         `${MESES_L[detalleSusc.mes]} ${detalleSusc.anio}`],
+                    ['Total pagado',    `$${detalleSusc.monto.toLocaleString('es-AR')}`],
+                    ['Clases incluidas',`${detalleSusc.total_clases} clase${detalleSusc.total_clases !== 1 ? 's' : ''}`],
+                  ]).map(([k, v]) => (
+                    <>
+                      <span style={{ color: '#868e96' }} key={`k-${k}`}>{k}</span>
+                      <span style={{ color: '#e2e8f0' }} key={`v-${k}`}>{v}</span>
+                    </>
+                  ))}
+                </div>
+
+                {/* Fechas de clases (solo suscripción) */}
+                {!esUnica && detalleSusc.reservas && (
+                  <div>
+                    <p style={{ color: '#868e96', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Fechas de clases
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {detalleSusc.reservas.map(r => {
+                        const [y, m, d] = r.fecha.split('-')
+                        const label = new Date(+y, +m - 1, +d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+                        return (
+                          <div key={r.fecha} style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '6px 10px'
+                          }}>
+                            <span style={{ color: '#c8cbdf', fontSize: '0.85rem' }}>{label}</span>
+                            {r.estado === 'lista_espera' && (
+                              <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', borderRadius: '4px', padding: '2px 6px', fontSize: '0.72rem' }}>
+                                Lista de espera
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
     </div>
   )
