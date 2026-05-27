@@ -157,7 +157,7 @@ export default function TeacherLayout() {
 
                 <button className={styles.dropItem} onClick={() => {
                   setUserMenu(false);
-                  navigate('/teacher/cambiar-contrasena');
+                  navigate('/cambiar-contrasena');
                 }}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
