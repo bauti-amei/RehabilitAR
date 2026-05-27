@@ -357,6 +357,8 @@ function AreaClases() {
   const [profesorSel,     setProfesorSel] = useState('')
   const [asignando,       setAsignando] = useState(false)
   const [asignarError,    setAsignarError] = useState('')
+  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
+
 
   const mostrarNotificacion = (texto, tipo = 'exito') => {
     setAlerta({ mostrar: true, texto, tipo });
@@ -425,6 +427,32 @@ function AreaClases() {
   })
 
   return (
+    <>
+    {alerta.mostrar && (
+        <div style={{
+          position: 'fixed',                  
+          top: '25px',                        
+          left: '50%',                        
+          transform: 'translateX(-50%)',      
+          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
+          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+          padding: '0.85rem 1.75rem', 
+          borderRadius: '8px', 
+          fontSize: '0.95rem',
+          fontWeight: '500', 
+          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          backdropFilter: 'blur(6px)'
+        }}>
+          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
+          {alerta.texto}
+        </div>
+      )}
+  
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Clases</h2>
@@ -704,6 +732,7 @@ function AreaClases() {
         />
       )}
     </section>
+    </>
   )
 }
 
