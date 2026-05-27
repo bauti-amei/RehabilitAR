@@ -124,7 +124,7 @@ export default function ClientLayout() {
                 <button className={styles.dropItem} onClick={() => navigate('/client/perfil')}>
                   <span>👤</span> Mi perfil
                 </button>
-                <button className={styles.dropItem} onClick={() => navigate('/client/cambiar-contrasena')}>
+                <button className={styles.dropItem} onClick={() => navigate('/cambiar-contrasena')}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
                 <div className={styles.dropDivider} />

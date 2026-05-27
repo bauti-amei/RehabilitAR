@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ROLES } from './utils/roles'
+import { Toaster } from 'react-hot-toast'
 
 // Common
 import ProtectedRoute from './components/common/ProtectedRoute'
@@ -9,8 +10,8 @@ import Layout         from './components/common/Layout'
 import ClientLayout   from './components/client/ClientLayout'
 import AdminLayout    from './components/admin/AdminLayout'
 import TeacherLayout  from './components/teacher/TeacherLayout'
-import PublicRoute    from './components/common/PublicRoute'
 import ReceptionistLayout from './components/receptionist/ReceptionistLayout'
+import ChangePassword from './pages/client/ChangePassword'
 
 // Public
 import Login        from './pages/public/Login'
@@ -33,12 +34,22 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Toaster />
         <Routes>
 
           {/* Rutas públicas */}
           <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
+
+          {/* Ruta de cambio de contraseña */}
+          <Route element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
+            <Route path="/cambiar-contrasena" element={<ChangePassword />} />
+          </Route>
 
           {/* Rutas del admin — layout con navbar superior */}
           <Route element={

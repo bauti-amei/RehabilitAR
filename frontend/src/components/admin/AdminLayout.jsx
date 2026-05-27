@@ -128,7 +128,7 @@ export default function AdminLayout() {
                 <button className={styles.dropItem} onClick={() => navigate('/admin/perfil')}>
                   <span>👤</span> Mi perfil
                 </button>
-                <button className={styles.dropItem} onClick={() => navigate('/admin/cambiar-contrasena')}>
+                <button className={styles.dropItem} onClick={() => navigate('/cambiar-contrasena')}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
                 <div className={styles.dropDivider} />

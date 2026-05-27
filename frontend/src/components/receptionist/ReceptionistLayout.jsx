@@ -121,7 +121,7 @@ export default function ReceptionistLayout() {
                 <button className={styles.dropItem} onClick={() => navigate('/receptionist/perfil')}>
                   <span>👤</span> Mi perfil
                 </button>
-                <button className={styles.dropItem} onClick={() => navigate('/receptionist/cambiar-contrasena')}>
+                <button className={styles.dropItem} onClick={() => navigate('/cambiar-contrasena')}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
                 <div className={styles.dropDivider} />
