@@ -211,6 +211,12 @@ export default function ClientDashboard() {
   const [clasesDisp,       setClasesDisp]       = useState([])
   const [claseElegida,     setClaseElegida]     = useState(null)
   const [feedbackSusc,     setFeedbackSusc]     = useState('')
+  // Panel "Mis suscripciones"
+  const [verSuscPanel,     setVerSuscPanel]     = useState(false)
+  const [panelAccion,      setPanelAccion]      = useState(null)  // { susId, tipo: 'cancelar'|'turno' }
+  const [panelClasesDisp,  setPanelClasesDisp]  = useState([])
+  const [panelClase,       setPanelClase]       = useState(null)
+  const [panelFeedback,    setPanelFeedback]    = useState('')
 
   const cerrarDetalle = () => {
     setDetalleSusc(null)
@@ -249,6 +255,49 @@ export default function ClientDashboard() {
       setTimeout(() => { cerrarDetalle(); cargarReservas() }, 1200)
     } catch (e) {
       setFeedbackSusc(e.response?.data?.detail ?? 'Error al cambiar el turno.')
+    }
+  }
+
+  // ── Handlers para el panel "Mis suscripciones" ─────────
+  const cerrarPanelAccion = () => {
+    setPanelAccion(null)
+    setPanelClasesDisp([])
+    setPanelClase(null)
+    setPanelFeedback('')
+  }
+
+  const panelAbrirCambioTurno = async (susId) => {
+    setPanelAccion({ susId, tipo: 'turno' })
+    setPanelFeedback('')
+    setPanelClase(null)
+    try {
+      const res = await getClasesDisponiblesParaCambioRequest(susId)
+      setPanelClasesDisp(res.data)
+    } catch {
+      setPanelFeedback('No se pudieron cargar las clases disponibles.')
+    }
+  }
+
+  const panelHandleCancelar = async (susId) => {
+    try {
+      await cancelarSuscripcionRequest(susId)
+      setPanelFeedback('✅ Suscripción cancelada.')
+      cerrarPanelAccion()
+      setTimeout(() => cargarReservas(), 800)
+    } catch (e) {
+      setPanelFeedback(e.response?.data?.detail ?? 'Error al cancelar.')
+    }
+  }
+
+  const panelHandleCambiarTurno = async (susId) => {
+    if (!panelClase) return
+    try {
+      await cambiarTurnoRequest(susId, panelClase)
+      setPanelFeedback('✅ Turno cambiado con éxito.')
+      cerrarPanelAccion()
+      setTimeout(() => cargarReservas(), 800)
+    } catch (e) {
+      setPanelFeedback(e.response?.data?.detail ?? 'Error al cambiar el turno.')
     }
   }
 
@@ -333,7 +382,7 @@ export default function ClientDashboard() {
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Mi plan</h2>
 
-          {suscripciones.length === 0 && reservasUnicas.length === 0 ? (
+          {suscripciones.filter(s => s.estado !== 'cancelada').length === 0 && reservasUnicas.length === 0 ? (
             <div className={styles.emptyState}>
               <span className={styles.emptyIcon}>🏋️</span>
               <p>Comprá una suscripción o reservá una clase para empezar</p>
@@ -341,8 +390,8 @@ export default function ClientDashboard() {
           ) : (
             <div className={styles.planLista}>
 
-              {/* Suscripciones */}
-              {suscripciones.map(s => {
+              {/* Suscripciones (ocultar canceladas) */}
+              {suscripciones.filter(s => s.estado !== 'cancelada').map(s => {
                 const activa = s.estado === 'activa'
                 return (
                   <div key={`s-${s.id}`} className={styles.planItem}>
@@ -413,6 +462,10 @@ export default function ClientDashboard() {
               style={{ borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' }}>
               📅 Reservar clase
             </button>
+            <button className={styles.btnOutline} onClick={() => { setVerSuscPanel(true); cerrarPanelAccion() }}
+              style={{ borderColor: 'rgba(124,58,237,0.4)', color: '#a78bfa' }}>
+              📋 Mis suscripciones
+            </button>
           </div>
         </div>
 
@@ -427,6 +480,154 @@ export default function ClientDashboard() {
           onClose={() => setModalSusc(false)}
           onSuscripcionOk={() => cargarReservas()}
         />
+      )}
+
+      {/* ── Panel Mis suscripciones ── */}
+      {verSuscPanel && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 9000, padding: '1rem'
+        }} onClick={() => { setVerSuscPanel(false); cerrarPanelAccion() }}>
+          <div style={{
+            background: '#13172e', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '20px', width: '100%', maxWidth: '600px',
+            maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
+          }} onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>📋 Mis suscripciones</h3>
+              <button onClick={() => { setVerSuscPanel(false); cerrarPanelAccion() }}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', width: 32, height: 32, cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ overflowY: 'auto', padding: '1.2rem 1.8rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+              {panelFeedback && (
+                <p style={{ color: panelFeedback.startsWith('✅') ? '#22c55e' : '#f87171', fontSize: '0.88rem', margin: 0 }}>
+                  {panelFeedback}
+                </p>
+              )}
+
+              {suscripciones.filter(s => s.estado !== 'cancelada').length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#868e96', padding: '2rem 0' }}>
+                  <p>No tenés suscripciones activas.</p>
+                </div>
+              ) : (
+                suscripciones.filter(s => s.estado !== 'cancelada').map(s => {
+                  const isOpen   = panelAccion?.susId === s.id
+                  const isTurno  = isOpen && panelAccion.tipo === 'turno'
+                  const isCancelar = isOpen && panelAccion.tipo === 'cancelar'
+                  const MESES_L  = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+                  return (
+                    <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+                      {/* Info principal */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 1rem', alignItems: 'start' }}>
+                        <div>
+                          <p style={{ color: 'white', fontWeight: 700, fontSize: '1rem', margin: '0 0 2px' }}>{s.clase_nombre}</p>
+                          <p style={{ color: '#868e96', fontSize: '0.82rem', margin: 0 }}>{s.especialidad}</p>
+                        </div>
+                        <span style={{
+                          background: s.estado === 'activa' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                          color:      s.estado === 'activa' ? '#22c55e'              : '#f59e0b',
+                          border:    `1px solid ${s.estado === 'activa' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                          borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap'
+                        }}>
+                          {s.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
+                        </span>
+                      </div>
+
+                      {/* Detalles */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 12px', fontSize: '0.84rem' }}>
+                        <span style={{ color: '#c8cbdf' }}>📅 {s.dias}</span>
+                        <span style={{ color: '#c8cbdf' }}>🕐 {s.horario}</span>
+                        <span style={{ color: '#c8cbdf' }}>🏠 {s.aula || 'Sin aula'}</span>
+                        <span style={{ color: '#c8cbdf' }}>👤 {s.profesor || 'Sin asignar'}</span>
+                        <span style={{ color: '#c8cbdf' }}>📆 {MESES_L[s.mes]} {s.anio}</span>
+                        <span style={{ color: '#a78bfa', fontWeight: 700 }}>💲 ${parseFloat(s.monto).toLocaleString('es-AR')}</span>
+                      </div>
+
+                      {/* Botones de acción */}
+                      {!isOpen && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => panelAbrirCambioTurno(s.id)}
+                            style={{ flex: 1, padding: '7px 10px', background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' }}>
+                            🔄 Cambiar turno
+                          </button>
+                          <button onClick={() => { setPanelAccion({ susId: s.id, tipo: 'cancelar' }); setPanelFeedback('') }}
+                            style={{ flex: 1, padding: '7px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' }}>
+                            ✕ Cancelar suscripción
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Confirmar cancelación */}
+                      {isCancelar && (
+                        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', padding: '10px 12px' }}>
+                          <p style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '8px' }}>
+                            ¿Confirmás la cancelación? La baja se hace efectiva a partir del próximo mes.
+                          </p>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => panelHandleCancelar(s.id)}
+                              style={{ flex: 1, padding: '7px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}>
+                              Sí, cancelar
+                            </button>
+                            <button onClick={cerrarPanelAccion}
+                              style={{ flex: 1, padding: '7px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' }}>
+                              Volver
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Selector de nuevo turno */}
+                      {isTurno && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <p style={{ color: '#868e96', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
+                            Seleccioná el nuevo turno (igual o menor precio)
+                          </p>
+                          {panelClasesDisp.length === 0 ? (
+                            <p style={{ color: '#868e96', fontSize: '0.84rem' }}>No hay clases disponibles con cupo y precio compatible.</p>
+                          ) : (
+                            panelClasesDisp.map(c => (
+                              <div key={c.id} onClick={() => setPanelClase(c.id)}
+                                style={{
+                                  background: panelClase === c.id ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.03)',
+                                  border: `1px solid ${panelClase === c.id ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.07)'}`,
+                                  borderRadius: '10px', padding: '8px 12px', cursor: 'pointer',
+                                  display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 10px',
+                                }}>
+                                <span style={{ color: 'white', fontWeight: 700, fontSize: '0.86rem', gridColumn: '1 / -1' }}>{c.nombre}</span>
+                                <span style={{ color: '#868e96', fontSize: '0.78rem' }}>📅 {c.dias} · 🕐 {c.horario}</span>
+                                <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: '0.82rem' }}>💲 ${parseFloat(c.valor).toLocaleString('es-AR')}/clase</span>
+                              </div>
+                            ))
+                          )}
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button disabled={!panelClase} onClick={() => panelHandleCambiarTurno(s.id)}
+                              style={{ flex: 1, padding: '7px', background: panelClase ? '#7c3aed' : 'rgba(124,58,237,0.2)', border: 'none', color: 'white', borderRadius: '8px', cursor: panelClase ? 'pointer' : 'default', fontWeight: 700, fontSize: '0.82rem', opacity: panelClase ? 1 : 0.5 }}>
+                              Confirmar cambio
+                            </button>
+                            <button onClick={cerrarPanelAccion}
+                              style={{ flex: 1, padding: '7px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' }}>
+                              Volver
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Modal reservar clase única ── */}

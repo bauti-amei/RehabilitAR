@@ -1130,9 +1130,10 @@ class ClasesDisponiblesParaCambioView(APIView):
             return Response({'detail': 'Suscripcion no encontrada.'}, status=404)
 
         especialidad = suscripcion.clase.especialidad
+        precio_max   = suscripcion.clase.valor  # solo mostrar clases de igual o menor precio
         clases = (
             Clase.objects
-            .filter(especialidad=especialidad, tipo_clase='fija')
+            .filter(especialidad=especialidad, tipo_clase='fija', valor__lte=precio_max)
             .select_related('sala', 'profesor')
             .prefetch_related('inscriptos')
             .exclude(pk=suscripcion.clase_id)
