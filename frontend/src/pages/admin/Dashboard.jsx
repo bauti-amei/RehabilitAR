@@ -75,7 +75,7 @@ function Modal({ title, onClose, children, wide }) {
 /* ══════════════════════════════════════════════════════════
    SECCIÓN: TAREAS IMPORTANTES
    ══════════════════════════════════════════════════════════ */
-function TareasImportantes({ mostrarNotificacion }) {
+function TareasImportantes() {
   const [aptos, setAptos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
@@ -834,10 +834,6 @@ function Usuarios() {
         </Modal>
       )}
 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
       {/* ── MODAL SUSPENSIÓN ── */}
       {suspenderModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
@@ -1312,7 +1308,7 @@ export default function AdminDashboard() {
 
       {/* Fila superior: Tareas + Clases en curso */}
       <div className={styles.topRow}>
-        <TareasImportantes mostrarNotificacion={mostrarNotificacion} />
+        <TareasImportantes />
         <ClasesEnCurso />
       </div>
 
