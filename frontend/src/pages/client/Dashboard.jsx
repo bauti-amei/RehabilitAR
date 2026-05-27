@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getMisReservasRequest, getMisSuscripcionesRequest } from '../../api/clases'
 import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
+import ReservarClaseModal from '../../components/client/ReservarClaseModal'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -199,7 +200,9 @@ export default function ClientDashboard() {
   const [misClases,        setMisClases]        = useState({})
   const [proximaClase,     setProximaClase]     = useState(null)
   const [modalSusc,        setModalSusc]        = useState(false)
+  const [modalReserva,     setModalReserva]     = useState(false)
   const [suscripciones,    setSuscripciones]    = useState([])
+  const [reservasUnicas,   setReservasUnicas]   = useState([])
   const [detalleSusc,      setDetalleSusc]      = useState(null)   // suscripción seleccionada para ver más
 
   const cargarReservas = useCallback(async () => {
@@ -222,6 +225,13 @@ export default function ClientDashboard() {
       })
       setMisClases(map)
       setSuscripciones(rSusc.data)
+
+      // Reservas únicas (tipo='unica') para "Mi plan"
+      const hoyStr = getTodayStr()
+      const unicas = todas
+        .filter(r => r.tipo === 'unica' && r.estado !== 'cancelada' && r.fecha >= hoyStr)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
+      setReservasUnicas(unicas)
 
       const proxima = todas
         .filter(r => r.fecha >= todayStr && r.estado === 'activa' && !r.lista_espera && !r.pendiente_pago)
@@ -276,55 +286,85 @@ export default function ClientDashboard() {
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Mi plan</h2>
 
-          {suscripciones.length === 0 ? (
+          {suscripciones.length === 0 && reservasUnicas.length === 0 ? (
             <div className={styles.emptyState}>
               <span className={styles.emptyIcon}>🏋️</span>
-              <p>Comprá tu suscripción para empezar</p>
+              <p>Comprá una suscripción o reservá una clase para empezar</p>
             </div>
           ) : (
             <div className={styles.planLista}>
+
+              {/* Suscripciones */}
               {suscripciones.map(s => {
-                const estadoColor = s.estado === 'activa'
-                  ? { bg: 'rgba(34,197,94,0.12)', color: '#22c55e', label: 'Activa' }
-                  : { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', label: 'Pendiente de pago' }
+                const activa = s.estado === 'activa'
                 return (
-                  <div key={s.id} className={styles.planItem}>
-                    <div className={styles.planLeft}>
-                      <div>
-                        <p className={styles.planNombre}>{s.clase_nombre}</p>
-                        <p className={styles.planDesc}>{s.dias} · {s.horario} · {s.total_clases} clase{s.total_clases !== 1 ? 's' : ''}</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                          <span style={{
-                            background: estadoColor.bg, color: estadoColor.color,
-                            border: `1px solid ${estadoColor.color}33`,
-                            borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600
-                          }}>
-                            {estadoColor.label}
-                          </span>
-                          {s.en_espera && (
-                            <span style={{
-                              background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
-                              border: '1px solid rgba(245,158,11,0.3)',
-                              borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600
-                            }}>
-                              En lista de espera
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                  <div key={`s-${s.id}`} className={styles.planItem}>
+                    {/* Col 1 — Nombre + tipo */}
+                    <div className={styles.planColNombre}>
+                      <p className={styles.planNombre}>{s.clase_nombre}</p>
+                      <span className={`${styles.planBadge} ${styles.planBadgeSusc}`}>Suscripción</span>
                     </div>
-                    <button className={styles.verMasBtn} onClick={() => setDetalleSusc(s)}>
-                      Ver más
-                    </button>
+                    {/* Col 2 — Detalles */}
+                    <div className={styles.planColDetalle}>
+                      <span className={styles.planDetalleItem}>📅 {s.dias}</span>
+                      <span className={styles.planDetalleItem}>🕐 {s.horario}</span>
+                      <span className={styles.planDetalleItem}>🏠 {s.aula || 'Sin aula'}</span>
+                    </div>
+                    {/* Col 3 — Estado + botón */}
+                    <div className={styles.planColAccion}>
+                      <span className={styles.planEstadoBadge} style={{
+                        background: activa ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color:      activa ? '#22c55e'              : '#f59e0b',
+                        border: `1px solid ${activa ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      }}>{activa ? '✅ Activa' : '⏳ Pendiente'}</span>
+                      {s.en_espera && (
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
+                          border: '1px solid rgba(245,158,11,0.3)',
+                        }}>📋 En espera</span>
+                      )}
+                      <button className={styles.verMasBtn} onClick={() => setDetalleSusc(s)}>Ver más</button>
+                    </div>
                   </div>
                 )
               })}
+
+              {/* Reservas únicas */}
+              {reservasUnicas.map(r => (
+                <div key={`r-${r.id}`} className={styles.planItem}>
+                  {/* Col 1 — Nombre + tipo */}
+                  <div className={styles.planColNombre}>
+                    <p className={styles.planNombre}>{r.clase_nombre}</p>
+                    <span className={`${styles.planBadge} ${styles.planBadgeUnica}`}>Reserva única</span>
+                  </div>
+                  {/* Col 2 — Detalles */}
+                  <div className={styles.planColDetalle}>
+                    <span className={styles.planDetalleItem}>📅 {formatFecha(r.fecha)}</span>
+                    <span className={styles.planDetalleItem}>🕐 {r.horario}</span>
+                    <span className={styles.planDetalleItem}>🏠 {r.aula || 'Sin aula'}</span>
+                  </div>
+                  {/* Col 3 — Estado + botón */}
+                  <div className={styles.planColAccion}>
+                    <span className={styles.planEstadoBadge} style={{
+                      background: r.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
+                      color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
+                      border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                    }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
+                    <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
+                  </div>
+                </div>
+              ))}
+
             </div>
           )}
 
           <div className={styles.planAcciones}>
             <button className={styles.btnOutline} onClick={() => setModalSusc(true)}>
               + Comprar suscripción
+            </button>
+            <button className={styles.btnOutline} onClick={() => setModalReserva(true)}
+              style={{ borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' }}>
+              📅 Reservar clase
             </button>
           </div>
         </div>
@@ -342,97 +382,136 @@ export default function ClientDashboard() {
         />
       )}
 
-      {/* ── Modal detalle de suscripción ── */}
-      {detalleSusc && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
-          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', zIndex: 9000, padding: '1rem'
-        }} onClick={() => setDetalleSusc(null)}>
+      {/* ── Modal reservar clase única ── */}
+      {modalReserva && (
+        <ReservarClaseModal
+          onClose={() => setModalReserva(false)}
+          onReservaOk={() => cargarReservas()}
+        />
+      )}
+
+      {/* ── Modal detalle (suscripción o reserva única) ── */}
+      {detalleSusc && (() => {
+        const esUnica = detalleSusc._tipo === 'unica'
+        const MESES_L = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+        return (
           <div style={{
-            background: '#13172e', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '20px', width: '100%', maxWidth: '480px',
-            maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
-          }} onClick={e => e.stopPropagation()}>
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 9000, padding: '1rem'
+          }} onClick={() => setDetalleSusc(null)}>
+            <div style={{
+              background: '#13172e', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '20px', width: '100%', maxWidth: '480px',
+              maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
+            }} onClick={e => e.stopPropagation()}>
 
-            {/* Header */}
-            <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>
-                {detalleSusc.clase_nombre}
-              </h3>
-              <button onClick={() => setDetalleSusc(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', width: 32, height: 32, cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
-            </div>
-
-            {/* Body */}
-            <div style={{ padding: '1.4rem 1.8rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-
-              {/* Estado */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{
-                  background: detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                  color: detalleSusc.estado === 'activa' ? '#22c55e' : '#f59e0b',
-                  border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                  borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
-                }}>
-                  {detalleSusc.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
-                </span>
-                {detalleSusc.en_espera && (
-                  <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>
-                    📋 En lista de espera
-                  </span>
-                )}
-              </div>
-
-              {/* Info */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 1rem', fontSize: '0.88rem' }}>
-                {[
-                  ['Especialidad', detalleSusc.especialidad],
-                  ['Día',         detalleSusc.dias],
-                  ['Horario',     detalleSusc.horario],
-                  ['Aula',        detalleSusc.aula || '—'],
-                  ['Profesor',    detalleSusc.profesor || 'Sin asignar'],
-                  ['Período',     `${['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][detalleSusc.mes]} ${detalleSusc.anio}`],
-                  ['Total pagado', `$${detalleSusc.monto.toLocaleString('es-AR')}`],
-                  ['Clases incluidas', `${detalleSusc.total_clases} clase${detalleSusc.total_clases !== 1 ? 's' : ''}`],
-                ].map(([k, v]) => (
-                  <>
-                    <span style={{ color: '#868e96' }} key={`k-${k}`}>{k}</span>
-                    <span style={{ color: '#e2e8f0' }} key={`v-${k}`}>{v}</span>
-                  </>
-                ))}
-              </div>
-
-              {/* Fechas de clases */}
-              <div>
-                <p style={{ color: '#868e96', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
-                  Fechas de clases
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {detalleSusc.reservas.map(r => {
-                    const [y, m, d] = r.fecha.split('-')
-                    const fecha = new Date(+y, +m - 1, +d)
-                    const label = fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
-                    return (
-                      <div key={r.fecha} style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '6px 10px'
-                      }}>
-                        <span style={{ color: '#c8cbdf', fontSize: '0.85rem' }}>{label}</span>
-                        {r.estado === 'lista_espera' && (
-                          <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', borderRadius: '4px', padding: '2px 6px', fontSize: '0.72rem' }}>
-                            Lista de espera
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
+              {/* Header */}
+              <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <h3 style={{ color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {detalleSusc.clase_nombre}
+                  </h3>
+                  <span style={{
+                    background: esUnica ? 'rgba(34,197,94,0.12)' : 'rgba(124,58,237,0.15)',
+                    color: esUnica ? '#22c55e' : '#a78bfa',
+                    border: `1px solid ${esUnica ? 'rgba(34,197,94,0.3)' : 'rgba(124,58,237,0.3)'}`,
+                    borderRadius: '5px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0
+                  }}>{esUnica ? 'Reserva única' : 'Suscripción'}</span>
                 </div>
+                <button onClick={() => setDetalleSusc(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', width: 32, height: 32, minWidth: 32, cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: '1.4rem 1.8rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+
+                {/* Badges de estado */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {esUnica ? (
+                    <span style={{
+                      background: detalleSusc.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
+                      color: detalleSusc.lista_espera ? '#f59e0b' : '#22c55e',
+                      border: `1px solid ${detalleSusc.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                      borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
+                    }}>
+                      {detalleSusc.lista_espera ? '📋 Lista de espera' : '✅ Confirmada'}
+                    </span>
+                  ) : (
+                    <>
+                      <span style={{
+                        background: detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color: detalleSusc.estado === 'activa' ? '#22c55e' : '#f59e0b',
+                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                        borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
+                      }}>
+                        {detalleSusc.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
+                      </span>
+                      {detalleSusc.en_espera && (
+                        <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>
+                          📋 Lista de espera
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Info grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 1rem', fontSize: '0.88rem' }}>
+                  {(esUnica ? [
+                    ['Fecha',     formatFecha(detalleSusc.fecha)],
+                    ['Horario',   detalleSusc.horario],
+                    ['Aula',      detalleSusc.aula || '—'],
+                    ['Profesor',  detalleSusc.profesor_nombre || 'Sin asignar'],
+                  ] : [
+                    ['Especialidad',     detalleSusc.especialidad],
+                    ['Día',             detalleSusc.dias],
+                    ['Horario',         detalleSusc.horario],
+                    ['Aula',            detalleSusc.aula || '—'],
+                    ['Profesor',        detalleSusc.profesor || 'Sin asignar'],
+                    ['Período',         `${MESES_L[detalleSusc.mes]} ${detalleSusc.anio}`],
+                    ['Total pagado',    `$${detalleSusc.monto.toLocaleString('es-AR')}`],
+                    ['Clases incluidas',`${detalleSusc.total_clases} clase${detalleSusc.total_clases !== 1 ? 's' : ''}`],
+                  ]).map(([k, v]) => (
+                    <>
+                      <span style={{ color: '#868e96' }} key={`k-${k}`}>{k}</span>
+                      <span style={{ color: '#e2e8f0' }} key={`v-${k}`}>{v}</span>
+                    </>
+                  ))}
+                </div>
+
+                {/* Fechas de clases (solo suscripción) */}
+                {!esUnica && detalleSusc.reservas && (
+                  <div>
+                    <p style={{ color: '#868e96', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Fechas de clases
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {detalleSusc.reservas.map(r => {
+                        const [y, m, d] = r.fecha.split('-')
+                        const label = new Date(+y, +m - 1, +d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+                        return (
+                          <div key={r.fecha} style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '6px 10px'
+                          }}>
+                            <span style={{ color: '#c8cbdf', fontSize: '0.85rem' }}>{label}</span>
+                            {r.estado === 'lista_espera' && (
+                              <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', borderRadius: '4px', padding: '2px 6px', fontSize: '0.72rem' }}>
+                                Lista de espera
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
     </div>
   )

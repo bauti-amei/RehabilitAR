@@ -56,3 +56,10 @@ export const getClasesParaReprogramarRequest = (especialidad, fecha) =>
 
 export const getMisSuscripcionesRequest = () =>
   api.get('/clases/suscripciones/mis-suscripciones/')
+
+// Reserva única
+export const getClasesParaReservarRequest = (mes, anio) =>
+  api.get(`/clases/para-reservar/?mes=${mes}&anio=${anio}`)
+
+export const reservarClaseUnicaRequest = (data) =>
+  api.post('/clases/reservar-unica/', data)
