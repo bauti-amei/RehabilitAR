@@ -25,6 +25,7 @@ export default function PasswordInput({
       <button
         type="button"
         onClick={() => setShow((prev) => !prev)}
+        aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
         style={{
           position: "absolute",
           right: "5%",

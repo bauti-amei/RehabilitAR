@@ -1,5 +1,4 @@
 import { useState } from "react";
-import styles from '../common/Sidebar.module.css'
 import "./ChangePassword.css";
 import toast from 'react-hot-toast'
 import PasswordInput from "../../components/common/PasswordInput";
