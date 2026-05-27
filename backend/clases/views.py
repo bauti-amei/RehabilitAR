@@ -50,6 +50,114 @@ def _ocurrencias_restantes(clase, mes, anio):
     return [d for d in _ocurrencias_mes(clase, mes, anio) if d >= today]
 
 
+def _asignar_cupo_lista_espera(clase):
+    """
+    Si hay cupo libre en `clase`, asigna el lugar al próximo en lista de espera
+    según la prioridad definida, activa sus reservas y lo notifica por mail.
+
+    Prioridad para clases FIJAS:
+      1. Abonados (suscripción activa/pendiente para ESTA clase), orden de llegada.
+      2. No abonados, orden de llegada.
+    Para clases INDIVIDUALES: orden de llegada general (sin distinción).
+
+    Devuelve el usuario asignado o None si no hubo cambios.
+    """
+    from datetime import date as Date, datetime
+
+    # Refrescar conteo desde la DB
+    clase.refresh_from_db()
+    if clase.inscriptos.count() >= clase.cupo:
+        return None
+
+    usuarios_espera = list(clase.lista_espera.all())
+    if not usuarios_espera:
+        return None
+
+    def primera_reserva_espera(u):
+        """Fecha de creación de la primera reserva en lista_espera (para ordenar por llegada)."""
+        r = Reserva.objects.filter(
+            usuario=u, clase=clase, estado='lista_espera',
+        ).order_by('created_at').first()
+        return r.created_at if r else datetime.max
+
+    if clase.tipo_clase == Clase.TipoClase.FIJA:
+        abonados, no_abonados = [], []
+        for u in usuarios_espera:
+            if Suscripcion.objects.filter(
+                usuario=u,
+                clase=clase,
+                estado__in=[Suscripcion.Estado.ACTIVA, Suscripcion.Estado.PENDIENTE_PAGO],
+            ).exists():
+                abonados.append(u)
+            else:
+                no_abonados.append(u)
+
+        abonados.sort(key=primera_reserva_espera)
+        no_abonados.sort(key=primera_reserva_espera)
+
+        grupo = abonados if abonados else no_abonados
+        es_abonado = bool(abonados)
+    else:
+        # Individual: orden de llegada, sin distinción abonado/no abonado
+        usuarios_espera.sort(key=primera_reserva_espera)
+        grupo = usuarios_espera
+        es_abonado = False
+
+    if not grupo:
+        return None
+
+    candidato = grupo[0]
+
+    # Mover de lista_espera → inscriptos
+    clase.lista_espera.remove(candidato)
+    clase.inscriptos.add(candidato)
+
+    # Activar reservas futuras del candidato para esta clase
+    hoy = Date.today()
+    Reserva.objects.filter(
+        usuario=candidato,
+        clase=clase,
+        estado='lista_espera',
+        fecha__gte=hoy,
+    ).update(estado='activa')
+
+    # Notificar por mail (EmailMessage + UTF-8 para evitar errores con tildes/ñ)
+    try:
+        if clase.tipo_clase == Clase.TipoClase.FIJA and not es_abonado:
+            # No abonado que entra: debe pagar suscripción para confirmar
+            asunto  = '¡Se liberó un cupo! — RehabilitAR'
+            mensaje = (
+                f'Hola {candidato.first_name},\n\n'
+                f'Se liberó un cupo en la clase "{clase.nombre}" '
+                f'({clase.dias} {clase.horario}). '
+                f'Quedaste asignado/a, pero recordá que debés abonar tu suscripción '
+                f'para confirmar el lugar.\n\n'
+                f'Saludos,\nEquipo RehabilitAR'
+            )
+        else:
+            # Abonado o clase individual
+            asunto  = '¡Tenés lugar! — RehabilitAR'
+            mensaje = (
+                f'Hola {candidato.first_name},\n\n'
+                f'¡Buenas noticias! Se liberó un cupo en la clase "{clase.nombre}" '
+                f'({clase.dias} {clase.horario}) y quedaste asignado/a. '
+                f'Tu lugar está confirmado.\n\n'
+                f'Saludos,\nEquipo RehabilitAR'
+            )
+        mail = EmailMessage(
+            subject=asunto,
+            body=mensaje,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[candidato.email],
+        )
+        mail.encoding = 'utf-8'
+        mail.send(fail_silently=True)
+    except Exception:
+        pass
+
+    return candidato
+
+
 def _calcular_precio(clase, ocurrencias, descuentos_feriado=0):
     n = len(ocurrencias)
     precio_por_clase = float(clase.valor)
@@ -457,7 +565,9 @@ class CalcularSuscripcionView(APIView):
         apto_aprobado = AptoFisico.objects.filter(usuario=request.user, estado='APROBADO').exists()
         ocurrencias   = _ocurrencias_restantes(clase, mes, anio)
         feriados_en   = [str(d) for d in ocurrencias if str(d) in FERIADOS]
-        ya_suscripto  = Suscripcion.objects.filter(usuario=request.user, clase=clase, mes=mes, anio=anio).exists()
+        ya_suscripto  = Suscripcion.objects.filter(
+            usuario=request.user, clase=clase, mes=mes, anio=anio,
+        ).exists()  # cancelada incluida: la baja es efectiva el próximo mes
 
         conflictos = []
         for fecha in ocurrencias:
@@ -504,8 +614,10 @@ class PagarSuscripcionView(APIView):
         if not AptoFisico.objects.filter(usuario=request.user, estado='APROBADO').exists():
             return Response({'detail': 'Necesitás un apto físico aprobado para suscribirte.'}, status=400)
 
-        if Suscripcion.objects.filter(usuario=request.user, clase=clase, mes=mes, anio=anio).exists():
-            return Response({'detail': 'Ya estás suscripto a esta clase este mes.'}, status=400)
+        if Suscripcion.objects.filter(
+            usuario=request.user, clase=clase, mes=mes, anio=anio,
+        ).exists():  # cancelada incluida: la baja es efectiva el próximo mes
+            return Response({'detail': 'Ya tenés una suscripción para esta clase este mes.'}, status=400)
 
         ocurrencias = _ocurrencias_restantes(clase, mes, anio)
         if not ocurrencias:
@@ -517,70 +629,95 @@ class PagarSuscripcionView(APIView):
         )
         precio_info = _calcular_precio(clase, ocurrencias, descuentos_count)
 
-        suscripcion = Suscripcion.objects.create(
-            usuario=request.user,
-            clase=clase,
-            mes=mes,
-            anio=anio,
-            monto=precio_info['total'],
-            estado='activa',
-        )
+        from django.db import transaction
+        with transaction.atomic():
+            # Eliminar reservas canceladas de esta clase para las fechas del mes.
+            # Pueden quedar de un cambio de turno previo que pasó por esta clase;
+            # si no las borramos, Reserva.unique_together lanza IntegrityError.
+            Reserva.objects.filter(
+                usuario=request.user,
+                clase=clase,
+                fecha__in=ocurrencias,
+                estado='cancelada',
+            ).delete()
 
-        cupo_libre = clase.cupo - clase.inscriptos.count()
-        tiene_activa = False
+            suscripcion = Suscripcion.objects.create(
+                usuario=request.user,
+                clase=clase,
+                mes=mes,
+                anio=anio,
+                monto=precio_info['total'],
+                valor_clase=clase.valor,
+                estado='activa',
+            )
 
-        for fecha in ocurrencias:
-            fecha_str = str(fecha)
-            es_feriado = fecha_str in FERIADOS
-            opcion = opciones_feriado.get(fecha_str) if es_feriado else None
+            cupo_libre   = clase.cupo - clase.inscriptos.count()
+            tiene_activa = False
 
-            if es_feriado and opcion == 'descuento':
-                reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='cancelada', tipo='suscripcion')
-            elif es_feriado and isinstance(opcion, dict):
-                clase_alt_id  = opcion.get('clase_alt_id')
-                fecha_alt_str = opcion.get('fecha_alt')
-                clase_alt = None
-                fecha_alt = None
+            for fecha in ocurrencias:
+                fecha_str = str(fecha)
+                es_feriado = fecha_str in FERIADOS
+                opcion = opciones_feriado.get(fecha_str) if es_feriado else None
+
+                if es_feriado and opcion == 'descuento':
+                    reserva = Reserva.objects.create(
+                        usuario=request.user, clase=clase, fecha=fecha,
+                        estado='cancelada', tipo='suscripcion',
+                    )
+                elif es_feriado and isinstance(opcion, dict):
+                    clase_alt_id  = opcion.get('clase_alt_id')
+                    fecha_alt_str = opcion.get('fecha_alt')
+                    clase_alt = None
+                    fecha_alt = None
+                    try:
+                        clase_alt = Clase.objects.get(pk=clase_alt_id)
+                        fecha_alt = Date.fromisoformat(fecha_alt_str)
+                    except Exception:
+                        pass
+                    estado_r = 'activa' if cupo_libre > 0 else 'lista_espera'
+                    reserva = Reserva.objects.create(
+                        usuario=request.user, clase=clase, fecha=fecha,
+                        estado=estado_r, clase_alt=clase_alt, fecha_alt=fecha_alt,
+                        tipo='suscripcion',
+                    )
+                    if estado_r == 'activa':
+                        cupo_libre -= 1
+                        tiene_activa = True
+                else:
+                    if cupo_libre > 0:
+                        reserva = Reserva.objects.create(
+                            usuario=request.user, clase=clase, fecha=fecha,
+                            estado='activa', tipo='suscripcion',
+                        )
+                        cupo_libre -= 1
+                        tiene_activa = True
+                    else:
+                        reserva = Reserva.objects.create(
+                            usuario=request.user, clase=clase, fecha=fecha,
+                            estado='lista_espera', tipo='suscripcion',
+                        )
+
+                suscripcion.reservas.add(reserva)
+
+            if tiene_activa:
+                clase.inscriptos.add(request.user)
+            else:
+                clase.lista_espera.add(request.user)
                 try:
-                    clase_alt = Clase.objects.get(pk=clase_alt_id)
-                    fecha_alt = Date.fromisoformat(fecha_alt_str)
+                    send_mail(
+                        subject='Quedaste en lista de espera — RehabilitAR',
+                        message=(
+                            f'Hola {request.user.first_name},\n\n'
+                            f'La clase "{clase.nombre}" está completa. '
+                            f'Quedaste en lista de espera. Te avisaremos cuando se libere un lugar.\n\n'
+                            f'Saludos,\nEquipo RehabilitAR'
+                        ),
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[request.user.email],
+                        fail_silently=True,
+                    )
                 except Exception:
                     pass
-                estado_r = 'activa' if cupo_libre > 0 else 'lista_espera'
-                reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha,
-                                                 estado=estado_r, clase_alt=clase_alt, fecha_alt=fecha_alt, tipo='suscripcion')
-                if estado_r == 'activa':
-                    cupo_libre -= 1
-                    tiene_activa = True
-            else:
-                if cupo_libre > 0:
-                    reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='activa', tipo='suscripcion')
-                    cupo_libre -= 1
-                    tiene_activa = True
-                else:
-                    reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='lista_espera', tipo='suscripcion')
-
-            suscripcion.reservas.add(reserva)
-
-        if tiene_activa:
-            clase.inscriptos.add(request.user)
-        else:
-            clase.lista_espera.add(request.user)
-            try:
-                send_mail(
-                    subject='Quedaste en lista de espera — RehabilitAR',
-                    message=(
-                        f'Hola {request.user.first_name},\n\n'
-                        f'La clase "{clase.nombre}" está completa. '
-                        f'Quedaste en lista de espera. Te avisaremos cuando se libere un lugar.\n\n'
-                        f'Saludos,\nEquipo RehabilitAR'
-                    ),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[request.user.email],
-                    fail_silently=True,
-                )
-            except Exception:
-                pass
 
         return Response({'detail': 'Suscripción creada exitosamente.', 'total': precio_info['total']}, status=201)
 
@@ -631,8 +768,14 @@ class MisSuscripcionesView(APIView):
         from datetime import date
         today = date.today()
 
+        # Mostrar solo el mes actual y meses futuros.
+        # Las suscripciones de meses anteriores son historial, no se muestran aquí.
         suscripciones = (Suscripcion.objects
-                         .filter(usuario=request.user)
+                         .filter(
+                             usuario=request.user,
+                             anio__gte=today.year,
+                         )
+                         .exclude(anio=today.year, mes__lt=today.month)
                          .select_related('clase', 'clase__sala', 'clase__profesor')
                          .prefetch_related('reservas')
                          .order_by('-anio', '-mes'))
@@ -791,7 +934,7 @@ class ClasesParaReservarView(APIView):
             d = r.fecha
             conflict_map.setdefault(d, []).append((r.clase.horario_inicio, r.clase.horario_fin))
 
-        # IDs de clases fijas a las que ya está suscripto este mes
+        # IDs de clases fijas con suscripción este mes (cancelada incluida: la baja es efectiva el próximo mes)
         suscripciones_mes = set(
             Suscripcion.objects
             .filter(usuario=request.user, mes=mes, anio=anio)
@@ -988,8 +1131,10 @@ class ListaEsperaView(APIView):
         if clase.tipo_clase == Clase.TipoClase.FIJA:
             abonados, no_abonados = [], []
             for u in usuarios:
+                # Abonado = tiene suscripción activa/pendiente específicamente para ESTA clase
                 if Suscripcion.objects.filter(
                     usuario=u,
+                    clase=clase,
                     estado__in=[Suscripcion.Estado.ACTIVA, Suscripcion.Estado.PENDIENTE_PAGO],
                 ).exists():
                     abonados.append(serialize_user(u))
@@ -1052,12 +1197,60 @@ class CambiarCapacidadView(APIView):
         if nuevo_cupo >= cantidad_inscriptos:
             clase.cupo = nuevo_cupo
             clase.save(update_fields=['cupo'])
+            # Si el cupo aumentó, asignar a los primeros de la lista de espera
+            # hasta ocupar los nuevos lugares o agotar la lista.
+            while _asignar_cupo_lista_espera(clase):
+                pass
             return Response(
                 {'detail': 'Capacidad actualizada con exito.', 'cancelada': False},
                 status=200,
             )
 
         nombre_clase = clase.nombre
+        inscriptos   = list(clase.inscriptos.all())
+
+        # Clasificar abonados (suscripción activa/pendiente para ESTA clase)
+        # vs no abonados (inscriptos sin suscripción vigente, ej: por cambio de turno)
+        usuarios_abonados = set(
+            Suscripcion.objects
+            .filter(
+                clase=clase,
+                estado__in=[Suscripcion.Estado.ACTIVA, Suscripcion.Estado.PENDIENTE_PAGO],
+            )
+            .values_list('usuario_id', flat=True)
+        )
+
+        # Notificar a cada inscripto antes de eliminar la clase
+        for usuario in inscriptos:
+            es_abonado = usuario.id in usuarios_abonados
+            if es_abonado:
+                cuerpo = (
+                    f'Hola {usuario.first_name},\n\n'
+                    f'Te informamos que la clase "{nombre_clase}" fue cancelada por el centro.\n\n'
+                    f'Como sos abonado/a, se gestionará la devolución de tu crédito a la brevedad. '
+                    f'Ante cualquier consulta, comunicate con nosotros.\n\n'
+                    f'Saludos,\nEquipo RehabilitAR'
+                )
+            else:
+                cuerpo = (
+                    f'Hola {usuario.first_name},\n\n'
+                    f'Te informamos que la clase "{nombre_clase}" fue cancelada por el centro.\n\n'
+                    f'Se gestionará la devolución de tu seña a la brevedad. '
+                    f'Ante cualquier consulta, comunicate con nosotros.\n\n'
+                    f'Saludos,\nEquipo RehabilitAR'
+                )
+            try:
+                mail = EmailMessage(
+                    subject=f'Clase cancelada: {nombre_clase} — RehabilitAR',
+                    body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[usuario.email],
+                )
+                mail.encoding = 'utf-8'
+                mail.send(fail_silently=True)
+            except Exception:
+                pass
+
         clase.delete()
         return Response(
             {
@@ -1090,21 +1283,14 @@ class CancelarSuscripcionView(APIView):
         except Suscripcion.DoesNotExist:
             return Response({'detail': 'Suscripcion no encontrada.'}, status=404)
 
-        # Liberar cupo en la clase
-        suscripcion.clase.inscriptos.remove(request.user)
-
-        # Cancelar reservas futuras vinculadas a esta suscripcion
-        from datetime import date
-        suscripcion.reservas.filter(
-            fecha__gte=date.today(),
-            estado__in=['activa', 'lista_espera'],
-        ).update(estado='cancelada')
-
+        # La baja es efectiva a partir del PRÓXIMO mes:
+        # el usuario sigue inscripto y con sus reservas activas lo que resta del mes.
+        # Solo marcamos la suscripcion como cancelada para que no se renueve.
         suscripcion.estado = Suscripcion.Estado.CANCELADA
         suscripcion.save(update_fields=['estado'])
 
         return Response(
-            {'detail': 'Suscripcion cancelada. La baja se hara efectiva a partir del proximo mes.'},
+            {'detail': 'Suscripcion cancelada. La baja se hará efectiva a partir del próximo mes.'},
             status=200,
         )
 
@@ -1130,9 +1316,10 @@ class ClasesDisponiblesParaCambioView(APIView):
             return Response({'detail': 'Suscripcion no encontrada.'}, status=404)
 
         especialidad = suscripcion.clase.especialidad
-        precio_max   = suscripcion.clase.valor  # solo mostrar clases de igual o menor precio
+        precio_max   = suscripcion.valor_clase   # precio unitario de la clase al momento de la compra
 
-        # IDs de clases con suscripcion vigente (no cancelada) en el mismo mes/anio
+        # IDs de clases con suscripcion en el mismo mes/anio (cancelada incluida:
+        # la baja es efectiva el próximo mes, por lo que esa clase no debe ofrecerse).
         ya_suscripto_ids = set(
             Suscripcion.objects
             .filter(
@@ -1140,7 +1327,6 @@ class ClasesDisponiblesParaCambioView(APIView):
                 mes=suscripcion.mes,
                 anio=suscripcion.anio,
             )
-            .exclude(estado=Suscripcion.Estado.CANCELADA)
             .values_list('clase_id', flat=True)
         )
 
@@ -1151,7 +1337,12 @@ class ClasesDisponiblesParaCambioView(APIView):
             .prefetch_related('inscriptos')
             .exclude(pk__in=ya_suscripto_ids)   # excluir clase actual y otras con susc. activa
         )
-        disponibles = [c for c in clases if c.inscriptos.count() < c.cupo]
+        mes, anio = suscripcion.mes, suscripcion.anio
+        disponibles = [
+            c for c in clases
+            if c.inscriptos.count() < c.cupo                     # con cupo
+            and _ocurrencias_restantes(c, mes, anio)             # con al menos 1 fecha restante en el mes
+        ]
         return Response(ClaseSerializer(disponibles, many=True).data)
 
 
@@ -1222,6 +1413,9 @@ class CambiarTurnoView(APIView):
         vieja_clase.inscriptos.remove(request.user)
         nueva_clase.inscriptos.add(request.user)
 
+        # Al liberar el cupo en la clase vieja, asignar al próximo en lista de espera
+        _asignar_cupo_lista_espera(vieja_clase)
+
         # Crear nuevas reservas para las fechas restantes del mes
         wd_nuevo = DIAS_A_WEEKDAY.get(nueva_clase.dias)
         mes, anio = suscripcion.mes, suscripcion.anio
@@ -1232,6 +1426,15 @@ class CambiarTurnoView(APIView):
             if Date(anio, mes, d).weekday() == wd_nuevo
             and Date(anio, mes, d) >= today
         ]
+
+        # Limpiar reservas canceladas previas de la nueva clase para esas fechas
+        # (evita UNIQUE constraint al re-asignar un turno al que ya se estuvo antes)
+        Reserva.objects.filter(
+            usuario=request.user,
+            clase=nueva_clase,
+            fecha__in=fechas_nuevas,
+            estado='cancelada',
+        ).delete()
 
         nuevas_reservas = []
         for fecha in fechas_nuevas:

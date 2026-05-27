@@ -512,33 +512,44 @@ export default function ClientDashboard() {
                 </p>
               )}
 
-              {suscripciones.filter(s => s.estado !== 'cancelada').length === 0 ? (
+              {suscripciones.length === 0 ? (
                 <div style={{ textAlign: 'center', color: '#868e96', padding: '2rem 0' }}>
-                  <p>No tenés suscripciones activas.</p>
+                  <p>No tenés suscripciones este mes.</p>
                 </div>
               ) : (
-                suscripciones.filter(s => s.estado !== 'cancelada').map(s => {
-                  const isOpen   = panelAccion?.susId === s.id
-                  const isTurno  = isOpen && panelAccion.tipo === 'turno'
+                suscripciones.map(s => {
+                  const cancelada  = s.estado === 'cancelada'
+                  const isOpen     = !cancelada && panelAccion?.susId === s.id
+                  const isTurno    = isOpen && panelAccion.tipo === 'turno'
                   const isCancelar = isOpen && panelAccion.tipo === 'cancelar'
-                  const MESES_L  = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+                  const MESES_L    = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+                  const badgeStyle = cancelada
+                    ? { background: 'rgba(107,114,128,0.15)', color: '#9ca3af', border: '1px solid rgba(107,114,128,0.3)' }
+                    : s.estado === 'activa'
+                      ? { background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }
+                      : { background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }
+
+                  const badgeLabel = cancelada
+                    ? '🚫 Cancelada – vigente hasta fin de mes'
+                    : s.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'
 
                   return (
-                    <div key={s.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div key={s.id} style={{
+                      background: cancelada ? 'rgba(255,255,255,0.015)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${cancelada ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.07)'}`,
+                      borderRadius: '14px', padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '10px',
+                      opacity: cancelada ? 0.7 : 1,
+                    }}>
 
                       {/* Info principal */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 1rem', alignItems: 'start' }}>
                         <div>
-                          <p style={{ color: 'white', fontWeight: 700, fontSize: '1rem', margin: '0 0 2px' }}>{s.clase_nombre}</p>
+                          <p style={{ color: cancelada ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '1rem', margin: '0 0 2px' }}>{s.clase_nombre}</p>
                           <p style={{ color: '#868e96', fontSize: '0.82rem', margin: 0 }}>{s.especialidad}</p>
                         </div>
-                        <span style={{
-                          background: s.estado === 'activa' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                          color:      s.estado === 'activa' ? '#22c55e'              : '#f59e0b',
-                          border:    `1px solid ${s.estado === 'activa' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                          borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap'
-                        }}>
-                          {s.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
+                        <span style={{ ...badgeStyle, borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          {badgeLabel}
                         </span>
                       </div>
 
@@ -549,11 +560,18 @@ export default function ClientDashboard() {
                         <span style={{ color: '#c8cbdf' }}>🏠 {s.aula || 'Sin aula'}</span>
                         <span style={{ color: '#c8cbdf' }}>👤 {s.profesor || 'Sin asignar'}</span>
                         <span style={{ color: '#c8cbdf' }}>📆 {MESES_L[s.mes]} {s.anio}</span>
-                        <span style={{ color: '#a78bfa', fontWeight: 700 }}>💲 ${parseFloat(s.monto).toLocaleString('es-AR')}</span>
+                        <span style={{ color: cancelada ? '#9ca3af' : '#a78bfa', fontWeight: 700 }}>💲 ${parseFloat(s.monto).toLocaleString('es-AR')}</span>
                       </div>
 
-                      {/* Botones de acción */}
-                      {!isOpen && (
+                      {/* Nota informativa para canceladas */}
+                      {cancelada && (
+                        <p style={{ color: '#6b7280', fontSize: '0.78rem', margin: 0, fontStyle: 'italic' }}>
+                          Podés seguir asistiendo hasta el final del mes. La baja es efectiva el próximo mes.
+                        </p>
+                      )}
+
+                      {/* Botones de acción — solo para suscripciones no canceladas */}
+                      {!cancelada && !isOpen && (
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button onClick={() => panelAbrirCambioTurno(s.id)}
                             style={{ flex: 1, padding: '7px 10px', background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' }}>

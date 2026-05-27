@@ -345,8 +345,10 @@ function AreaClases() {
   const [cargando,        setCargando]  = useState(true)
   const [filtro,          setFiltro]    = useState('todas')
   const [filtroTipo,      setFiltroTipo] = useState('todos')
-  const [listaEsperaModal, setLista]   = useState(null)
-  const [userModal,       setUserModal] = useState(null)
+  const [listaEsperaModal, setLista]     = useState(null)   // clase seleccionada
+  const [listaEsperaData,  setListaData] = useState(null)   // respuesta estructurada del backend
+  const [listaLoading,     setListaLoad] = useState(false)
+  const [userModal,        setUserModal] = useState(null)
   const [crearClase,      setCrear]    = useState(false)
   const [asignarModal,    setAsignar]  = useState(null)   // clase a la que se asigna profesor
   const [profesores,      setProfesores] = useState([])
@@ -357,6 +359,7 @@ function AreaClases() {
   const [nuevaCap,        setNuevaCap]        = useState('')
   const [capError,        setCapError]        = useState('')
   const [capCargando,     setCapCargando]     = useState(false)
+  const [capResultModal,  setCapResultModal]  = useState(null) // { texto, cancelada: bool }
 
   const cargarClases = () => {
     getClasesRequest()
@@ -381,7 +384,9 @@ function AreaClases() {
       const res = await cambiarCapacidadRequest(capacidadModal.id, cupo)
       setCapacidadModal(null)
       cargarClases()
-      if (res.data.cancelada) alert(`La clase fue cancelada: ${res.data.detail}`)
+      if (res.data.cancelada) {
+        setCapResultModal({ texto: res.data.detail, cancelada: true })
+      }
     } catch (err) {
       setCapError(err.response?.data?.detail ?? 'Error al cambiar la capacidad.')
     } finally {
@@ -488,7 +493,20 @@ function AreaClases() {
             <div className={styles.claseAcciones}>
               <button
                 className={styles.listaEsperaBtn}
-                onClick={() => setLista(c)}
+                onClick={async () => {
+                  setLista(c)
+                  setListaData(null)
+                  setUserModal(null)
+                  setListaLoad(true)
+                  try {
+                    const res = await getListaEsperaRequest(c.id)
+                    setListaData(res.data)
+                  } catch {
+                    setListaData({ error: true })
+                  } finally {
+                    setListaLoad(false)
+                  }
+                }}
               >
                 Ver lista de espera
                 {c.lista_espera.length > 0 && (
@@ -510,23 +528,91 @@ function AreaClases() {
       {listaEsperaModal && (
         <Modal
           title={`Lista de espera — ${listaEsperaModal.nombre}`}
-          onClose={() => { setLista(null); setUserModal(null) }}
+          onClose={() => { setLista(null); setListaData(null); setUserModal(null) }}
           wide
         >
-          {listaEsperaModal.lista_espera.length === 0 ? (
-            <p className={styles.emptyMsg}>No hay usuarios en lista de espera.</p>
-          ) : (
-            <div className={styles.listaEsperaList}>
-              {listaEsperaModal.lista_espera.map(u => (
-                <div key={u.id} className={styles.listaEsperaItem}>
-                  <div>
-                    <p className={styles.listaUserNombre}>{u.nombre}</p>
-                    <p className={styles.listaUserEmail}>{u.email}</p>
+          {listaLoading ? (
+            <p className={styles.emptyMsg}>Cargando...</p>
+          ) : !listaEsperaData || listaEsperaData.error ? (
+            <p className={styles.emptyMsg}>Error al cargar la lista de espera.</p>
+          ) : listaEsperaData.tipo_clase === 'individual' ? (
+            /* ── Clase individual: lista única ── */
+            listaEsperaData.lista_espera.length === 0 ? (
+              <p className={styles.emptyMsg}>No hay usuarios en lista de espera.</p>
+            ) : (
+              <div className={styles.listaEsperaList}>
+                {listaEsperaData.lista_espera.map(u => (
+                  <div key={u.id} className={styles.listaEsperaItem}>
+                    <div>
+                      <p className={styles.listaUserNombre}>{u.nombre}</p>
+                      <p className={styles.listaUserEmail}>{u.email}</p>
+                    </div>
+                    <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
                   </div>
-                  <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+                ))}
+              </div>
+            )
+          ) : (
+            /* ── Clase fija: abonados / no abonados ── */
+            listaEsperaData.abonados.length === 0 && listaEsperaData.no_abonados.length === 0 ? (
+              <p className={styles.emptyMsg}>No hay usuarios en lista de espera.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
+
+                {/* Abonados */}
+                <div>
+                  <p style={{ color: '#22c55e', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.05em' }}>
+                    ✅ Abonados ({listaEsperaData.abonados.length})
+                    <span style={{ color: '#868e96', fontWeight: 400, fontSize: '0.78rem', marginLeft: '8px', textTransform: 'none' }}>
+                      — tienen suscripción activa para esta clase
+                    </span>
+                  </p>
+                  {listaEsperaData.abonados.length === 0 ? (
+                    <p style={{ color: '#868e96', fontSize: '0.85rem' }}>Ninguno.</p>
+                  ) : (
+                    <div className={styles.listaEsperaList}>
+                      {listaEsperaData.abonados.map(u => (
+                        <div key={u.id} className={styles.listaEsperaItem}
+                          style={{ borderLeft: '3px solid rgba(34,197,94,0.4)' }}>
+                          <div>
+                            <p className={styles.listaUserNombre}>{u.nombre}</p>
+                            <p className={styles.listaUserEmail}>{u.email}</p>
+                          </div>
+                          <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+
+                {/* No abonados */}
+                <div>
+                  <p style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.05em' }}>
+                    ⚠️ No abonados ({listaEsperaData.no_abonados.length})
+                    <span style={{ color: '#868e96', fontWeight: 400, fontSize: '0.78rem', marginLeft: '8px', textTransform: 'none' }}>
+                      — sin suscripción para esta clase
+                    </span>
+                  </p>
+                  {listaEsperaData.no_abonados.length === 0 ? (
+                    <p style={{ color: '#868e96', fontSize: '0.85rem' }}>Ninguno.</p>
+                  ) : (
+                    <div className={styles.listaEsperaList}>
+                      {listaEsperaData.no_abonados.map(u => (
+                        <div key={u.id} className={styles.listaEsperaItem}
+                          style={{ borderLeft: '3px solid rgba(245,158,11,0.4)' }}>
+                          <div>
+                            <p className={styles.listaUserNombre}>{u.nombre}</p>
+                            <p className={styles.listaUserEmail}>{u.email}</p>
+                          </div>
+                          <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )
           )}
         </Modal>
       )}
@@ -568,6 +654,43 @@ function AreaClases() {
           </div>
           {capError && <p className={styles.errorMsg}>{capError}</p>}
         </Modal>
+      )}
+
+      {/* Modal resultado cancelación de clase por capacidad */}
+      {capResultModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setCapResultModal(null)}>
+          <div style={{
+            background: '#13172e',
+            border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: '20px', padding: '2rem 2.4rem',
+            width: '100%', maxWidth: '440px', textAlign: 'center',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: '2rem', marginBottom: '0.8rem' }}>🚫</p>
+            <h3 style={{ color: 'white', fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+              Clase cancelada
+            </h3>
+            <p style={{ color: '#b0b3c7', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '0.75rem' }}>
+              {capResultModal.texto}
+            </p>
+            <p style={{ color: '#868e96', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Se notificó a los inscriptos por mail. Los créditos y señas se gestionarán a la brevedad.
+            </p>
+            <button
+              onClick={() => setCapResultModal(null)}
+              style={{
+                padding: '0.65rem 2rem', borderRadius: '12px', border: 'none',
+                background: '#ef4444', color: 'white', fontWeight: 600,
+                fontSize: '0.95rem', cursor: 'pointer'
+              }}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Modal asignar profesor */}

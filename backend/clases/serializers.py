@@ -236,7 +236,7 @@ class SuscripcionSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Suscripcion
         fields = [
-            'id', 'mes', 'anio', 'monto', 'estado', 'created_at',
+            'id', 'mes', 'anio', 'monto', 'valor_clase', 'estado', 'created_at',
             'clase_nombre', 'especialidad', 'dias', 'horario', 'aula', 'profesor',
         ]
 

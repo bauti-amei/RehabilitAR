@@ -135,12 +135,13 @@ class Suscripcion(models.Model):
         PENDIENTE_PAGO = 'pendiente_pago', 'Pendiente de pago'
         CANCELADA      = 'cancelada',      'Cancelada'
 
-    usuario    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='suscripciones')
-    clase      = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='suscripciones')
-    mes        = models.PositiveSmallIntegerField()
-    anio       = models.PositiveSmallIntegerField()
-    monto      = models.DecimalField(max_digits=10, decimal_places=2)
-    estado     = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
+    usuario     = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='suscripciones')
+    clase       = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='suscripciones')
+    mes         = models.PositiveSmallIntegerField()
+    anio        = models.PositiveSmallIntegerField()
+    monto       = models.DecimalField(max_digits=10, decimal_places=2)
+    valor_clase = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # precio unitario de la clase al momento de la compra
+    estado      = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
     reservas   = models.ManyToManyField(Reserva, blank=True, related_name='suscripcion_set')
     created_at = models.DateTimeField(auto_now_add=True)
 
