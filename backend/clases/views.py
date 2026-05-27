@@ -1131,12 +1131,25 @@ class ClasesDisponiblesParaCambioView(APIView):
 
         especialidad = suscripcion.clase.especialidad
         precio_max   = suscripcion.clase.valor  # solo mostrar clases de igual o menor precio
+
+        # IDs de clases con suscripcion vigente (no cancelada) en el mismo mes/anio
+        ya_suscripto_ids = set(
+            Suscripcion.objects
+            .filter(
+                usuario=request.user,
+                mes=suscripcion.mes,
+                anio=suscripcion.anio,
+            )
+            .exclude(estado=Suscripcion.Estado.CANCELADA)
+            .values_list('clase_id', flat=True)
+        )
+
         clases = (
             Clase.objects
             .filter(especialidad=especialidad, tipo_clase='fija', valor__lte=precio_max)
             .select_related('sala', 'profesor')
             .prefetch_related('inscriptos')
-            .exclude(pk=suscripcion.clase_id)
+            .exclude(pk__in=ya_suscripto_ids)   # excluir clase actual y otras con susc. activa
         )
         disponibles = [c for c in clases if c.inscriptos.count() < c.cupo]
         return Response(ClaseSerializer(disponibles, many=True).data)
@@ -1187,6 +1200,16 @@ class CambiarTurnoView(APIView):
 
         today = Date.today()
         vieja_clase = suscripcion.clase
+
+        # Si existe una suscripcion cancelada anterior para la nueva clase en el mismo mes/anio,
+        # eliminarla para evitar el unique_together (usuario, clase, mes, anio).
+        Suscripcion.objects.filter(
+            usuario=request.user,
+            clase=nueva_clase,
+            mes=suscripcion.mes,
+            anio=suscripcion.anio,
+            estado=Suscripcion.Estado.CANCELADA,
+        ).delete()
 
         # Cancelar reservas futuras de la clase vieja en esta suscripcion
         suscripcion.reservas.filter(
