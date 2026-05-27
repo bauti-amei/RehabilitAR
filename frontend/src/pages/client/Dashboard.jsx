@@ -8,11 +8,6 @@ import {
 } from '../../api/clases'
 import styles from './Dashboard.module.css'
 
-/* ══════════════════════════════════════════════════════════
-   MOCK DATA
-   ══════════════════════════════════════════════════════════ */
-const PROXIMA_CLASE = null
-
 const MIS_CLASES = {}
 
 // Feriados nacionales argentinos 2026
@@ -39,6 +34,22 @@ const FERIADOS = {
    ══════════════════════════════════════════════════════════ */
 const MESES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DIAS_S = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+
+// Día de semana (nombre español) → número JS (0=Dom)
+const DIAS_MAP = { Lunes: 1, Martes: 2, 'Miércoles': 3, Jueves: 4, Viernes: 5, Sábado: 6, Domingo: 0 }
+
+function proximaFecha(diaStr) {
+  const target = DIAS_MAP[diaStr]
+  if (target === undefined) return null
+  const hoy = new Date()
+  const hoyDia = hoy.getDay()
+  let diff = target - hoyDia
+  if (diff < 0) diff += 7   // ya pasó esta semana → siguiente semana
+  // diff === 0 → es hoy
+  const fecha = new Date(hoy)
+  fecha.setDate(hoy.getDate() + diff)
+  return toDateStr(fecha.getFullYear(), fecha.getMonth(), fecha.getDate())
+}
 
 function toDateStr(year, month, day) {
   return `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
@@ -297,7 +308,7 @@ function MisSuscripciones({ onClose }) {
                 <div className={styles.susCardTop}>
                   <div>
                     <p className={styles.susEspecialidad}>{s.especialidad_display}</p>
-                    <p className={styles.susTurno}>🕐 {s.turno}</p>
+                    <p className={styles.susTurno}>🕐 {s.nombre_clase ? `${s.nombre_clase} — ` : ''}{s.turno}</p>
                   </div>
                   <div className={styles.susRight}>
                     <p className={styles.susMonto}>${Number(s.monto).toLocaleString('es-AR')}</p>
@@ -339,6 +350,7 @@ function MisSuscripciones({ onClose }) {
                             className={`${styles.claseOpcion} ${claseElegida === c.id ? styles.claseOpcionActiva : ''}`}
                             onClick={() => setClaseElegida(c.id)}
                           >
+                            <span className={styles.claseOpcionNombre}>{c.nombre}</span>
                             <span className={styles.claseOpcionDia}>{c.dias}</span>
                             <span className={styles.claseOpcionHorario}>{c.horario}</span>
                             <span className={styles.claseOpcionCupo}>
@@ -398,12 +410,32 @@ function MisSuscripciones({ onClose }) {
 export default function ClientDashboard() {
   const { user } = useAuth()
   const [verSuscripciones, setVerSuscripciones] = useState(false)
+  const [proximaClase,     setProximaClase]     = useState(null)
 
   const todayStr = getTodayStr()
-  const fechaProxima = PROXIMA_CLASE
-    ? PROXIMA_CLASE.fecha === todayStr
-      ? `Hoy — ${PROXIMA_CLASE.hora} hs`
-      : `${formatFecha(PROXIMA_CLASE.fecha)} — ${PROXIMA_CLASE.hora} hs`
+
+  // Cargar próxima clase desde la primera suscripción activa
+  useEffect(() => {
+    getMisSuscripcionesRequest()
+      .then(res => {
+        const sus = res.data[0]
+        if (!sus || !sus.dias) return
+        const fecha = proximaFecha(sus.dias)
+        setProximaClase({
+          nombre:   sus.nombre_clase ?? sus.especialidad_display,
+          hora:     sus.horario_inicio ?? '',
+          profesor: sus.profesor_nombre ?? 'Sin asignar',
+          aula:     sus.aula ?? 'Sin sala',
+          fecha,
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  const fechaProxima = proximaClase
+    ? proximaClase.fecha === todayStr
+      ? `Hoy — ${proximaClase.hora} hs`
+      : `${formatFecha(proximaClase.fecha)} — ${proximaClase.hora} hs`
     : null
 
   return (
@@ -421,15 +453,14 @@ export default function ClientDashboard() {
         {/* Próxima clase */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Próxima clase</h2>
-          {PROXIMA_CLASE ? (
+          {proximaClase ? (
             <div className={styles.proximaBody}>
-              <p className={styles.proximaNombre}>{PROXIMA_CLASE.nombre}</p>
+              <p className={styles.proximaNombre}>{proximaClase.nombre}</p>
               <div className={styles.proximaInfo}>
                 <div className={styles.infoRow}><span className={styles.infoLabel}>Fecha</span><span>{fechaProxima}</span></div>
-                <div className={styles.infoRow}><span className={styles.infoLabel}>Profesor</span><span>{PROXIMA_CLASE.profesor}</span></div>
-                <div className={styles.infoRow}><span className={styles.infoLabel}>Aula</span><span>{PROXIMA_CLASE.aula}</span></div>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Profesor</span><span>{proximaClase.profesor}</span></div>
+                <div className={styles.infoRow}><span className={styles.infoLabel}>Aula</span><span>{proximaClase.aula}</span></div>
               </div>
-              <button className={styles.linkBtn}>Ver detalle →</button>
             </div>
           ) : (
             <div className={styles.emptyState}>

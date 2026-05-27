@@ -215,12 +215,19 @@ class ClaseCreateSerializer(serializers.ModelSerializer):
 class SuscripcionSerializer(serializers.ModelSerializer):
     especialidad_display = serializers.SerializerMethodField()
     estado_pago_display  = serializers.SerializerMethodField()
+    nombre_clase         = serializers.SerializerMethodField()
+    profesor_nombre      = serializers.SerializerMethodField()
+    aula                 = serializers.SerializerMethodField()
+    dias                 = serializers.SerializerMethodField()
+    horario_inicio       = serializers.SerializerMethodField()
 
     class Meta:
         model  = Suscripcion
         fields = [
             'id', 'especialidad', 'especialidad_display',
-            'turno', 'monto', 'estado_pago', 'estado_pago_display',
+            'turno', 'nombre_clase', 'dias', 'horario_inicio',
+            'profesor_nombre', 'aula',
+            'monto', 'estado_pago', 'estado_pago_display',
             'activa', 'fecha_inicio',
         ]
 
@@ -229,3 +236,22 @@ class SuscripcionSerializer(serializers.ModelSerializer):
 
     def get_estado_pago_display(self, obj):
         return obj.get_estado_pago_display()
+
+    def get_nombre_clase(self, obj):
+        return obj.clase.nombre if obj.clase else None
+
+    def get_profesor_nombre(self, obj):
+        if obj.clase and obj.clase.profesor:
+            return obj.clase.profesor.full_name
+        return None
+
+    def get_aula(self, obj):
+        return obj.clase.aula if obj.clase else None
+
+    def get_dias(self, obj):
+        return obj.clase.dias if obj.clase else None
+
+    def get_horario_inicio(self, obj):
+        if obj.clase and obj.clase.horario_inicio:
+            return obj.clase.horario_inicio.strftime('%H:%M')
+        return None
