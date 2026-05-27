@@ -351,6 +351,16 @@
   margin-top: 2px;
 }
 
+.claseDotPendiente {
+  background: #6b7280;
+}
+
+.conClasePendiente {
+  background: rgba(107, 114, 128, 0.12);
+  color: #9ca3af;
+  border: 1px solid rgba(107, 114, 128, 0.25);
+}
+
 /* Leyenda */
 .calLeyenda {
   display: flex;
