@@ -98,10 +98,15 @@ class Reserva(models.Model):
         LISTA_ESPERA = 'lista_espera', 'En lista de espera'
         CANCELADA    = 'cancelada',    'Cancelada'
 
+    class Tipo(models.TextChoices):
+        SUSCRIPCION = 'suscripcion', 'Suscripción'
+        UNICA       = 'unica',       'Única'
+
     usuario    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reservas')
     clase      = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
     fecha      = models.DateField()
     estado     = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
+    tipo       = models.CharField(max_length=15, choices=Tipo.choices, default=Tipo.UNICA)
     # Reprogramación de feriado
     clase_alt  = models.ForeignKey(Clase, null=True, blank=True, on_delete=models.SET_NULL, related_name='reservas_alt')
     fecha_alt  = models.DateField(null=True, blank=True)

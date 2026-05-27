@@ -390,14 +390,45 @@ class SalaListCreateView(APIView):
         return Response(SalaSerializer(sala).data, status=status.HTTP_201_CREATED)
 
 class ClasesFijasView(APIView):
-    """GET /api/clases/fijas/ — clases fijas para el modal de suscripción."""
+    """
+    GET /api/clases/fijas/
+    Devuelve clases fijas disponibles para el usuario:
+    excluye las que ya tiene suscripción activa y las que
+    superponen horario con suscripciones existentes.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         clases = (Clase.objects.filter(tipo_clase='fija')
                   .select_related('profesor', 'sala')
                   .prefetch_related('inscriptos', 'lista_espera'))
-        return Response(ClaseSerializer(clases, many=True).data)
+
+        # Suscripciones activas del usuario (cualquier mes/año)
+        suscripciones = (Suscripcion.objects
+                         .filter(usuario=request.user, estado='activa')
+                         .select_related('clase'))
+
+        # IDs de clases a las que ya está suscripto
+        ids_suscriptos = {s.clase_id for s in suscripciones}
+
+        def tiene_conflicto(clase):
+            # Ya suscripto a esta clase
+            if clase.id in ids_suscriptos:
+                return True
+            # Superposición de día + horario con alguna suscripción activa
+            wd_nueva = DIAS_A_WEEKDAY.get(clase.dias)
+            if wd_nueva is None:
+                return False
+            for s in suscripciones:
+                wd_existente = DIAS_A_WEEKDAY.get(s.clase.dias)
+                if wd_existente == wd_nueva:
+                    if (clase.horario_inicio < s.clase.horario_fin and
+                            s.clase.horario_inicio < clase.horario_fin):
+                        return True
+            return False
+
+        disponibles = [c for c in clases if not tiene_conflicto(c)]
+        return Response(ClaseSerializer(disponibles, many=True).data)
 
 
 class CalcularSuscripcionView(APIView):
@@ -504,7 +535,7 @@ class PagarSuscripcionView(APIView):
             opcion = opciones_feriado.get(fecha_str) if es_feriado else None
 
             if es_feriado and opcion == 'descuento':
-                reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='cancelada')
+                reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='cancelada', tipo='suscripcion')
             elif es_feriado and isinstance(opcion, dict):
                 clase_alt_id  = opcion.get('clase_alt_id')
                 fecha_alt_str = opcion.get('fecha_alt')
@@ -517,17 +548,17 @@ class PagarSuscripcionView(APIView):
                     pass
                 estado_r = 'activa' if cupo_libre > 0 else 'lista_espera'
                 reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha,
-                                                 estado=estado_r, clase_alt=clase_alt, fecha_alt=fecha_alt)
+                                                 estado=estado_r, clase_alt=clase_alt, fecha_alt=fecha_alt, tipo='suscripcion')
                 if estado_r == 'activa':
                     cupo_libre -= 1
                     tiene_activa = True
             else:
                 if cupo_libre > 0:
-                    reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='activa')
+                    reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='activa', tipo='suscripcion')
                     cupo_libre -= 1
                     tiene_activa = True
                 else:
-                    reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='lista_espera')
+                    reserva = Reserva.objects.create(usuario=request.user, clase=clase, fecha=fecha, estado='lista_espera', tipo='suscripcion')
 
             suscripcion.reservas.add(reserva)
 
@@ -585,6 +616,7 @@ class MisReservasView(APIView):
                 'aula': r.clase.aula,
                 'profesor_nombre': r.clase.profesor.full_name if r.clase.profesor else None,
                 'estado': r.estado,
+                'tipo': r.tipo,
                 'lista_espera': r.estado == 'lista_espera',
                 'pendiente_pago': pendiente_pago,
             })
@@ -723,3 +755,197 @@ class HardDeleteUserView(APIView):
             return Response({'detail': 'Usuario eliminado definitivamente.'}, status=status.HTTP_204_NO_CONTENT)
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado.'}, status=404)
+
+
+class ClasesParaReservarView(APIView):
+    """
+    GET /api/clases/para-reservar/?mes=5&anio=2026
+    Devuelve todas las opciones de reserva única disponibles para el cliente
+    en el mes indicado (clases fijas + individuales, sin conflictos de horario).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import date, timedelta
+        import calendar as cal_mod
+        from users.models import AptoFisico
+
+        today = date.today()
+        try:
+            mes  = int(request.query_params.get('mes',  today.month))
+            anio = int(request.query_params.get('anio', today.year))
+        except (ValueError, TypeError):
+            return Response({'detail': 'Parámetros inválidos.'}, status=400)
+
+        apto_aprobado = AptoFisico.objects.filter(usuario=request.user, estado='APROBADO').exists()
+
+        # Reservas activas del usuario en ese mes (para detectar conflictos)
+        mis_reservas_activas = (
+            Reserva.objects
+            .filter(usuario=request.user, fecha__month=mes, fecha__year=anio, estado='activa')
+            .select_related('clase')
+        )
+        # conflict_map: fecha -> lista de (horario_inicio, horario_fin)
+        conflict_map = {}
+        for r in mis_reservas_activas:
+            d = r.fecha
+            conflict_map.setdefault(d, []).append((r.clase.horario_inicio, r.clase.horario_fin))
+
+        # IDs de clases fijas a las que ya está suscripto este mes
+        suscripciones_mes = set(
+            Suscripcion.objects
+            .filter(usuario=request.user, mes=mes, anio=anio)
+            .values_list('clase_id', flat=True)
+        )
+
+        # Reservas ya existentes (activa o lista_espera) del usuario en ese mes
+        mis_reservas_existentes = set(
+            Reserva.objects
+            .filter(usuario=request.user, fecha__month=mes, fecha__year=anio, estado__in=['activa', 'lista_espera'])
+            .values_list('clase_id', 'fecha')
+        )
+
+        clases = (
+            Clase.objects
+            .select_related('profesor', 'sala')
+            .prefetch_related('inscriptos')
+            .all()
+        )
+
+        _, last_day = cal_mod.monthrange(anio, mes)
+        opciones = []
+
+        for dia in range(1, last_day + 1):
+            fecha = date(anio, mes, dia)
+            if fecha < today:
+                continue
+
+            for clase in clases:
+                # ¿Ocurre esta clase en esta fecha?
+                if clase.tipo_clase == 'fija':
+                    wd = DIAS_A_WEEKDAY.get(clase.dias)
+                    if wd is None or fecha.weekday() != wd:
+                        continue
+                    # Si ya tiene suscripción activa a esta clase este mes, no la muestra
+                    if clase.id in suscripciones_mes:
+                        continue
+                elif clase.tipo_clase == 'individual':
+                    if clase.fecha != fecha:
+                        continue
+                else:
+                    continue
+
+                # ¿Ya tiene reserva para esta clase en esta fecha?
+                if (clase.id, fecha) in mis_reservas_existentes:
+                    continue
+
+                # ¿Hay conflicto de horario ese día?
+                conflictos_dia = conflict_map.get(fecha, [])
+                if any(clase.horario_inicio < fin and inicio < clase.horario_fin
+                       for inicio, fin in conflictos_dia):
+                    continue
+
+                inscriptos_count = clase.inscriptos.count()
+                cupo_disponible  = max(clase.cupo - inscriptos_count, 0)
+
+                opciones.append({
+                    'clase_id':       clase.id,
+                    'clase_nombre':   clase.nombre,
+                    'tipo_clase':     clase.tipo_clase,
+                    'especialidad':   clase.get_especialidad_display(),
+                    'fecha':          str(fecha),
+                    'horario':        clase.horario,
+                    'horario_inicio': str(clase.horario_inicio),
+                    'horario_fin':    str(clase.horario_fin),
+                    'valor':          float(clase.valor),
+                    'cupo':           clase.cupo,
+                    'inscriptos':     inscriptos_count,
+                    'cupo_disponible': cupo_disponible,
+                    'aula':           clase.aula,
+                    'profesor_nombre': clase.profesor.full_name if clase.profesor else None,
+                })
+
+        return Response({'apto_aprobado': apto_aprobado, 'opciones': opciones})
+
+
+class ReservarClaseUnicaView(APIView):
+    """
+    POST /api/clases/reservar-unica/
+    Reserva una única ocurrencia de una clase para el cliente.
+    Maneja capacidad, lista de espera con prioridad suscripción > única.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from datetime import date as Date
+        from users.models import AptoFisico
+        from django.core.mail import send_mail
+
+        clase_id  = request.data.get('clase_id')
+        fecha_str = request.data.get('fecha')
+
+        if not clase_id or not fecha_str:
+            return Response({'detail': 'Falta clase_id o fecha.'}, status=400)
+
+        if not AptoFisico.objects.filter(usuario=request.user, estado='APROBADO').exists():
+            return Response({'detail': 'Necesitás un apto físico aprobado para reservar una clase.'}, status=400)
+
+        try:
+            clase = Clase.objects.prefetch_related('inscriptos').get(pk=clase_id)
+            fecha = Date.fromisoformat(fecha_str)
+        except (Clase.DoesNotExist, ValueError):
+            return Response({'detail': 'Clase o fecha inválida.'}, status=400)
+
+        # Verificar que no tenga ya una reserva en esa fecha+clase
+        if Reserva.objects.filter(
+            usuario=request.user, clase=clase, fecha=fecha,
+            estado__in=['activa', 'lista_espera']
+        ).exists():
+            return Response({'detail': 'Ya tenés una reserva para esta clase en esta fecha.'}, status=400)
+
+        cupo_libre = clase.cupo - clase.inscriptos.count()
+
+        if cupo_libre > 0:
+            Reserva.objects.create(
+                usuario=request.user,
+                clase=clase,
+                fecha=fecha,
+                estado='activa',
+                tipo='unica',
+            )
+            clase.inscriptos.add(request.user)
+            return Response({
+                'detail': 'Reserva creada exitosamente.',
+                'estado': 'activa',
+                'valor': float(clase.valor),
+            }, status=201)
+        else:
+            # Lista de espera — tipo unica tiene menor prioridad que suscripcion
+            Reserva.objects.create(
+                usuario=request.user,
+                clase=clase,
+                fecha=fecha,
+                estado='lista_espera',
+                tipo='unica',
+            )
+            clase.lista_espera.add(request.user)
+            try:
+                send_mail(
+                    subject='Quedaste en lista de espera — RehabilitAR',
+                    message=(
+                        f'Hola {request.user.first_name},\n\n'
+                        f'La clase "{clase.nombre}" del {fecha.strftime("%d/%m/%Y")} está completa. '
+                        f'Quedaste en lista de espera. Te avisaremos cuando se libere un lugar.\n\n'
+                        f'Saludos,\nEquipo RehabilitAR'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[request.user.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
+            return Response({
+                'detail': 'La clase seleccionada no posee cupos disponibles, se lo ha agregado a la lista de espera.',
+                'estado': 'lista_espera',
+                'valor': float(clase.valor),
+            }, status=201)
