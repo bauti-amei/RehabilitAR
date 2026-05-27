@@ -37,3 +37,22 @@ export const desasignarseClaseRequest = (id) =>
 
 export const asignarProfesorRequest = (claseId, profesorId) =>
   api.patch(`/clases/${claseId}/asignar-profesor/`, { profesor_id: profesorId })
+
+// Suscripciones
+export const getClasesFijasRequest = () =>
+  api.get('/clases/fijas/')
+
+export const calcularSuscripcionRequest = (clase_id, mes, anio) =>
+  api.get(`/clases/suscripciones/calcular/?clase_id=${clase_id}&mes=${mes}&anio=${anio}`)
+
+export const pagarSuscripcionRequest = (data) =>
+  api.post('/clases/suscripciones/pagar/', data)
+
+export const getMisReservasRequest = (mes, anio) =>
+  api.get(`/clases/suscripciones/mis-reservas/?mes=${mes}&anio=${anio}`)
+
+export const getClasesParaReprogramarRequest = (especialidad, fecha) =>
+  api.get(`/clases/suscripciones/reprogramar/?especialidad=${especialidad}&fecha=${fecha}`)
+
+export const getMisSuscripcionesRequest = () =>
+  api.get('/clases/suscripciones/mis-suscripciones/')
