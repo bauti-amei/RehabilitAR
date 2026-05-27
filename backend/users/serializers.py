@@ -2,17 +2,44 @@ from datetime import date
 
 from rest_framework import serializers
 
-from .models import User
+from .models import User, AptoFisico
 
 
 class UserSerializer(serializers.ModelSerializer):
+    apto_estado = serializers.SerializerMethodField()
+    apto_url = serializers.SerializerMethodField()
+
+    apto_motivo_rechazo = serializers.SerializerMethodField() 
+    
     class Meta:
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name',
             'role', 'full_name', 'phone', 'birth_date', 'is_active',
+            'address', 'address_number', 'address_floor', 'address_apt',
+            'apto_estado', 'apto_url', 'apto_motivo_rechazo'
         ]
         read_only_fields = ['id', 'full_name']
+
+        # Buscamos el último apto físico que subió este usuario
+    def get_apto_estado(self, obj):
+        apto = AptoFisico.objects.filter(usuario=obj).last()
+        return apto.estado if apto else 'NO_SUBIDO'
+
+    def get_apto_url(self, obj):
+        apto = AptoFisico.objects.filter(usuario=obj).last()
+        if apto and apto.documento:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(apto.documento.url)
+            return apto.documento.url
+        return None
+    
+    def get_apto_motivo_rechazo(self, obj):
+        apto = AptoFisico.objects.filter(usuario=obj).last()
+        if apto and apto.estado == 'RECHAZADO':
+            return apto.motivo_rechazo or ""
+        return ""
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -86,6 +113,14 @@ class AdminRegisterSerializer(serializers.ModelSerializer):
             'address_apt':    {'required': False, 'allow_blank': True},
             'role':           {'required': True},
         }
+
+    def validate_birth_date(self, value):
+        from datetime import date
+        hoy = date.today()
+        edad = hoy.year - value.year - ((hoy.month, hoy.day) < (value.month, value.day))
+        if edad < 18:
+            raise serializers.ValidationError('El usuario debe ser mayor de edad.')
+        return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getUsersRequest, adminRegisterRequest, deleteUserRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest } from '../../api/clases'
+import { getUsersRequest, suspenderUserRequest, adminRegisterRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import styles from './Dashboard.module.css'
 
@@ -76,22 +76,208 @@ function Modal({ title, onClose, children, wide }) {
    SECCIÓN: TAREAS IMPORTANTES
    ══════════════════════════════════════════════════════════ */
 function TareasImportantes() {
+  const [aptos, setAptos] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [mostrarModalRechazo, setMostrarModalRechazo] = useState(false);
+  const [aptoIdARechazar, setAptoIdARechazar] = useState(null);
+  const [motivoTexto, setMotivoTexto] = useState('');
+  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
+
+  useEffect(() => {
+    cargarAptos()
+  }, [])
+
+  const mostrarNotificacion = (texto, tipo = 'exito') => {
+    setAlerta({ mostrar: true, texto, tipo });
+    
+    // A los 3 segundos exactos se oculta solo
+    setTimeout(() => {
+      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
+    }, 3000);
+  };
+
+  const cargarAptos = async () => {
+    try {
+      const res = await getAptosPendientesRequest()
+      setAptos(res.data)
+    } catch (error) {
+      console.error("Error al cargar aptos pendientes:", error)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  // 2. Función para mandar la Aprobación
+  const handleAprobar = async (id) => {
+    try {
+      await validarAptoFisicoRequest(id, 'APROBAR')
+      mostrarNotificacion('Apto físico aprobado con éxito.', 'exito');
+      setAptos(prev => prev.filter(a => a.id !== id)) // Lo saca de la lista visual
+    } catch (error) {
+      console.error(error)
+      mostrarNotificacion('Error al intentar aprobar el apto.', 'error');
+    }
+  }
+
+   const handleRechazar = (id) => {
+    setAptoIdARechazar(id);
+    setMotivoTexto('');             // Limpiamos el texto que haya quedado de antes
+    setMostrarModalRechazo(true);   // Prende el cartel flotante en pantalla
+  };
+
+  const confirmarRechazoModerno = async (e) => {
+    e.preventDefault();
+    
+    if (!motivoTexto.trim()) return;
+
+    try {
+      // Le mandamos a Django el ID recordado y el texto de la caja de texto
+      await validarAptoFisicoRequest(aptoIdARechazar, 'RECHAZAR', motivoTexto);
+      mostrarNotificacion('Apto físico rechazado con éxito.', 'exito');
+      
+      // Lo sacamos de la lista de tareas pendientes
+      setAptos(prev => prev.filter(a => a.id !== aptoIdARechazar));
+      setMostrarModalRechazo(false); // Cerramos el modal
+    } catch (error) {
+      console.error(error);
+      mostrarNotificacion('Error al intentar rechazar el apto.', 'error');
+    }
+  };
+
   return (
-    <div className={styles.card}>
+    <div className={styles.card} style={{ position: 'relative' }}>
+       {alerta.mostrar && (
+        <div style={{
+          position: 'fixed',                  
+          top: '25px',                        
+          left: '50%',                        
+          transform: 'translateX(-50%)',      
+          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
+          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+          padding: '0.85rem 1.75rem', 
+          borderRadius: '8px', 
+          fontSize: '0.95rem',
+          fontWeight: '500', 
+          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          backdropFilter: 'blur(6px)'
+        }}>
+          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
+          {alerta.texto}
+        </div>
+      )}
       <h2 className={styles.cardTitle}>Tareas importantes</h2>
-      {TAREAS.length === 0 ? (
+      {cargando ? (
+        <div className={styles.emptyState}>
+          <p>Cargando aptos pendientes...</p>
+        </div>
+      ) : aptos.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon}>✅</span>
-          <p>Estás al día con todas tus tareas</p>
+          <p>Estás al día con todas tus tareas. No hay aptos pendientes.</p>
         </div>
       ) : (
         <div className={styles.tareasList}>
-          {TAREAS.map((t, i) => (
-            <div key={i} className={styles.tareaItem}>
-              <span className={styles.tareaTexto}>{t.texto}</span>
-              <button className={styles.verMasBtn}>Ver más</button>
+          {aptos.map((apto) => (
+            <div key={apto.id} className={styles.tareaItem} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className={styles.tareaTexto}>
+                  📄 Apto pendiente: <strong>{apto.usuario_email}</strong>
+                </span>
+                {/* Botón para abrir el PDF o la imagen del apto en una pestaña nueva */}
+                <a 
+                  href={`http://localhost:8000/media/aptos_medicos/${apto.documento_url.split('/').pop()}`}
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={styles.verMasBtn}
+                >
+                  Ver PDF
+                </a>
+              </div>
+              
+              {/* Botones de acción rápida para el Admin */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button 
+                  onClick={() => handleAprobar(apto.id)}
+                  style={{ background: '#22c55e', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Aprobar
+                </button>
+                <button 
+                  onClick={() => handleRechazar(apto.id)}
+                  style={{ background: '#ef4444', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Rechazar
+                </button>
+              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {mostrarModalRechazo && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setMostrarModalRechazo(false)}>
+          
+          <div style={{
+            backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
+            padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '450px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+          }} onClick={e => e.stopPropagation()}>
+            
+            <h3 style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '1.25rem' }}>
+              Rechazar Apto Físico
+            </h3>
+            
+            <form onSubmit={confirmarRechazoModerno}>
+              <label style={{ color: '#868e96', display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                Escribí el motivo detallado para el paciente:
+              </label>
+              
+              <textarea
+                value={motivoTexto}
+                onChange={(e) => setMotivoTexto(e.target.value)}
+                placeholder="Ej: El documento está borroso o la fecha de emisión expiró..."
+                required
+                style={{
+                  width: '100%', height: '100px', backgroundColor: '#151521',
+                  color: 'white', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px', padding: '0.5rem', fontSize: '0.95rem',
+                  resize: 'none', marginBottom: '1.5rem', outline: 'none'
+                }}
+              />
+              
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button"
+                  onClick={() => setMostrarModalRechazo(false)}
+                  style={{
+                    background: 'transparent', color: '#868e96', border: 'none',
+                    padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '600'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  style={{
+                    background: '#ef4444', color: 'white', border: 'none',
+                    padding: '0.5rem 1.2rem', borderRadius: '6px', cursor: 'pointer',
+                    fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  }}
+                >
+                  Confirmar Rechazo
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
@@ -163,11 +349,25 @@ function AreaClases() {
   const [userModal,       setUserModal] = useState(null)
   const [crearClase,      setCrear]    = useState(false)
   const [asignarModal,    setAsignar]  = useState(null)   // clase a la que se asigna profesor
+  const [desasignarModal, setDesasignar] = useState(null) // clase de la que se quita profesor
+  const [desasignando,    setDesasignando] = useState(false)
+  const [infoProfesorSel, setInfoProfesorSel] = useState(null)
+  const [confirmarPaso,   setConfirmarPaso] = useState(false)
   const [profesores,      setProfesores] = useState([])
   const [profesorSel,     setProfesorSel] = useState('')
   const [asignando,       setAsignando] = useState(false)
   const [asignarError,    setAsignarError] = useState('')
+  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
 
+
+  const mostrarNotificacion = (texto, tipo = 'exito') => {
+    setAlerta({ mostrar: true, texto, tipo });
+    
+    // A los 3 segundos exactos se oculta solo
+    setTimeout(() => {
+      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
+    }, 3000);
+  };
   const cargarClases = () => {
     getClasesRequest()
       .then(res => setClases(res.data))
@@ -202,6 +402,24 @@ function AreaClases() {
     }
   }
 
+  const handleDesasignarProfesor = async () => {
+    if (!desasignarModal) return
+    setDesasignando(true)
+    try {
+      // Reutiliza la misma petición pasándole un valor vacío o llamando a tu endpoint desasignar
+      await desasignarProfesorRequest(desasignarModal.id) 
+      setDesasignar(null)
+      cargarClases() // Refresca la lista automáticamente en pantalla
+      mostrarNotificacion("Profesor desasignado con éxito", "exito")
+
+    } catch (err) {
+      const mensajeError = err.response?.data?.detail ?? 'Error al desasignar el profesor.'
+      mostrarNotificacion(mensajeError, "error")
+    } finally {
+      setDesasignando(false)
+    }
+  }
+
   const clasesFiltradas = clases.filter(c => {
     const matchHorario = filtro === 'todas' || getHorarioFiltro(c.horario) === filtro
     const matchTipo    = filtroTipo === 'todos' || c.tipo_clase === filtroTipo
@@ -209,6 +427,32 @@ function AreaClases() {
   })
 
   return (
+    <>
+    {alerta.mostrar && (
+        <div style={{
+          position: 'fixed',                  
+          top: '25px',                        
+          left: '50%',                        
+          transform: 'translateX(-50%)',      
+          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
+          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+          padding: '0.85rem 1.75rem', 
+          borderRadius: '8px', 
+          fontSize: '0.95rem',
+          fontWeight: '500', 
+          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          backdropFilter: 'blur(6px)'
+        }}>
+          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
+          {alerta.texto}
+        </div>
+      )}
+  
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Clases</h2>
@@ -257,9 +501,35 @@ function AreaClases() {
                 <p className={styles.claseNombre}>{c.nombre}</p>
                 <p className={styles.claseMeta}>{c.especialidad_display} · {c.dias} · {c.horario} · {c.aula}</p>
               </div>
-              <div className={styles.claseProfesor}>
-                {c.profesor_nombre ? (
-                  <span className={styles.profesorNombre}>👤 {c.profesor_nombre}</span>
+            <div className={styles.claseProfesor}>
+              {c.profesor_nombre ? (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <button 
+                  className={styles.verMasBtn} // <-- Usamos la clase nativa del CSS
+                  onClick={() => {
+                    setDesasignar(c);
+                    setInfoProfesorSel(null);
+                    setConfirmarPaso(false);
+                    
+                    getProfesoresPorEspecialidadRequest(c.especialidad)
+                      .then(res => {
+                        const profeDetalle = res.data.find(p => p.nombre === c.profesor_nombre);
+                        if (profeDetalle) setInfoProfesorSel(profeDetalle);
+                      })
+                      .catch(() => setInfoProfesorSel(null));
+                  }}
+                  title="Ver información del profesor"
+                  style={{ 
+                    padding: '0.5rem 1rem',   /* Mucho más alto y ancho, resalta un montón */
+                    fontSize: '1rem',           /* Tamaño de letra estándar grande (mayor al primario) */
+                    borderRadius: '30px',       /* Esquinas un toque más curvas para acompañar el tamaño */
+                    letterSpacing: '0.5px',     /* Separa un poquito las letras para que respire el texto */
+                    boxShadow: '0 2px 8px rgba(124, 92, 255, 0.05)' /* Una sombrita violeta muy sutil de fondo */
+                  }}
+                >
+                  👤 {c.profesor_nombre}
+                </button>
+              </div>
                 ) : (
                   <div className={styles.sinProfesor}>
                     <span className={styles.sinAsignar}>SIN ASIGNAR</span>
@@ -285,8 +555,9 @@ function AreaClases() {
               </button>
             </div>
           </div>
-        ))}
+          ))}
       </div>
+     
 
       {/* Modal lista de espera */}
       {listaEsperaModal && (
@@ -363,6 +634,95 @@ function AreaClases() {
           </div>
         </Modal>
       )}
+        {/* Modal Detalle — Información y Remoción del Profesor */}
+      {desasignarModal && (
+        <Modal 
+          title={confirmarPaso ? "Confirmar acción" : (infoProfesorSel ? infoProfesorSel.nombre : desasignarModal.profesor_nombre)} 
+          onClose={() => { setDesasignar(null); setInfoProfesorSel(null); }}
+        >
+          {!confirmarPaso ? (
+           <>
+
+          <div className={styles.detalleGrid}>
+            <span>Email</span>      <span>{infoProfesorSel?.email || 'Cargando...'}</span>
+            <span>Rol</span>        <span>Profesor</span>
+            <span>Teléfono</span>   <span>{infoProfesorSel?.telefono || infoProfesorSel?.phone || '—'}</span>
+            {/* Si el backend de profesores no devuelve fecha de nacimiento, podemos poner la Especialidad */}
+            <span>Especialidad</span> <span>{desasignarModal.especialidad_display}</span>
+            <span>Estado</span>
+            {infoProfesorSel ? (
+              <span className={infoProfesorSel.is_active !== false ? styles.estadoActivo : styles.estadoSuspendido}>
+                {infoProfesorSel.is_active !== false ? 'Activo' : 'Suspendido'}
+              </span>
+            ) : (
+              <span>—</span>
+            )}
+          </div>
+
+          <div style={{ borderTop: '1px solid #e9ecef', marginTop: '20px', paddingTop: '15px' }}>
+                <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button className={styles.btnOutline} onClick={() => { setDesasignar(null); setInfoProfesorSel(null); }}>
+                    Cerrar
+                  </button>
+                  {/* Este botón avanza al paso de confirmación */}
+                  <button className={styles.btnPrimary} onClick={() => setConfirmarPaso(true)}>
+                    Quitar de la clase
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ══════════════════════════════════════════════════════════
+               PANTALLA 2: ADVERTENCIA DE SEGURIDAD ESTILIZADA
+               ══════════════════════════════════════════════════════════ */
+            <div style={{ padding: '5px', textAlign: 'center' }}>
+              <h4 style={{ color: '#ffffff', marginBottom: '10px', fontSize: '1.1rem', fontWeight: '600' }}>
+                ¿Estás seguro?
+              </h4>
+              <p style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '25px', lineHeight: '1.4' }}>
+                Vas a desasignar a <strong>{desasignarModal.profesor_nombre}</strong> de la clase de <strong>{desasignarModal.nombre}</strong>. 
+              </p>
+
+              <div style={{ paddingTop: '18px' }}>
+                <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                  {/* Botón para arrepentirse y volver a la ficha */}
+                  <button className={styles.btnOutline} onClick={() => setConfirmarPaso(false)}>
+                    No, volver
+                  </button>
+                  
+                  <button
+                    onClick={handleDesasignarProfesor}
+                    disabled={desasignando}
+                    style={{ 
+                      padding: '0.55rem 1.3rem',
+                      border: '1px solid rgba(220, 53, 69, 0.4)', /* Borde rojo suave */
+                      borderRadius: '10px',
+                      background: 'rgba(220, 53, 69, 0.05)',       /* Fondo blanco con un toque rojo traslúcido */
+                      color: '#dc3545',                            /* Letras rojas claras */
+                      fontSize: '0.88rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => { 
+                      e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.15)'; /* Se oscurece el fondo al pasar el mouse */
+                      e.target.style.borderColor = '#dc3545';
+                    }}
+                    onMouseLeave={(e) => { 
+                      e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.05)'; 
+                      e.target.style.borderColor = 'rgba(220, 53, 69, 0.4)';
+                    }}
+                  >
+                    {desasignando ? 'Quitando...' : 'Sí, desasignar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
 
       {/* Modal crear clase */}
       {crearClase && (
@@ -372,6 +732,7 @@ function AreaClases() {
         />
       )}
     </section>
+    </>
   )
 }
 
@@ -434,6 +795,10 @@ function Usuarios() {
   const [busqueda, setBusqueda]   = useState('')
   const [filtroRol, setFiltroRol] = useState('todos')
   const [userModal, setUserModal] = useState(null)
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState(null)
+  const [suspenderModal, setSuspenderModal]     = useState(null)  // user a suspender
+  const [motivoSuspension, setMotivoSuspension] = useState('')
+  const [feedbackModal, setFeedbackModal]       = useState(null)  // { texto, tipo: 'exito'|'error' }
 
   // ── Modal registro ────────────────────────────────────────
   const [regModal,    setRegModal]   = useState(false)
@@ -471,6 +836,17 @@ function Usuarios() {
       setRegError('Completá todos los campos obligatorios.')
       return
     }
+    if (birth_date) {
+      const hoy  = new Date()
+      const nac  = new Date(birth_date)
+      let edad   = hoy.getFullYear() - nac.getFullYear()
+      const m    = hoy.getMonth() - nac.getMonth()
+      if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--
+      if (edad < 18) {
+        setRegError('El usuario debe ser mayor de edad.')
+        return
+      }
+    }
     setRegCarg(true); setRegError('')
     try {
       await adminRegisterRequest({ ...regForm, role: regRol, especialidades: regEsp.join(',') })
@@ -485,33 +861,50 @@ function Usuarios() {
 
   const rolLabel = ROL_OPCIONES.find(r => r.value === regRol)?.label ?? ''
 
-  const handleDelete = async (user) => {
-    let reason = null;
+  const handleSuspender = (user) => {
+    setMotivoSuspension('')
+    setSuspenderModal(user)
+  }
 
-    // 1. Si el usuario está ACTIVO, significa que lo queremos SUSPENDER (pedimos motivo)
-    if (user.is_active) {
-      reason = prompt("Por favor, ingresa el motivo de la suspensión:");
-      if (!reason || reason.trim() === "") {
-        alert("El motivo es obligatorio para suspender al usuario.");
-        return;
-      }
-    }
-
+  const confirmarSuspension = async () => {
+    if (!motivoSuspension.trim()) return
     try {
-      // Mandamos la petición al backend (pasa el id y el reason si lo hay)
-      await deleteUserRequest(user.id, reason);
-
-      // 2. Invertimos el estado de is_active en la lista visual de React
-      setUsuarios(prev =>
-        prev.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u)
-      );
-
-      alert(user.is_active ? 'Usuario suspendido con éxito' : 'Usuario reactivado con éxito');
-    } catch (error) {
-      console.error(error);
-      alert('Error al cambiar el estado del usuario');
+      await deleteUserRequest(suspenderModal.id, motivoSuspension)
+      setUsuarios(prev => prev.map(u => u.id === suspenderModal.id ? { ...u, is_active: false } : u))
+      setFeedbackModal({ texto: 'Usuario suspendido con éxito.', tipo: 'exito' })
+    } catch {
+      setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
+    } finally {
+      setSuspenderModal(null)
     }
-  };
+  }
+
+  const handleReactivar = async (user) => {
+    try {
+      await deleteUserRequest(user.id, null)
+      setUsuarios(prev => prev.map(u => u.id === user.id ? { ...u, is_active: true } : u))
+      setFeedbackModal({ texto: 'Usuario reactivado con éxito.', tipo: 'exito' })
+    } catch {
+      setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
+    }
+  }
+
+  const handleEliminarDefinitivo = (user) => {
+    setUsuarioAEliminar(user)
+  }
+
+  const ejecutarBorradoFisicoReal = async () => {
+    if (!usuarioAEliminar) return
+    try {
+      await hardDeleteUserRequest(usuarioAEliminar.id)
+      setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id))
+      setFeedbackModal({ texto: 'Usuario eliminado por completo de la base de datos.', tipo: 'exito' })
+    } catch {
+      setFeedbackModal({ texto: 'Error al intentar eliminar definitivamente al usuario.', tipo: 'error' })
+    } finally {
+      setUsuarioAEliminar(null)
+    }
+  }
 
   const usuariosFiltrados = usuarios.filter(u => {
     const matchRol = filtroRol === 'todos' || u.role === filtroRol
@@ -565,13 +958,31 @@ function Usuarios() {
               {u.is_active ? 'Activo' : 'Suspendido'}
             </span>
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
-            {u.role !== "admin" && (
-              <button 
-                className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
-                onClick={() => handleDelete(u)} // 👈 Le pasamos todo el usuario 'u'
-              >
-                {u.is_active ? 'Eliminar' : 'Activar'}
-              </button>
+             {u.role !== "admin" && (
+              <>
+                {/* 1️⃣ BOTÓN DE ESTADO LÓGICO */}
+                <button 
+                  className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
+                  onClick={() => u.is_active ? handleSuspender(u) : handleReactivar(u)}
+                  style={{ marginRight: '8px' }}
+                >
+                  {u.is_active ? 'Suspender' : 'Activar'}
+                </button>
+
+                {/* 2️⃣ BOTÓN DE ELIMINACIÓN FÍSICA */}
+                <button 
+                  className={styles.eliminarBtn} 
+                  onClick={() => handleEliminarDefinitivo(u)}
+                  style={{ 
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    margin: 0
+                  }}
+                >
+                  Eliminar
+                </button>
+              </>
             )}
           </div>
         ))}
@@ -580,6 +991,7 @@ function Usuarios() {
       <button className={styles.btnOutline} style={{ marginTop: '1rem' }} onClick={abrirRegModal}>
         + Registrar nuevo usuario como administrativo
       </button>
+
 
       {/* Modal detalle usuario */}
       {userModal && (
@@ -596,6 +1008,101 @@ function Usuarios() {
           </div>
         </Modal>
       )}
+
+      {/* ── MODAL SUSPENSIÓN ── */}
+      {suspenderModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
+          onClick={() => setSuspenderModal(null)}>
+          <div style={{ background:'#13172e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'20px', padding:'2rem 2.2rem', width:'100%', maxWidth:'420px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ color:'white', fontSize:'1.2rem', fontWeight:700, marginBottom:'0.5rem' }}>Suspender usuario</h3>
+            <p style={{ color:'#b0b3c7', fontSize:'0.9rem', marginBottom:'1.2rem' }}>
+              Ingresá el motivo de la suspensión de <strong style={{ color:'#a78bfa' }}>{suspenderModal.first_name} {suspenderModal.last_name}</strong>.
+            </p>
+            <textarea
+              value={motivoSuspension}
+              onChange={e => setMotivoSuspension(e.target.value)}
+              placeholder="Motivo de suspensión..."
+              rows={3}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:'12px', border:'1px solid #2c3157', background:'#111527', color:'white', fontSize:'0.95rem', resize:'vertical', boxSizing:'border-box', outline:'none', fontFamily:'inherit' }}
+            />
+            {motivoSuspension.trim() === '' && (
+              <p style={{ color:'#f87171', fontSize:'0.85rem', marginTop:'0.4rem' }}>El motivo es obligatorio.</p>
+            )}
+            <div style={{ display:'flex', gap:'1rem', marginTop:'1.4rem' }}>
+              <button onClick={() => setSuspenderModal(null)}
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#c8cbdf', fontWeight:600, cursor:'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmarSuspension} disabled={!motivoSuspension.trim()}
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'none', background: motivoSuspension.trim() ? '#f59e0b' : '#4b4b4b', color:'white', fontWeight:600, cursor: motivoSuspension.trim() ? 'pointer' : 'not-allowed' }}>
+                Suspender
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL FEEDBACK (éxito / error) ── */}
+      {feedbackModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
+          onClick={() => setFeedbackModal(null)}>
+          <div style={{ background:'#13172e', border:`1px solid ${feedbackModal.tipo === 'exito' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius:'20px', padding:'2rem 2.4rem', width:'100%', maxWidth:'380px', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize:'2rem', marginBottom:'0.8rem' }}>{feedbackModal.tipo === 'exito' ? '✅' : '❌'}</p>
+            <p style={{ color:'white', fontSize:'1rem', fontWeight:600, marginBottom:'1.5rem', lineHeight:1.5 }}>{feedbackModal.texto}</p>
+            <button onClick={() => setFeedbackModal(null)}
+              style={{ padding:'0.65rem 2rem', borderRadius:'12px', border:'none', background: feedbackModal.tipo === 'exito' ? '#22c55e' : '#ef4444', color:'white', fontWeight:600, fontSize:'0.95rem', cursor:'pointer' }}>
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ MODAL DE ADVERTENCIA CRÍTICA FLOTANTE DE ELIMINACIÓN */}
+      {usuarioAEliminar && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setUsuarioAEliminar(null)}>
+          <div style={{
+            backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
+            padding: '2.5rem 2rem', borderRadius: '12px', textAlign: 'center',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.6)', maxWidth: '430px', width: '90%'
+          }} onClick={e => e.stopPropagation()}>
+            <h4 style={{ color: 'white', marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: '400', lineHeight: '1.4' }}>
+              ¿Deseas eliminar definitivamente a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
+            </h4>
+            <p style={{ color: '#868e96', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: '1.5' }}>
+              Esta acción es irreversible. Se borrará toda su información personal, turnos e historial de la base de datos de RehabilitAR.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => setUsuarioAEliminar(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)', color: 'white',
+                  border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.65rem 1.5rem',
+                  borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={ejecutarBorradoFisicoReal}
+                style={{
+                  background: '#ef4444', color: 'white', border: 'none',
+                  padding: '0.65rem 1.5rem', borderRadius: '8px', cursor: 'pointer',
+                  fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                }}
+              >
+                Eliminar para siempre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* ── Modal registro ── */}
       {regModal && (
@@ -732,8 +1239,9 @@ function Usuarios() {
         </Modal>
       )}
     </section>
-  )
+  );
 }
+
 
 /* ══════════════════════════════════════════════════════════
    HELPERS CALENDARIO SALAS
@@ -961,11 +1469,9 @@ function AreaSalas() {
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   DASHBOARD PRINCIPAL
-   ══════════════════════════════════════════════════════════ */
 export default function AdminDashboard() {
   const { user } = useAuth()
+  const [userModal, setUserModal] = useState(null);
 
   return (
     <div className={styles.container}>
