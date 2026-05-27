@@ -247,3 +247,135 @@
       padding: 2rem;
     }
   }
+.passwordWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordWrap .input {
+  flex: 1;
+  padding-right: 2.75rem;
+}
+
+.eyeBtn {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.2s;
+}
+.eyeBtn:hover { color: rgba(255, 255, 255, 0.85); }
+
+/* FORGOT PASSWORD */
+
+.forgotWrap {
+  text-align: right;
+  margin-top: -0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.forgotBtn {
+  background: none;
+  border: none;
+  color: #7c5cff;
+  font-size: 0.88rem;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.forgotBtn:hover {
+  color: #a78bfa;
+  text-decoration: underline;
+}
+
+/* RECOVERY MODAL */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modalCard {
+  position: relative;
+  background: #13172e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2.2rem 2.4rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modalClose {
+  position: absolute;
+  top: 1rem;
+  right: 1.2rem;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.modalClose:hover {
+  color: white;
+}
+
+.modalTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+  color: white;
+}
+
+.modalText {
+  color: #b0b3c7;
+  font-size: 0.95rem;
+  margin-bottom: 1.4rem;
+  line-height: 1.5;
+}
+
+.modalText strong {
+  color: #d3d5e5;
+}
+
+.backBtn {
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: transparent;
+  color: #b0b3c7;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.backBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+}
+
+.successMsg {
+  color: #6ee7b7;
+  font-size: 1rem;
+  text-align: center;
+  margin-bottom: 1.6rem;
+  line-height: 1.5;
+}

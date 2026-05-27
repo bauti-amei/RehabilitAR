@@ -88,40 +88,64 @@ class Clase(models.Model):
     @property
     def en_curso(self):
         from datetime import datetime
-        ahora = datetime.now().time()
-        return self.horario_inicio <= ahora <= self.horario_fin
+        DIAS_MAP = {
+            'Lunes': 0, 'Martes': 1, 'Miércoles': 2,
+            'Jueves': 3, 'Viernes': 4, 'Sábado': 5, 'Domingo': 6,
+        }
+        ahora = datetime.now()
+        hora_actual = ahora.time()
+        if not (self.horario_inicio <= hora_actual <= self.horario_fin):
+            return False
+        if self.tipo_clase == self.TipoClase.FIJA:
+            return DIAS_MAP.get(self.dias) == ahora.weekday()
+        else:  # individual
+            return self.fecha == ahora.date()
+
+
+class Reserva(models.Model):
+    class Estado(models.TextChoices):
+        ACTIVA       = 'activa',       'Activa'
+        LISTA_ESPERA = 'lista_espera', 'En lista de espera'
+        CANCELADA    = 'cancelada',    'Cancelada'
+
+    class Tipo(models.TextChoices):
+        SUSCRIPCION = 'suscripcion', 'Suscripción'
+        UNICA       = 'unica',       'Única'
+
+    usuario    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reservas')
+    clase      = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
+    fecha      = models.DateField()
+    estado     = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
+    tipo       = models.CharField(max_length=15, choices=Tipo.choices, default=Tipo.UNICA)
+    # Reprogramación de feriado
+    clase_alt  = models.ForeignKey(Clase, null=True, blank=True, on_delete=models.SET_NULL, related_name='reservas_alt')
+    fecha_alt  = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [['usuario', 'clase', 'fecha']]
+
+    def __str__(self):
+        return f'{self.usuario} — {self.clase.nombre} — {self.fecha}'
 
 
 class Suscripcion(models.Model):
+    class Estado(models.TextChoices):
+        ACTIVA         = 'activa',         'Activa'
+        PENDIENTE_PAGO = 'pendiente_pago', 'Pendiente de pago'
+        CANCELADA      = 'cancelada',      'Cancelada'
 
-    class Especialidad(models.TextChoices):
-        TREN_SUPERIOR = 'tren_superior', 'Tren Superior'
-        TREN_INFERIOR = 'tren_inferior', 'Tren Inferior'
-        TREN_MEDIO    = 'tren_medio',    'Tren Medio'
+    usuario    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='suscripciones')
+    clase      = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='suscripciones')
+    mes        = models.PositiveSmallIntegerField()
+    anio       = models.PositiveSmallIntegerField()
+    monto      = models.DecimalField(max_digits=10, decimal_places=2)
+    estado     = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
+    reservas   = models.ManyToManyField(Reserva, blank=True, related_name='suscripcion_set')
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    class EstadoPago(models.TextChoices):
-        PAGADA    = 'pagada',    'Pagada'
-        PENDIENTE = 'pendiente', 'Pendiente'
-        VENCIDA   = 'vencida',   'Vencida'
-
-    cliente      = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='suscripciones',
-        limit_choices_to={'role': 'client'},
-    )
-    especialidad = models.CharField(max_length=20, choices=Especialidad.choices)
-    turno        = models.CharField(max_length=50, blank=True, default='')  # ej: "Jueves 10:00"
-    clase        = models.ForeignKey(                                        # clase fija asociada al turno
-        'Clase',
-        null=True, blank=True,
-        on_delete=models.SET_NULL,
-        related_name='suscripciones',
-    )
-    monto        = models.DecimalField(max_digits=10, decimal_places=2)
-    estado_pago  = models.CharField(max_length=20, choices=EstadoPago.choices, default=EstadoPago.PENDIENTE)
-    activa       = models.BooleanField(default=True)
-    fecha_inicio = models.DateField(auto_now_add=True)
+    class Meta:
+        unique_together = [['usuario', 'clase', 'mes', 'anio']]
 
     def __str__(self):
-        return f'{self.cliente.full_name} — {self.get_especialidad_display()} ({self.estado_pago})'
+        return f'{self.usuario} — {self.clase.nombre} — {self.mes}/{self.anio}'

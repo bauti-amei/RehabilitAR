@@ -145,6 +145,15 @@ class ClaseCreateSerializer(serializers.ModelSerializer):
         especialidad = data.get('especialidad')
         profesor     = data.get('profesor')
 
+        # Rango horario permitido: 08:00 - 20:00
+        from datetime import time as Time
+        HORA_MIN = Time(8, 0)
+        HORA_MAX = Time(20, 0)
+        if horario_ini and (horario_ini < HORA_MIN or horario_ini > HORA_MAX):
+            raise serializers.ValidationError('El horario de inicio debe estar entre las 08:00 y las 20:00.')
+        if horario_fin and (horario_fin < HORA_MIN or horario_fin > HORA_MAX):
+            raise serializers.ValidationError('El horario de fin debe estar entre las 08:00 y las 20:00.')
+
         # Horario consistente
         if horario_ini and horario_fin and horario_ini >= horario_fin:
             raise serializers.ValidationError('El horario de inicio debe ser anterior al horario de fin.')
@@ -213,45 +222,40 @@ class ClaseCreateSerializer(serializers.ModelSerializer):
 
 # ── Suscripción ───────────────────────────────────────────
 class SuscripcionSerializer(serializers.ModelSerializer):
-    especialidad_display = serializers.SerializerMethodField()
-    estado_pago_display  = serializers.SerializerMethodField()
-    nombre_clase         = serializers.SerializerMethodField()
-    profesor_nombre      = serializers.SerializerMethodField()
-    aula                 = serializers.SerializerMethodField()
-    dias                 = serializers.SerializerMethodField()
-    horario_inicio       = serializers.SerializerMethodField()
+    """
+    Serializer adaptado al modelo Suscripcion de main.
+    Expone campos enriquecidos de la clase asociada para el frontend.
+    """
+    clase_nombre    = serializers.SerializerMethodField()
+    especialidad    = serializers.SerializerMethodField()
+    dias            = serializers.SerializerMethodField()
+    horario         = serializers.SerializerMethodField()
+    aula            = serializers.SerializerMethodField()
+    profesor        = serializers.SerializerMethodField()
 
     class Meta:
         model  = Suscripcion
         fields = [
-            'id', 'especialidad', 'especialidad_display',
-            'turno', 'nombre_clase', 'dias', 'horario_inicio',
-            'profesor_nombre', 'aula',
-            'monto', 'estado_pago', 'estado_pago_display',
-            'activa', 'fecha_inicio',
+            'id', 'mes', 'anio', 'monto', 'estado', 'created_at',
+            'clase_nombre', 'especialidad', 'dias', 'horario', 'aula', 'profesor',
         ]
 
-    def get_especialidad_display(self, obj):
-        return obj.get_especialidad_display()
-
-    def get_estado_pago_display(self, obj):
-        return obj.get_estado_pago_display()
-
-    def get_nombre_clase(self, obj):
+    def get_clase_nombre(self, obj):
         return obj.clase.nombre if obj.clase else None
 
-    def get_profesor_nombre(self, obj):
-        if obj.clase and obj.clase.profesor:
-            return obj.clase.profesor.full_name
-        return None
-
-    def get_aula(self, obj):
-        return obj.clase.aula if obj.clase else None
+    def get_especialidad(self, obj):
+        return obj.clase.get_especialidad_display() if obj.clase else None
 
     def get_dias(self, obj):
         return obj.clase.dias if obj.clase else None
 
-    def get_horario_inicio(self, obj):
-        if obj.clase and obj.clase.horario_inicio:
-            return obj.clase.horario_inicio.strftime('%H:%M')
+    def get_horario(self, obj):
+        return obj.clase.horario if obj.clase else None
+
+    def get_aula(self, obj):
+        return obj.clase.aula if obj.clase else None
+
+    def get_profesor(self, obj):
+        if obj.clase and obj.clase.profesor:
+            return obj.clase.profesor.full_name
         return None
