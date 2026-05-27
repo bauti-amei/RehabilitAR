@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     ClaseListView, ClaseEnCursoListView, ClasePublicaListView,
     MisClasesView, ClasesOfertadasView, AsignarseClaseView, DesasignarseClaseView,
-    AsignarProfesorView,
+    AsignarProfesorView, DesasignarProfesorView,
     SalaListCreateView, ProfesoresPorEspecialidadView,
     HardDeleteUserView,
     ClasesFijasView, CalcularSuscripcionView, PagarSuscripcionView,
@@ -19,6 +19,7 @@ urlpatterns = [
     path('ofertadas/',                 ClasesOfertadasView.as_view(),            name='clases-ofertadas'),
     path('<int:pk>/asignarse/',        AsignarseClaseView.as_view(),             name='clase-asignarse'),
     path('<int:pk>/asignar-profesor/', AsignarProfesorView.as_view(),            name='clase-asignar-profesor'),
+    path('<int:pk>/desasignar-profesor/', DesasignarProfesorView.as_view(), name='clase-desasignar-profesor'),
     path('salas/',                     SalaListCreateView.as_view(),             name='sala-list-create'),
     path('profesores/',                ProfesoresPorEspecialidadView.as_view(),  name='profesores-especialidad'),
     path('users/<int:pk>/hard-delete/', HardDeleteUserView.as_view(),            name='user-hard-delete'),

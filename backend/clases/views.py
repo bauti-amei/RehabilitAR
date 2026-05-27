@@ -365,6 +365,27 @@ class AsignarProfesorView(APIView):
 
         return Response(ClaseSerializer(clase).data, status=200)
 
+class DesasignarProfesorView(APIView):
+    """
+    PATCH /api/clases/<id>/desasignar-profesor/
+    El admin quita al profesor asignado de una clase.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        if request.user.role != User.Role.ADMIN:
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        # Lógica exclusiva de desasignación
+        clase.profesor = None
+        clase.save(update_fields=['profesor'])
+
+        return Response(ClaseSerializer(clase).data, status=200)
 
 class SalaListCreateView(APIView):
     """
