@@ -203,6 +203,26 @@
   text-underline-offset: 2px;
 }
 
+.estadoBadge {
+  font-size: 0.6rem;
+  font-weight: 400;
+  border-radius: 999px;
+  text-align: center;
+  display: inline-block;
+}
+
+.activa {
+  color: #085041;
+  background: #E1F5EE;
+  border: 0.5px solid #5DCAA5;
+}
+
+.cancelada {
+  color: #791F1F;
+  background: #FCEBEB;
+  border: 0.5px solid #F09595;
+}
+
 .claseCupo {}
 .cupoTag {
   font-size: 0.78rem;
@@ -219,7 +239,12 @@
   border-color: rgba(239,68,68,0.2);
 }
 
-.claseAcciones {}
+.claseAcciones {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap:10px;
+}
 .listaEsperaBtn {
   display: flex;
   align-items: center;
@@ -251,6 +276,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.cancelarClaseBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9px;
+  background: rgba(255,255,255,0.04);
+  color: #e65454;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.cancelarClaseBtn:hover {
+  background: rgba(230, 84, 84,0.1);;
+  border-color: rgba(230, 84, 84,0.3);;
+  color: #dd3f3f;;
 }
 
 /* ── Lista de espera modal ───────────────────────────────── */

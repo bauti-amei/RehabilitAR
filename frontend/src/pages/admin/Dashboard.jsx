@@ -5,6 +5,7 @@ import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaR
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import styles from './Dashboard.module.css'
+import toast from 'react-hot-toast';
 
 /* ══════════════════════════════════════════════════════════
    MOCK DATA
@@ -461,6 +462,41 @@ function AreaClases() {
     return matchHorario && matchTipo
   })
 
+  const handleCancelarClase = (clase) => {
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+        console.error("No hay sesión activa");
+        return;
+    }
+
+    const promise = fetch(
+      "/api/clases/cancelar-clase/",
+      {
+        method:"POST",
+        headers: {
+          "Content-Type": "application/json",       
+          "Authorization": `Bearer ${token}`,
+        },
+        body:JSON.stringify({clase_id:clase.id})
+      }
+    ).then(res => {
+      if(!res.ok)throw new Error("Error al cancelar la clase");
+    })
+    .then(() => cargarClases());
+
+    toast.promise(promise, {
+      loading:"Cancelando clase...",
+      success:"Clase cancelada correctamente",
+      error:"Hubo un error al cancelar la clase",
+    }, {
+      position:"bottom-center",
+      style:{
+        fontSize:"18px",
+      }
+    })
+  }
+
   return (
     <>
     {alerta.mostrar && (
@@ -533,62 +569,80 @@ function AreaClases() {
           <div key={c.id} className={styles.claseRow}>
             <div className={styles.claseMain}>
               <div>
-                <p className={styles.claseNombre}>{c.nombre}</p>
+                <div style={{display:"flex", flexDirection:"row", gap:"10px"}}>
+                  <p className={styles.claseNombre}>{c.nombre}</p>
+                  <span className={`${styles.estadoBadge} ${styles[c.estado]}`}>{c.estado.toUpperCase()}</span>
+                </div>
                 <p className={styles.claseMeta}>{c.especialidad_display} · {c.dias} · {c.horario} · {c.aula}</p>
               </div>
-            <div className={styles.claseProfesor}>
-              {c.profesor_nombre ? (
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <button 
-                  className={styles.verMasBtn} // <-- Usamos la clase nativa del CSS
-                  onClick={() => {
-                    setDesasignar(c);
-                    setInfoProfesorSel(null);
-                    setConfirmarPaso(false);
-                    
-                    getProfesoresPorEspecialidadRequest(c.especialidad)
-                      .then(res => {
-                        const profeDetalle = res.data.find(p => p.nombre === c.profesor_nombre);
-                        if (profeDetalle) setInfoProfesorSel(profeDetalle);
-                      })
-                      .catch(() => setInfoProfesorSel(null));
-                  }}
-                  title="Ver información del profesor"
-                  style={{ 
-                    padding: '0.5rem 1rem',   /* Mucho más alto y ancho, resalta un montón */
-                    fontSize: '1rem',           /* Tamaño de letra estándar grande (mayor al primario) */
-                    borderRadius: '30px',       /* Esquinas un toque más curvas para acompañar el tamaño */
-                    letterSpacing: '0.5px',     /* Separa un poquito las letras para que respire el texto */
-                    boxShadow: '0 2px 8px rgba(30, 153, 136, 0.05)' /* Una sombrita violeta muy sutil de fondo */
-                  }}
+            {c.estado !== 'cancelada' &&
+              <>
+                <div className={styles.claseProfesor}>
+                  {c.profesor_nombre ? (
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <button 
+                      className={styles.verMasBtn} // <-- Usamos la clase nativa del CSS
+                      onClick={() => {
+                        setDesasignar(c);
+                        setInfoProfesorSel(null);
+                        setConfirmarPaso(false);
+                        
+                        getProfesoresPorEspecialidadRequest(c.especialidad)
+                          .then(res => {
+                            const profeDetalle = res.data.find(p => p.nombre === c.profesor_nombre);
+                            if (profeDetalle) setInfoProfesorSel(profeDetalle);
+                          })
+                          .catch(() => setInfoProfesorSel(null));
+                      }}
+                      title="Ver información del profesor"
+                      style={{ 
+                        padding: '0.5rem 1rem',   /* Mucho más alto y ancho, resalta un montón */
+                        fontSize: '1rem',           /* Tamaño de letra estándar grande (mayor al primario) */
+                        borderRadius: '30px',       /* Esquinas un toque más curvas para acompañar el tamaño */
+                        letterSpacing: '0.5px',     /* Separa un poquito las letras para que respire el texto */
+                        boxShadow: '0 2px 8px rgba(30, 153, 136, 0.05)' /* Una sombrita violeta muy sutil de fondo */
+                      }}
+                    >
+                      Ver lista de espera
+                      {c.lista_espera.length > 0 && (
+                        <span className={styles.listaCount}>{c.lista_espera.length}</span>
+                      )}
+                    </button>
+                    <button
+                      className={styles.cancelarClaseBtn}
+                      onClick={() => handleCancelarClase(c)}
+                    >
+                      Cancelar clase
+                    </button>
+                  </div>
+                    ) : (
+                      <div className={styles.sinProfesor}>
+                        <span className={styles.sinAsignar}>SIN ASIGNAR</span>
+                        <button className={styles.asignarBtn} onClick={() => abrirAsignar(c)}>Asignar profesor</button>
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.claseCupo}>
+                    <span className={`${styles.cupoTag} ${c.cantidad_inscriptos >= c.cupo ? styles.cupoLleno : ''}`}>
+                      {c.cantidad_inscriptos}/{c.cupo} inscriptos
+                    </span>
+                  </div>
+                </>
+              }
+            </div>
+            {c.estado !== 'cancelada' &&
+              <div className={styles.claseAcciones}>
+                <button
+                  className={styles.listaEsperaBtn}
+                  onClick={() => abrirListaEspera(c)}
                 >
-                  👤 {c.profesor_nombre}
+                  Ver listas de espera
+                  {c.lista_espera.length > 0 && (
+                    <span className={styles.listaCount}>{c.lista_espera.length}</span>
+                  )}
                 </button>
               </div>
-                ) : (
-                  <div className={styles.sinProfesor}>
-                    <span className={styles.sinAsignar}>SIN ASIGNAR</span>
-                    <button className={styles.asignarBtn} onClick={() => abrirAsignar(c)}>Asignar profesor</button>
-                  </div>
-                )}
-              </div>
-              <div className={styles.claseCupo}>
-                <span className={`${styles.cupoTag} ${c.cantidad_inscriptos >= c.cupo ? styles.cupoLleno : ''}`}>
-                  {c.cantidad_inscriptos}/{c.cupo} inscriptos
-                </span>
-              </div>
-            </div>
-            <div className={styles.claseAcciones}>
-              <button
-                className={styles.listaEsperaBtn}
-                onClick={() => abrirListaEspera(c)}
-              >
-                Ver lista de espera
-                {c.lista_espera.length > 0 && (
-                  <span className={styles.listaCount}>{c.lista_espera.length}</span>
-                )}
-              </button>
-            </div>
+            }
           </div>
           ))}
       </div>
@@ -622,7 +676,7 @@ function AreaClases() {
                         className={styles.verMasBtn}
                         onClick={() => abrirFechaEspera(listaEsperaModal.id, f.fecha)}
                       >
-                        Ver lista →
+                        Ver lista de espera
                       </button>
                     </div>
                   </div>
