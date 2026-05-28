@@ -636,7 +636,7 @@ function AreaClases() {
                   className={styles.listaEsperaBtn}
                   onClick={() => abrirListaEspera(c)}
                 >
-                  Ver lista de espera
+                  Ver listas de espera
                   {c.lista_espera.length > 0 && (
                     <span className={styles.listaCount}>{c.lista_espera.length}</span>
                   )}
@@ -676,7 +676,7 @@ function AreaClases() {
                         className={styles.verMasBtn}
                         onClick={() => abrirFechaEspera(listaEsperaModal.id, f.fecha)}
                       >
-                        Ver lista →
+                        Ver lista de espera
                       </button>
                     </div>
                   </div>
