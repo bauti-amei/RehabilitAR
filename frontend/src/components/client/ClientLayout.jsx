@@ -155,7 +155,7 @@ export default function ClientLayout() {
                 </button>
                 <button className={styles.dropItem} onClick={() => {
                   setUserMenu(false);
-                  navigate('/client/cambiar-contrasena');
+                  navigate('/cambiar-contrasena');
                 }}>
                   <span>🔒</span> Cambiar contraseña
                 </button>

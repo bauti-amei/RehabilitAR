@@ -155,7 +155,7 @@ export default function AdminLayout() {
                 </button>
                 <button className={styles.dropItem} onClick={() => {
                   setUserMenu(false);
-                  navigate('/admin/cambiar-contrasena');
+                  navigate('/cambiar-contrasena');
                 }}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
