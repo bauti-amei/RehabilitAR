@@ -33,8 +33,9 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
   const [aptoOk,      setAptoOk]      = useState(true)
   const [seleccion,   setSeleccion]   = useState(null) // { clase_id, clase_nombre, fecha, horario, valor, cupo_disponible, ... }
   const [pago,        setPago]        = useState({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' })
+  const [montoPagar,  setMontoPagar]  = useState(null)  // null = aún no calculado
   const [pagando,     setPagando]     = useState(false)
-  const [resultado,   setResultado]   = useState(null) // { estado: 'activa'|'lista_espera', detail }
+  const [resultado,   setResultado]   = useState(null) // { estado: 'activa'|'lista_espera', detail, estado_pago, monto_pagado }
   const [error,       setError]       = useState('')
 
   // ── Cargar opciones al cambiar mes/año ───────────────
@@ -75,6 +76,7 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
   // ── Seleccionar clase ─────────────────────────────────
   const seleccionarClase = (op) => {
     setSeleccion(op)
+    setMontoPagar(op.valor)   // default: pago total
     setError('')
     setPaso(2)
   }
@@ -90,11 +92,17 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
     setError('')
     try {
       const r = await reservarClaseUnicaRequest({
-        clase_id:   seleccion.clase_id,
-        fecha:      seleccion.fecha,
-        datos_pago: pago,
+        clase_id:    seleccion.clase_id,
+        fecha:       seleccion.fecha,
+        monto_pagar: montoPagar,
+        datos_pago:  pago,
       })
-      setResultado({ estado: r.data.estado, detail: r.data.detail })
+      setResultado({
+        estado:      r.data.estado,
+        detail:      r.data.detail,
+        estado_pago: r.data.estado_pago,
+        monto_pagado: r.data.monto_pagado,
+      })
       setPaso(4)
       onReservaOk?.()
     } catch (e) {
@@ -246,14 +254,101 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
               </div>
             )}
 
-            <div className={styles.precioBlock}>
-              <div className={`${styles.precioRow} ${styles.precioTotal}`}>
-                <span>Total a pagar</span>
-                <span>${seleccion.valor.toLocaleString('es-AR')}</span>
-              </div>
-            </div>
+            {/* Selector de monto */}
+            {(() => {
+              const total  = seleccion.valor
+              const minimo = Math.ceil(total * 0.5 * 100) / 100
+              return (
+                <div className={styles.precioBlock}>
+                  <div className={styles.precioRow}>
+                    <span>Valor total de la clase</span>
+                    <span>${total.toLocaleString('es-AR')}</span>
+                  </div>
+                  <div className={styles.precioRow}>
+                    <span>Señal mínima (50%)</span>
+                    <span>${minimo.toLocaleString('es-AR')}</span>
+                  </div>
 
-            <button className={styles.btnPrimary} onClick={() => setPaso(3)}>
+                  <div style={{ marginTop: '1rem' }}>
+                    <label style={{ fontSize: '0.88rem', fontWeight: 600, color: '#1a2e25', display: 'block', marginBottom: '0.5rem' }}>
+                      ¿Cuánto querés pagar ahora?
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setMontoPagar(minimo)}
+                        style={{
+                          flex: 1, padding: '0.45rem 0.6rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600,
+                          border: montoPagar === minimo ? '2px solid #2d6a4f' : '1px solid #b8dece',
+                          background: montoPagar === minimo ? '#e8f5ee' : '#fff',
+                          color: '#1a2e25', cursor: 'pointer'
+                        }}
+                      >
+                        Señal<br /><span style={{ fontWeight: 700 }}>${minimo.toLocaleString('es-AR')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMontoPagar(total)}
+                        style={{
+                          flex: 1, padding: '0.45rem 0.6rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600,
+                          border: montoPagar === total ? '2px solid #2d6a4f' : '1px solid #b8dece',
+                          background: montoPagar === total ? '#e8f5ee' : '#fff',
+                          color: '#1a2e25', cursor: 'pointer'
+                        }}
+                      >
+                        Total<br /><span style={{ fontWeight: 700 }}>${total.toLocaleString('es-AR')}</span>
+                      </button>
+                    </div>
+                    <label style={{ fontSize: '0.82rem', color: '#3d6b55', display: 'block', marginBottom: '0.3rem' }}>
+                      Ingresá el monto a pagar:
+                    </label>
+                    <input
+                      type="number"
+                      min={minimo}
+                      max={total}
+                      step="0.01"
+                      value={montoPagar ?? ''}
+                      onChange={e => {
+                        const v = parseFloat(e.target.value)
+                        if (!isNaN(v)) setMontoPagar(v)
+                        else if (e.target.value === '') setMontoPagar(null)
+                      }}
+                      onBlur={e => {
+                        // Al salir del campo, clampear al rango válido
+                        const v = parseFloat(e.target.value)
+                        if (!isNaN(v)) {
+                          setMontoPagar(Math.min(total, Math.max(minimo, Math.round(v * 100) / 100)))
+                        } else {
+                          setMontoPagar(total)
+                        }
+                      }}
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        padding: '0.5rem 0.75rem', borderRadius: '8px',
+                        border: '1px solid #b8dece', fontSize: '0.95rem',
+                        color: '#1a2e25', background: '#f4faf7', outline: 'none'
+                      }}
+                    />
+                    {montoPagar !== null && montoPagar < total && (
+                      <p style={{ fontSize: '0.8rem', color: '#d97706', marginTop: '0.4rem' }}>
+                        ⚠️ Pagarás una señal. El saldo pendiente de ${(total - montoPagar).toLocaleString('es-AR')} quedará como <strong>pendiente de pago</strong>.
+                      </p>
+                    )}
+                    {montoPagar !== null && (montoPagar < minimo || montoPagar > total) && (
+                      <p style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: '0.4rem' }}>
+                        El monto debe estar entre ${minimo.toLocaleString('es-AR')} y ${total.toLocaleString('es-AR')}.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            <button
+              className={styles.btnPrimary}
+              onClick={() => setPaso(3)}
+              disabled={montoPagar === null || montoPagar < Math.ceil(seleccion.valor * 0.5 * 100) / 100 || montoPagar > seleccion.valor + 0.005}
+            >
               Continuar al pago →
             </button>
           </div>
@@ -263,7 +358,10 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
         {paso === 3 && seleccion && (
           <div className={styles.body}>
             <div className={styles.totalDestacado}>
-              Total: <strong>${seleccion.valor.toLocaleString('es-AR')}</strong>
+              {montoPagar < seleccion.valor
+                ? <>Señal: <strong>${montoPagar?.toLocaleString('es-AR')}</strong> <span style={{ fontSize: '0.82rem', color: '#d97706' }}>(saldo ${(seleccion.valor - montoPagar).toLocaleString('es-AR')} pendiente)</span></>
+                : <>Total: <strong>${montoPagar?.toLocaleString('es-AR')}</strong></>
+              }
             </div>
 
             <div className={styles.formPago}>
@@ -326,9 +424,19 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
                 <p style={{ color: '#3d6b55', marginBottom: '0.5rem' }}>
                   Reservaste <strong style={{ color: '#0f1f17' }}>{seleccion.clase_nombre}</strong>
                 </p>
-                <p style={{ color: '#52b788', marginBottom: '2rem' }}>
+                <p style={{ color: '#52b788', marginBottom: '0.75rem' }}>
                   {fmtLargo(seleccion.fecha)} · {seleccion.horario}
                 </p>
+                {resultado.estado_pago === 'pendiente_pago' ? (
+                  <p style={{ color: '#d97706', fontSize: '0.88rem', background: 'rgba(245,158,11,0.1)', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '1.5rem' }}>
+                    💳 Pagaste una señal de <strong>${resultado.monto_pagado?.toLocaleString('es-AR')}</strong>.
+                    El saldo de <strong>${(seleccion.valor - resultado.monto_pagado).toLocaleString('es-AR')}</strong> figura como <strong>pendiente de pago</strong>.
+                  </p>
+                ) : (
+                  <p style={{ color: '#22c55e', fontSize: '0.88rem', background: 'rgba(34,197,94,0.1)', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '1.5rem' }}>
+                    💳 Pago completo de <strong>${resultado.monto_pagado?.toLocaleString('es-AR')}</strong>.
+                  </p>
+                )}
               </>
             ) : (
               <>

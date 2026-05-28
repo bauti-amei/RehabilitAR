@@ -282,4 +282,92 @@
   font-size: 0.92rem;
 }
 .detalleGrid span:nth-child(odd)  { color: #3d6b55; font-weight: 500; }
-.detalleGrid span:nth-child(even) { color: #c8e8d8; }
+.detalleGrid span:nth-child(even) { color: #1a2e25; font-weight: 600; }
+
+/* ── Modal wide ──────────────────────────────────────────── */
+.modalWide { max-width: 580px; }
+
+/* ── Formulario de registro ──────────────────────────────── */
+.formReg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.formRow {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.labelReg {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2d5a45;
+}
+
+.req { color: #fb923c; }
+
+.inputReg {
+  padding: 0.6rem 0.9rem;
+  border: 1.5px solid rgba(30,153,136,0.22);
+  border-radius: 9px;
+  background: #f4faf7;
+  color: #1a2e25;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.inputReg::placeholder { color: #7aaa92; }
+.inputReg:focus { border-color: rgba(251,146,60,0.55); }
+
+.formFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.btnVolver {
+  padding: 0.6rem 1.2rem;
+  border: 1.5px solid rgba(30,153,136,0.25);
+  border-radius: 10px;
+  background: transparent;
+  color: #2d5a45;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btnVolver:hover { background: rgba(30,153,136,0.08); }
+
+.msgError {
+  font-size: 0.85rem;
+  color: #dc2626;
+  background: rgba(220,38,38,0.08);
+  border: 1px solid rgba(220,38,38,0.2);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  margin: 0;
+}
+
+/* ── Registro exitoso ────────────────────────────────────── */
+.regExito {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem 0 0.5rem;
+  text-align: center;
+  color: #1a2e25;
+}
+.regExitoIcon { font-size: 2.5rem; }
+.regExitoEmail { font-size: 0.88rem; color: #3d6b55; margin: 0 0 0.75rem; }

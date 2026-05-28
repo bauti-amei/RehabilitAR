@@ -259,6 +259,12 @@ class DeleteUserView(APIView):
             # 3. Determinar acción según el estado actual
             if user.is_active:
                 # ACCIÓN: SUSPENDER (Estaba activo, pasa a inactivo)
+                if user.role != User.Role.CLIENT:
+                    return Response(
+                        {'detail': 'Solo se puede suspender a clientes.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
                 reason = request.data.get('reason')
                 if not reason:
                     return Response({'detail': 'Debe indicar un motivo.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -373,7 +379,7 @@ class SolicitarCodigoView(APIView):
         try:
             send_mail(
                 subject='Código para restablecer tu contraseña — RehabilitAR',
-                message=f'Tu código de verificación es: {codigo}\n\nVence en 10 minutos.',
+                message=f'Tu código de verificación es: {codigo}',
                 from_email='noreply@rehabilitar.com',
                 recipient_list=[email],
                 fail_silently=False,

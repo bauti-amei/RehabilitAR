@@ -122,6 +122,7 @@ class ClaseCreateSerializer(serializers.ModelSerializer):
             'profesor', 'ofertada', 'descripcion',
         ]
         extra_kwargs = {
+            'nombre':      {'validators': []},  # suprime el UniqueValidator automático de DRF
             'dias':        {'required': False},
             'fecha':       {'required': False, 'allow_null': True},
             'profesor':    {'required': False, 'allow_null': True},

@@ -224,55 +224,58 @@ function TareasImportantes() {
       {mostrarModalRechazo && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(15, 31, 23, 0.55)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
         }} onClick={() => setMostrarModalRechazo(false)}>
-          
+
           <div style={{
-            backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
-            padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '450px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+            backgroundColor: '#ffffff', border: '1px solid #b8dece',
+            padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '450px',
+            boxShadow: '0 10px 30px rgba(30, 100, 60, 0.15)'
           }} onClick={e => e.stopPropagation()}>
-            
-            <h3 style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '1.25rem' }}>
+
+            <h3 style={{ color: '#1a2e25', marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 700 }}>
               Rechazar Apto Físico
             </h3>
-            
+
             <form onSubmit={confirmarRechazoModerno}>
-              <label style={{ color: '#868e96', display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+              <label style={{ color: '#3d6b55', display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
                 Escribí el motivo detallado para el paciente:
               </label>
-              
+
               <textarea
                 value={motivoTexto}
                 onChange={(e) => setMotivoTexto(e.target.value)}
                 placeholder="Ej: El documento está borroso o la fecha de emisión expiró..."
                 required
                 style={{
-                  width: '100%', height: '100px', backgroundColor: '#151521',
-                  color: '#0f1f17', border: '1px solid #b8dece',
-                  borderRadius: '6px', padding: '0.5rem', fontSize: '0.95rem',
-                  resize: 'none', marginBottom: '1.5rem', outline: 'none'
+                  width: '100%', height: '100px', backgroundColor: '#f4faf7',
+                  color: '#1a2e25', border: '1px solid #b8dece',
+                  borderRadius: '8px', padding: '0.6rem 0.75rem', fontSize: '0.95rem',
+                  resize: 'none', marginBottom: '1.5rem', outline: 'none',
+                  boxSizing: 'border-box'
                 }}
               />
-              
+
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button 
+                <button
                   type="button"
                   onClick={() => setMostrarModalRechazo(false)}
                   style={{
-                    background: 'transparent', color: '#868e96', border: 'none',
-                    padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '600'
+                    background: 'transparent', color: '#3d6b55', border: '1px solid #b8dece',
+                    padding: '0.5rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600',
+                    fontSize: '0.9rem'
                   }}
                 >
                   Cancelar
                 </button>
-                <button 
+                <button
                   type="submit"
                   style={{
-                    background: '#ef4444', color: '#0f1f17', border: 'none',
-                    padding: '0.5rem 1.2rem', borderRadius: '6px', cursor: 'pointer',
-                    fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                    background: '#dc2626', color: '#ffffff', border: 'none',
+                    padding: '0.5rem 1.2rem', borderRadius: '8px', cursor: 'pointer',
+                    fontWeight: '600', fontSize: '0.9rem',
+                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)'
                   }}
                 >
                   Confirmar Rechazo
@@ -319,7 +322,10 @@ function ClasesEnCurso() {
                 <span className={styles.cursoNombre}>{c.nombre}</span>
                 <span className={styles.cursoDato}>{c.horario}{c.aula && c.aula !== c.nombre ? ` · ${c.aula}` : ''}</span>
               </div>
-              <button className={styles.verMasBtn} onClick={() => setDetalle(c)}>Ver más</button>
+              <div className={styles.cursoAcciones}>
+                <button className={styles.registrarAsistenciaBtn}>Registrar asistencia</button>
+                <button className={styles.verMasBtn} onClick={() => setDetalle(c)}>Ver más</button>
+              </div>
             </div>
           ))}
         </div>
@@ -364,7 +370,8 @@ function AreaClases() {
   const [profesorSel,     setProfesorSel] = useState('')
   const [asignando,       setAsignando] = useState(false)
   const [asignarError,    setAsignarError] = useState('')
-  const [alerta, setAlerta] = useState({ mostrar: false, texto: '', tipo: 'exito' });
+  const [alerta,          setAlerta]       = useState({ mostrar: false, texto: '', tipo: 'exito' })
+  const [loadingMsg,      setLoadingMsg]   = useState(null)
 
 
   const mostrarNotificacion = (texto, tipo = 'exito') => {
@@ -457,44 +464,37 @@ function AreaClases() {
   }
 
   const clasesFiltradas = clases.filter(c => {
+    if (c.estado === 'cancelada') return false
     const matchHorario = filtro === 'todas' || getHorarioFiltro(c.horario) === filtro
     const matchTipo    = filtroTipo === 'todos' || c.tipo_clase === filtroTipo
     return matchHorario && matchTipo
   })
 
-  const handleCancelarClase = (clase) => {
-    const token = localStorage.getItem("access_token");
+  const handleCancelarClase = async (clase) => {
+    const token = localStorage.getItem("access_token")
+    if (!token) return
 
-    if (!token) {
-        console.error("No hay sesión activa");
-        return;
+    setLoadingMsg('Cancelando clase')
+    try {
+      const [res] = await Promise.all([
+        fetch("/api/clases/cancelar-clase/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ clase_id: clase.id }),
+        }),
+        new Promise(r => setTimeout(r, 800)),
+      ])
+      if (!res.ok) throw new Error()
+      mostrarNotificacion('Clase cancelada correctamente.', 'exito')
+      cargarClases()
+    } catch {
+      mostrarNotificacion('Hubo un error al cancelar la clase.', 'error')
+    } finally {
+      setLoadingMsg(null)
     }
-
-    const promise = fetch(
-      "/api/clases/cancelar-clase/",
-      {
-        method:"POST",
-        headers: {
-          "Content-Type": "application/json",       
-          "Authorization": `Bearer ${token}`,
-        },
-        body:JSON.stringify({clase_id:clase.id})
-      }
-    ).then(res => {
-      if(!res.ok)throw new Error("Error al cancelar la clase");
-    })
-    .then(() => cargarClases());
-
-    toast.promise(promise, {
-      loading:"Cancelando clase...",
-      success:"Clase cancelada correctamente",
-      error:"Hubo un error al cancelar la clase",
-    }, {
-      position:"bottom-center",
-      style:{
-        fontSize:"18px",
-      }
-    })
   }
 
   return (
@@ -569,8 +569,11 @@ function AreaClases() {
           <div key={c.id} className={styles.claseRow}>
             <div className={styles.claseMain}>
               <div>
-                <div style={{display:"flex", flexDirection:"row", gap:"10px"}}>
+                <div style={{display:"flex", flexDirection:"row", gap:"8px", alignItems:"center", flexWrap:"wrap"}}>
                   <p className={styles.claseNombre}>{c.nombre}</p>
+                  <span className={c.tipo_clase === 'fija' ? styles.tipoBadgeFija : styles.tipoBadgeIndividual}>
+                    {c.tipo_clase === 'fija' ? '🔁 Fija' : '📅 Individual'}
+                  </span>
                   <span className={`${styles.estadoBadge} ${styles[c.estado]}`}>{c.estado.toUpperCase()}</span>
                 </div>
                 <p className={styles.claseMeta}>{c.especialidad_display} · {c.dias} · {c.horario} · {c.aula}</p>
@@ -869,6 +872,8 @@ function AreaClases() {
           onCreada={cargarClases}
         />
       )}
+
+      {loadingMsg && <LoadingOverlay mensaje={loadingMsg} />}
     </section>
     </>
   )
@@ -1109,20 +1114,22 @@ function Usuarios() {
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
              {u.role !== "admin" && (
               <>
-                {/* 1️⃣ BOTÓN DE ESTADO LÓGICO */}
-                <button 
-                  className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
-                  onClick={() => u.is_active ? handleSuspender(u) : handleReactivar(u)}
-                  style={{ marginRight: '8px' }}
-                >
-                  {u.is_active ? 'Suspender' : 'Activar'}
-                </button>
+                {/* 1️⃣ BOTÓN DE ESTADO LÓGICO — solo para clientes */}
+                {u.role === 'client' && (
+                  <button
+                    className={u.is_active ? styles.eliminarBtn : styles.activarBtn}
+                    onClick={() => u.is_active ? handleSuspender(u) : handleReactivar(u)}
+                    style={{ marginRight: '8px' }}
+                  >
+                    {u.is_active ? 'Suspender' : 'Activar'}
+                  </button>
+                )}
 
                 {/* 2️⃣ BOTÓN DE ELIMINACIÓN FÍSICA */}
-                <button 
-                  className={styles.eliminarBtn} 
+                <button
+                  className={styles.eliminarBtn}
                   onClick={() => handleEliminarDefinitivo(u)}
-                  style={{ 
+                  style={{
                     background: 'rgba(239, 68, 68, 0.1)',
                     color: '#ef4444',
                     border: '1px solid rgba(239, 68, 68, 0.25)',

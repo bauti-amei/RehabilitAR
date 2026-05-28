@@ -67,6 +67,9 @@ export const getClasesParaReservarRequest = (mes, anio) =>
 export const reservarClaseUnicaRequest = (data) =>
   api.post('/clases/reservar-unica/', data)
 
+export const pagarSaldoReservaRequest = (id, datosPago) =>
+  api.post(`/clases/pagar-saldo-reserva/${id}/`, { datos_pago: datosPago })
+
 // Lista de espera por fecha
 export const getListaEsperaFechasRequest = (claseId) =>
   api.get(`/clases/${claseId}/lista-espera/`)

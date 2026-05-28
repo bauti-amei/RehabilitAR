@@ -5,6 +5,7 @@ import {
   getMisCreditosRequest,
   cancelarReservaUnicaRequest, cancelarClaseSuscripcionRequest,
   cancelarSuscripcionRequest,
+  pagarSaldoReservaRequest,
 } from '../../api/clases'
 import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
 import ReservarClaseModal from '../../components/client/ReservarClaseModal'
@@ -223,9 +224,16 @@ export default function ClientDashboard() {
   const [cancelSuscResult, setCancelSuscResult] = useState(null)
 
   // Cancelación — suscripción completa
-  const [cancelSuscTotal,        setCancelSuscTotal]        = useState(null)  // suscripción object
+  const [cancelSuscTotal,        setCancelSuscTotal]        = useState(null)
   const [cancelSuscTotalLoading, setCancelSuscTotalLoading] = useState(false)
   const [cancelSuscTotalOk,      setCancelSuscTotalOk]      = useState(false)
+
+  // Pago de saldo pendiente
+  const [pagarSaldo,       setPagarSaldo]       = useState(null)   // reserva object
+  const [pagarSaldoPago,   setPagarSaldoPago]   = useState({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' })
+  const [pagarSaldoLoading,setPagarSaldoLoading]= useState(false)
+  const [pagarSaldoOk,     setPagarSaldoOk]     = useState(false)
+  const [pagarSaldoError,  setPagarSaldoError]  = useState('')
 
   const cargarReservas = useCallback(async () => {
     try {
@@ -286,6 +294,33 @@ export default function ClientDashboard() {
   const cerrarCancelUnica = () => {
     setCancelUnica(null)
     setCancelUnicaResult(null)
+  }
+
+  /* ── Pagar saldo pendiente ───────────────────────────────── */
+  const handlePagarSaldo = async () => {
+    const { numero, nombre, apellido, dni, cvv } = pagarSaldoPago
+    if (!numero || !nombre || !apellido || !dni || !cvv) {
+      setPagarSaldoError('Completá todos los campos.')
+      return
+    }
+    setPagarSaldoLoading(true)
+    setPagarSaldoError('')
+    try {
+      await pagarSaldoReservaRequest(pagarSaldo.id, pagarSaldoPago)
+      setPagarSaldoOk(true)
+      cargarReservas()
+    } catch (e) {
+      setPagarSaldoError(e?.response?.data?.detail || 'Error al procesar el pago.')
+    } finally {
+      setPagarSaldoLoading(false)
+    }
+  }
+
+  const cerrarPagarSaldo = () => {
+    setPagarSaldo(null)
+    setPagarSaldoOk(false)
+    setPagarSaldoError('')
+    setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' })
   }
 
   /* ── Cancelar clase de suscripción ──────────────────────── */
@@ -381,8 +416,9 @@ export default function ClientDashboard() {
 
               {/* Suscripciones */}
               {suscripciones.map(s => {
-                const activa    = s.estado === 'activa'
-                const cancelada = s.estado === 'cancelada'
+                const activa          = s.estado === 'activa'
+                const cancelada       = s.estado === 'cancelada'
+                const pendientePagoS  = s.estado === 'pendiente_pago'
                 return (
                   <div key={`s-${s.id}`} className={styles.planItem}>
                     {/* Col 1 — Nombre + tipo */}
@@ -410,6 +446,17 @@ export default function ClientDashboard() {
                       }}>
                         {cancelada ? '🚫 Cancelada' : activa ? '✅ Activa' : '⏳ Pendiente'}
                       </span>
+                      {pendientePagoS && (
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(245,158,11,0.12)', color: '#d97706',
+                          border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
+                        }}>
+                          💳 Pendiente de pago
+                          {s.monto_pagado != null && s.monto != null && (
+                            <> · ${s.monto_pagado.toLocaleString('es-AR')} / ${s.monto.toLocaleString('es-AR')}</>
+                          )}
+                        </span>
+                      )}
                       {s.en_espera && (
                         <span className={styles.planEstadoBadge} style={{
                           background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
@@ -449,6 +496,26 @@ export default function ClientDashboard() {
                       color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
                       border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
                     }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
+                    {r.pendiente_pago && (
+                      <span className={styles.planEstadoBadge} style={{
+                        background: 'rgba(245,158,11,0.12)', color: '#d97706',
+                        border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
+                      }}>
+                        💳 Pendiente de pago
+                        {r.monto_pagado != null && r.monto_total != null && (
+                          <> · ${r.monto_pagado.toLocaleString('es-AR')} / ${r.monto_total.toLocaleString('es-AR')}</>
+                        )}
+                      </span>
+                    )}
+                    {r.pendiente_pago && (
+                      <button
+                        className={styles.verMasBtn}
+                        style={{ background: '#2d6a4f', color: '#fff', borderColor: '#2d6a4f' }}
+                        onClick={() => { setPagarSaldo(r); setPagarSaldoOk(false); setPagarSaldoError(''); setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' }) }}
+                      >
+                        💳 Pagar saldo
+                      </button>
+                    )}
                     <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
                     <button className={styles.cancelarBtn} onClick={() => { setCancelUnica(r); setCancelUnicaResult(null) }}>Cancelar</button>
                   </div>
@@ -721,6 +788,112 @@ export default function ClientDashboard() {
                   </div>
                   <button onClick={cerrarCancelSuscTotal} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Aceptar</button>
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal pagar saldo pendiente ── */}
+      {pagarSaldo && (
+        <div className={styles.overlay} onClick={cerrarPagarSaldo}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Pagar saldo pendiente</h3>
+              <button className={styles.closeBtn} onClick={cerrarPagarSaldo}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+              {!pagarSaldoOk ? (
+                <>
+                  {/* Detalle de clase y monto */}
+                  <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1.2rem' }}>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{pagarSaldo.clase_nombre}</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem', margin: '0 0 8px' }}>📅 {formatFecha(pagarSaldo.fecha)} · 🕐 {pagarSaldo.horario}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #c8e6d4', paddingTop: '8px', marginTop: '4px' }}>
+                      <span style={{ color: '#3d6b55', fontSize: '0.85rem' }}>Ya abonado</span>
+                      <span style={{ color: '#1a2e25', fontWeight: 600 }}>${(pagarSaldo.monto_pagado ?? 0).toLocaleString('es-AR')}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                      <span style={{ color: '#1a6b55', fontWeight: 700, fontSize: '0.9rem' }}>Monto a pagar</span>
+                      <span style={{ color: '#1a2e25', fontWeight: 800, fontSize: '1.05rem' }}>
+                        ${(((pagarSaldo.monto_total ?? 0) - (pagarSaldo.monto_pagado ?? 0))).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Formulario de tarjeta */}
+                  <p style={{ color: '#3d6b55', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.75rem' }}>Ingresá los datos de tu tarjeta</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
+                    <input
+                      type="text"
+                      placeholder="Número de tarjeta"
+                      maxLength={19}
+                      value={pagarSaldoPago.numero}
+                      onChange={e => setPagarSaldoPago(p => ({ ...p, numero: e.target.value }))}
+                      style={{ padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        placeholder="Nombre"
+                        value={pagarSaldoPago.nombre}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, nombre: e.target.value }))}
+                        style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Apellido"
+                        value={pagarSaldoPago.apellido}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, apellido: e.target.value }))}
+                        style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        placeholder="DNI"
+                        maxLength={8}
+                        value={pagarSaldoPago.dni}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, dni: e.target.value }))}
+                        style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="CVV"
+                        maxLength={4}
+                        value={pagarSaldoPago.cvv}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, cvv: e.target.value }))}
+                        style={{ width: '90px', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+
+                  {pagarSaldoError && (
+                    <p style={{ color: '#b91c1c', fontSize: '0.85rem', marginBottom: '0.75rem', background: 'rgba(185,28,28,0.07)', border: '1px solid rgba(185,28,28,0.2)', borderRadius: '8px', padding: '0.5rem 0.8rem' }}>
+                      ❌ {pagarSaldoError}
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={cerrarPagarSaldo} disabled={pagarSaldoLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handlePagarSaldo} disabled={pagarSaldoLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                      {pagarSaldoLoading ? 'Procesando…' : '💳 Pagar'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                  <p style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✅</p>
+                  <p style={{ color: '#1a2e25', fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.4rem' }}>¡Pago realizado con éxito!</p>
+                  <p style={{ color: '#3d6b55', fontSize: '0.88rem', marginBottom: '1.5rem' }}>
+                    Tu reserva de <strong>{pagarSaldo.clase_nombre}</strong> está completamente abonada.
+                  </p>
+                  <button onClick={cerrarPagarSaldo} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                    Aceptar
+                  </button>
+                </div>
               )}
             </div>
           </div>

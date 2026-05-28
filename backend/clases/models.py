@@ -118,15 +118,23 @@ class Reserva(models.Model):
         SUSCRIPCION = 'suscripcion', 'Suscripción'
         UNICA       = 'unica',       'Única'
 
-    usuario    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reservas')
-    clase      = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
-    fecha      = models.DateField()
-    estado     = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
-    tipo       = models.CharField(max_length=15, choices=Tipo.choices, default=Tipo.UNICA)
+    usuario      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reservas')
+    clase        = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='reservas')
+    fecha        = models.DateField()
+    estado       = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
+    tipo         = models.CharField(max_length=15, choices=Tipo.choices, default=Tipo.UNICA)
     # Reprogramación de feriado
-    clase_alt  = models.ForeignKey(Clase, null=True, blank=True, on_delete=models.SET_NULL, related_name='reservas_alt')
-    fecha_alt  = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    clase_alt    = models.ForeignKey(Clase, null=True, blank=True, on_delete=models.SET_NULL, related_name='reservas_alt')
+    fecha_alt    = models.DateField(null=True, blank=True)
+    # Pago
+    monto_total  = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    monto_pagado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    estado_pago  = models.CharField(
+        max_length=20,
+        choices=[('pagado', 'Pagado'), ('pendiente_pago', 'Pendiente de pago')],
+        null=True, blank=True,
+    )
+    created_at   = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = [['usuario', 'clase', 'fecha']]
@@ -151,6 +159,7 @@ class Suscripcion(models.Model):
     # Cancelaciones en ventana 24-48h (para descuento en próximo mes)
     cancelaciones_24_48h   = models.PositiveSmallIntegerField(default=0)
     descuento_siguiente_mes = models.PositiveSmallIntegerField(default=0)   # 0, 20 o 30 %
+    monto_pagado           = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at             = models.DateTimeField(auto_now_add=True)
 
     class Meta:

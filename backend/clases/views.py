@@ -580,13 +580,16 @@ class PagarSuscripcionView(APIView):
         )
         desc_pct    = _descuento_cancelacion_pct(request.user, clase, mes, anio)
         precio_info = _calcular_precio(clase, ocurrencias, descuentos_count, desc_pct)
+        total_susc  = float(precio_info['total'])
 
+        # Las suscripciones siempre se pagan en su totalidad
         suscripcion = Suscripcion.objects.create(
             usuario=request.user,
             clase=clase,
             mes=mes,
             anio=anio,
             monto=precio_info['total'],
+            monto_pagado=total_susc,
             estado='activa',
         )
 
@@ -679,12 +682,11 @@ class MisReservasView(APIView):
 
         data = []
         for r in qs.order_by('fecha'):
-            # Una reserva está pendiente de pago solo si su suscripción asociada
-            # tiene estado 'pendiente_pago'. Las reservas únicas siempre están pagas.
-            pendiente_pago = (
-                r.tipo == 'suscripcion' and
-                r.suscripcion_set.filter(estado='pendiente_pago').exists()
-            )
+            # Pendiente de pago: suscripción con estado 'pendiente_pago' O reserva única con estado_pago='pendiente_pago'
+            if r.tipo == 'suscripcion':
+                pendiente_pago = r.suscripcion_set.filter(estado='pendiente_pago').exists()
+            else:
+                pendiente_pago = r.estado_pago == 'pendiente_pago'
             data.append({
                 'id': r.id,
                 'fecha': str(r.fecha),
@@ -699,6 +701,9 @@ class MisReservasView(APIView):
                 'tipo': r.tipo,
                 'lista_espera': r.estado == 'lista_espera',
                 'pendiente_pago': pendiente_pago,
+                'monto_total':  float(r.monto_total)  if r.monto_total  is not None else None,
+                'monto_pagado': float(r.monto_pagado) if r.monto_pagado is not None else None,
+                'estado_pago':  r.estado_pago,
             })
         return Response(data)
 
@@ -745,6 +750,7 @@ class MisSuscripcionesView(APIView):
                 'mes':            s.mes,
                 'anio':           s.anio,
                 'monto':          float(s.monto),
+                'monto_pagado':   float(s.monto_pagado) if s.monto_pagado is not None else None,
                 'estado':         s.estado,
                 'en_espera':      en_espera,
                 'proxima_fecha':  str(proxima.fecha) if proxima else None,
@@ -844,7 +850,7 @@ class HardDeleteUserView(APIView):
                 print(f"Error al enviar mail de eliminacion: {e}")
 
             usuario.delete()
-            return Response({'detail': 'Usuario eliminado definitivamente.'}, status=status.HTTP_204_NO_CONTENT)
+            return Response({'detail': 'Usuario eliminado definitivamente.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado.'}, status=404)
 
@@ -961,6 +967,35 @@ class ClasesParaReservarView(APIView):
         return Response({'apto_aprobado': apto_aprobado, 'opciones': opciones})
 
 
+class PagarSaldoReservaView(APIView):
+    """
+    POST /api/clases/pagar-saldo-reserva/<pk>/
+    Registra el pago del saldo restante de una reserva única pendiente de pago.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            reserva = Reserva.objects.get(pk=pk, usuario=request.user)
+        except Reserva.DoesNotExist:
+            return Response({'detail': 'Reserva no encontrada.'}, status=404)
+
+        if reserva.estado_pago != 'pendiente_pago':
+            return Response({'detail': 'Esta reserva ya está pagada en su totalidad.'}, status=400)
+
+        saldo = round(float(reserva.monto_total or 0) - float(reserva.monto_pagado or 0), 2)
+
+        reserva.monto_pagado = reserva.monto_total
+        reserva.estado_pago  = 'pagado'
+        reserva.save()
+
+        return Response({
+            'detail': 'Pago realizado con éxito.',
+            'monto_pagado': float(reserva.monto_pagado),
+            'saldo_abonado': saldo,
+        }, status=200)
+
+
 class ReservarClaseUnicaView(APIView):
     """
     POST /api/clases/reservar-unica/
@@ -989,6 +1024,26 @@ class ReservarClaseUnicaView(APIView):
         except (Clase.DoesNotExist, ValueError):
             return Response({'detail': 'Clase o fecha inválida.'}, status=400)
 
+        # Validar monto de pago
+        valor_clase = round(float(clase.valor), 2)
+        monto_pagar_raw = request.data.get('monto_pagar')
+        if monto_pagar_raw is not None:
+            try:
+                monto_pagar = round(float(monto_pagar_raw), 2)
+            except (ValueError, TypeError):
+                return Response({'detail': 'Monto inválido.'}, status=400)
+            minimo = round(valor_clase * 0.5, 2)
+            if monto_pagar < minimo - 0.005 or monto_pagar > valor_clase + 0.005:
+                return Response(
+                    {'detail': f'El monto debe ser entre ${minimo:.2f} (señal) y ${valor_clase:.2f} (total).'},
+                    status=400,
+                )
+            monto_pagar = min(monto_pagar, valor_clase)  # clamp por seguridad
+        else:
+            monto_pagar = valor_clase  # por defecto: pago total
+
+        estado_pago = 'pagado' if monto_pagar >= valor_clase - 0.005 else 'pendiente_pago'
+
         # Verificar que no tenga ya una reserva en esa fecha+clase
         if Reserva.objects.filter(
             usuario=request.user, clase=clase, fecha=fecha,
@@ -998,29 +1053,58 @@ class ReservarClaseUnicaView(APIView):
 
         cupo_libre = clase.cupo - clase.inscriptos.count()
 
+        # Reutilizar reserva cancelada si existe (evita IntegrityError por unique_together)
+        reserva_existente = Reserva.objects.filter(
+            usuario=request.user, clase=clase, fecha=fecha
+        ).first()
+
         if cupo_libre > 0:
-            Reserva.objects.create(
-                usuario=request.user,
-                clase=clase,
-                fecha=fecha,
-                estado='activa',
-                tipo='unica',
-            )
+            if reserva_existente:
+                reserva_existente.estado     = 'activa'
+                reserva_existente.tipo       = 'unica'
+                reserva_existente.monto_total  = valor_clase
+                reserva_existente.monto_pagado = monto_pagar
+                reserva_existente.estado_pago  = estado_pago
+                reserva_existente.save()
+            else:
+                Reserva.objects.create(
+                    usuario=request.user,
+                    clase=clase,
+                    fecha=fecha,
+                    estado='activa',
+                    tipo='unica',
+                    monto_total=valor_clase,
+                    monto_pagado=monto_pagar,
+                    estado_pago=estado_pago,
+                )
             clase.inscriptos.add(request.user)
             return Response({
                 'detail': 'Reserva creada exitosamente.',
                 'estado': 'activa',
-                'valor': float(clase.valor),
+                'valor': valor_clase,
+                'monto_pagado': monto_pagar,
+                'estado_pago': estado_pago,
             }, status=201)
         else:
             # Lista de espera — tipo unica tiene menor prioridad que suscripcion
-            Reserva.objects.create(
-                usuario=request.user,
-                clase=clase,
-                fecha=fecha,
-                estado='lista_espera',
-                tipo='unica',
-            )
+            if reserva_existente:
+                reserva_existente.estado     = 'lista_espera'
+                reserva_existente.tipo       = 'unica'
+                reserva_existente.monto_total  = valor_clase
+                reserva_existente.monto_pagado = monto_pagar
+                reserva_existente.estado_pago  = estado_pago
+                reserva_existente.save()
+            else:
+                Reserva.objects.create(
+                    usuario=request.user,
+                    clase=clase,
+                    fecha=fecha,
+                    estado='lista_espera',
+                    tipo='unica',
+                    monto_total=valor_clase,
+                    monto_pagado=monto_pagar,
+                    estado_pago=estado_pago,
+                )
             clase.lista_espera.add(request.user)
             try:
                 send_mail(
@@ -1040,7 +1124,9 @@ class ReservarClaseUnicaView(APIView):
             return Response({
                 'detail': 'La clase seleccionada no posee cupos disponibles, se lo ha agregado a la lista de espera.',
                 'estado': 'lista_espera',
-                'valor': float(clase.valor),
+                'valor': valor_clase,
+                'monto_pagado': monto_pagar,
+                'estado_pago': estado_pago,
             }, status=201)
         
 class CancelarClaseView(APIView):

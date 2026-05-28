@@ -53,9 +53,11 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
   const [feriadoActual, setFeriadoActual] = useState(0) // índice del feriado que estamos resolviendo
 
   // Pago
-  const [pago, setPago] = useState({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' })
-  const [pagando, setPagando] = useState(false)
-  const [error,   setError]   = useState('')
+  const [pago,       setPago]       = useState({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' })
+  const [montoPagar, setMontoPagar] = useState(null)
+  const [pagando,    setPagando]    = useState(false)
+  const [error,      setError]      = useState('')
+  const [estadoPago, setEstadoPago] = useState(null)
 
   // ── Cálculo de calendario (reactivo al mes/anio) ──────
   const primerDia  = new Date(anio, mes - 1, 1).getDay()
@@ -179,12 +181,16 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
           opBackend[fecha] = { clase_alt_id: op.clase_alt_id, fecha_alt: op.fecha_alt }
         }
       }
+      const total = calcularTotal()
+      const mp    = montoPagar ?? total
       await pagarSuscripcionRequest({
-        clase_id: claseSelec.id,
+        clase_id:     claseSelec.id,
         mes, anio,
         opciones_feriado: opBackend,
-        datos_pago: pago,
+        monto_pagar:  mp,
+        datos_pago:   pago,
       })
+      setEstadoPago({ monto_pagado: mp, monto_total: total })
       setPaso(6)
       onSuscripcionOk?.()
     } catch (e) {
@@ -493,7 +499,13 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
               </div>
             </div>
 
-            <button className={styles.btnPrimary} onClick={() => setPaso(5)}>
+            <button
+              className={styles.btnPrimary}
+              onClick={() => {
+                setMontoPagar(calcularTotal())
+                setPaso(5)
+              }}
+            >
               Ir a pagar →
             </button>
           </div>
@@ -561,10 +573,14 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
             <h2 style={{ color: '#22c55e', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
               ¡Pago aprobado!
             </h2>
-            <p style={{ color: '#3d6b55', marginBottom: '2rem' }}>
+            <p style={{ color: '#3d6b55', marginBottom: '0.75rem' }}>
               Tu suscripción a <strong style={{ color: '#0f1f17' }}>{claseSelec?.nombre}</strong> fue registrada correctamente.
               Tus clases ya aparecen en tu calendario.
             </p>
+            <p style={{ color: '#22c55e', fontSize: '0.88rem', background: 'rgba(34,197,94,0.1)', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '1.5rem', display: 'inline-block' }}>
+              💳 Pago completo de <strong>${estadoPago?.monto_pagado?.toLocaleString('es-AR')}</strong>.
+            </p>
+            <br />
             <button className={styles.btnPrimary} onClick={onClose}>
               Volver al inicio
             </button>
