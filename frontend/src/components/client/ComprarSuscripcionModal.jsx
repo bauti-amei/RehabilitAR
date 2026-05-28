@@ -65,7 +65,7 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
   // ── Carga clases fijas ────────────────────────────────
   useEffect(() => {
     getClasesFijasRequest()
-      .then(r => setClasesFijas(r.data))
+      .then(r => setClasesFijas(r.data.filter(c => c.estado !== 'cancelada')))
       .catch(() => setError('No se pudieron cargar las clases.'))
       .finally(() => setCargando(false))
   }, [])

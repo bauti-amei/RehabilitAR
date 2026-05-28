@@ -15,6 +15,17 @@ DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 
 
 class Clase(models.Model):
 
+    ESTADOS = [
+        ('activa', 'Activa'),
+        ('cancelada', 'Cancelada'),
+    ]
+    
+    MOTIVOS = [
+        ('admin', 'Cancelada por administrador'),
+        ('sin_profesor', 'Sin profesor asignado'),
+        ('sin_cuorum', 'Sin cuórum'),
+    ]
+
     class Especialidad(models.TextChoices):
         TREN_SUPERIOR = 'tren_superior', 'Tren Superior'
         TREN_INFERIOR = 'tren_inferior', 'Tren Inferior'
@@ -43,6 +54,11 @@ class Clase(models.Model):
 
     # ── Asignación de profesor ────────────────────────
     ofertada        = models.BooleanField(default=False)  # True → profesores pueden auto-asignarse
+
+    # -- Cancelación -----------------------------------
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='activa')
+    motivo_cancelacion = models.CharField(max_length=20, choices=MOTIVOS, null=True, blank=True)
+    fecha_cancelacion = models.DateTimeField(null=True, blank=True)
 
     sala            = models.ForeignKey(
         Sala,
