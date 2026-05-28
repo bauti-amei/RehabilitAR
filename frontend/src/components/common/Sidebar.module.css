@@ -12,7 +12,7 @@
   padding: 32px;
   background:
     radial-gradient(circle at top left, rgba(91, 79, 232, 0.18), transparent 24%),
-    linear-gradient(180deg, #0f0f1a 0%, #111122 55%, #16162a 100%);
+    linear-gradient(180deg, #f4f9f6 0%, #111122 55%, #f8fafb 100%);
   min-height: 100vh;
   overflow-x: hidden;
 }

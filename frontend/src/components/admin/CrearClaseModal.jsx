@@ -11,7 +11,7 @@ const ESPECIALIDADES = [
   { value: 'tren_medio',    label: 'Tren Medio' },
 ]
 
-const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 const DIAS_MAP = {
   'dom':0,'domingo':0,'lun':1,'lunes':1,'mar':2,'martes':2,
@@ -243,7 +243,20 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             <div className={styles.field}>
               <label className={styles.label}>Fecha *</label>
               <input className={styles.input} type="date"
-                value={form.fecha} onChange={e => set('fecha', e.target.value)} />
+                value={form.fecha}
+                onChange={e => {
+                  const val = e.target.value
+                  if (val) {
+                    const dow = new Date(val + 'T00:00:00').getDay() // 0=Dom, 6=Sáb
+                    if (dow === 0 || dow === 6) return // ignorar fin de semana
+                  }
+                  set('fecha', val)
+                }} />
+              {form.fecha === '' && (
+                <span style={{ fontSize: '0.78rem', color: '#3d6b55', marginTop: '4px' }}>
+                  Solo se pueden seleccionar días de lunes a viernes.
+                </span>
+              )}
             </div>
           )}
 

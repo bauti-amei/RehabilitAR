@@ -22,7 +22,8 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
   // ── Calendario ───────────────────────────────────────
   const primerDia = new Date(anio, mes - 1, 1).getDay()
   const diasEnMes = new Date(anio, mes, 0).getDate()
-  const todayStr  = `${anio}-${String(mes).padStart(2,'0')}-${String(hoyDate.getDate()).padStart(2,'0')}`
+  // todayStr siempre fijo a la fecha real, independiente del mes navegado
+  const todayStr  = `${hoyDate.getFullYear()}-${String(hoyDate.getMonth() + 1).padStart(2,'0')}-${String(hoyDate.getDate()).padStart(2,'0')}`
   const celdas    = [...Array(primerDia).fill(null), ...Array.from({ length: diasEnMes }, (_, i) => i + 1)]
 
   // ── Estado ───────────────────────────────────────────
@@ -60,7 +61,9 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
   }, [opciones])
 
   // ── Navegar meses ─────────────────────────────────────
+  const esMesActual = anio === hoyDate.getFullYear() && mes === hoyDate.getMonth() + 1
   const prevMes = () => {
+    if (esMesActual) return  // no retroceder antes del mes actual
     if (mes === 1) { setMes(12); setAnio(a => a - 1) }
     else setMes(m => m - 1)
   }
@@ -137,14 +140,18 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
         {paso === 1 && (
           <div className={styles.body} style={{ padding: '1rem 1.4rem 1.4rem' }}>
             {!aptoOk && (
-              <div className={styles.alertaRoja}>
-                🔒 Necesitás un <strong>apto físico aprobado</strong> para reservar clases. Cargalo desde "Mi Perfil".
+              <div className={styles.alertaApto}>
+                <span className={styles.alertaAptoIcon}>🔒</span>
+                <div className={styles.alertaAptoTexto}>
+                  <strong>Apto físico requerido</strong>
+                  <span>Necesitás tener un apto físico aprobado para reservar clases. Cargalo desde "Mi Perfil".</span>
+                </div>
               </div>
             )}
 
             {/* Navegación de mes */}
             <div className={styles.calNav}>
-              <button className={styles.calNavBtn} onClick={prevMes}>‹</button>
+              <button className={styles.calNavBtn} onClick={prevMes} disabled={esMesActual} style={esMesActual ? { opacity: 0.3, cursor: 'default' } : {}}>‹</button>
               <span className={styles.calNavTitle}>{MESES_ES[mes]} {anio}</span>
               <button className={styles.calNavBtn} onClick={nextMes}>›</button>
             </div>
@@ -316,10 +323,10 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
                 <h2 style={{ color: '#22c55e', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
                   ¡Reserva confirmada!
                 </h2>
-                <p style={{ color: '#b0b3c7', marginBottom: '0.5rem' }}>
-                  Reservaste <strong style={{ color: 'white' }}>{seleccion.clase_nombre}</strong>
+                <p style={{ color: '#3d6b55', marginBottom: '0.5rem' }}>
+                  Reservaste <strong style={{ color: '#0f1f17' }}>{seleccion.clase_nombre}</strong>
                 </p>
-                <p style={{ color: '#a78bfa', marginBottom: '2rem' }}>
+                <p style={{ color: '#52b788', marginBottom: '2rem' }}>
                   {fmtLargo(seleccion.fecha)} · {seleccion.horario}
                 </p>
               </>
@@ -329,10 +336,10 @@ export default function ReservarClaseModal({ onClose, onReservaOk }) {
                 <h2 style={{ color: '#f59e0b', fontSize: '1.3rem', marginBottom: '0.8rem', lineHeight: 1.3 }}>
                   {resultado.detail}
                 </h2>
-                <p style={{ color: '#b0b3c7', marginBottom: '0.5rem' }}>
-                  Clase: <strong style={{ color: 'white' }}>{seleccion.clase_nombre}</strong>
+                <p style={{ color: '#3d6b55', marginBottom: '0.5rem' }}>
+                  Clase: <strong style={{ color: '#0f1f17' }}>{seleccion.clase_nombre}</strong>
                 </p>
-                <p style={{ color: '#a78bfa', marginBottom: '2rem' }}>
+                <p style={{ color: '#52b788', marginBottom: '2rem' }}>
                   {fmtLargo(seleccion.fecha)} · {seleccion.horario}
                 </p>
               </>

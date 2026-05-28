@@ -401,26 +401,27 @@ export default function ClientDashboard() {
             justifyContent: 'center', zIndex: 9000, padding: '1rem'
           }} onClick={() => setDetalleSusc(null)}>
             <div style={{
-              background: '#13172e', border: '1px solid rgba(255,255,255,0.08)',
+              background: 'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)',
+              border: '1px solid #b8dece',
               borderRadius: '20px', width: '100%', maxWidth: '480px',
               maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
+              boxShadow: '0 24px 64px rgba(10,35,25,0.30)'
             }} onClick={e => e.stopPropagation()}>
 
               {/* Header */}
-              <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid #b8dece', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                  <h3 style={{ color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <h3 style={{ color: '#1a2e25', margin: 0, fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {detalleSusc.clase_nombre}
                   </h3>
                   <span style={{
-                    background: esUnica ? 'rgba(34,197,94,0.12)' : 'rgba(124,58,237,0.15)',
-                    color: esUnica ? '#22c55e' : '#a78bfa',
-                    border: `1px solid ${esUnica ? 'rgba(34,197,94,0.3)' : 'rgba(124,58,237,0.3)'}`,
+                    background: esUnica ? 'rgba(5,150,105,0.10)' : 'rgba(26,157,133,0.12)',
+                    color: esUnica ? '#065f46' : '#147a68',
+                    border: `1px solid ${esUnica ? 'rgba(5,150,105,0.30)' : 'rgba(26,157,133,0.35)'}`,
                     borderRadius: '5px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0
                   }}>{esUnica ? 'Reserva única' : 'Suscripción'}</span>
                 </div>
-                <button onClick={() => setDetalleSusc(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', width: 32, height: 32, minWidth: 32, cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
+                <button onClick={() => setDetalleSusc(null)} style={{ background: '#f0f7f3', border: '1px solid #b8dece', color: '#3d6b55', borderRadius: '8px', width: 32, height: 32, minWidth: 32, cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
               </div>
 
               {/* Body */}
@@ -430,9 +431,9 @@ export default function ClientDashboard() {
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {esUnica ? (
                     <span style={{
-                      background: detalleSusc.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
-                      color: detalleSusc.lista_espera ? '#f59e0b' : '#22c55e',
-                      border: `1px solid ${detalleSusc.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                      background: detalleSusc.lista_espera ? 'rgba(217,119,6,0.10)' : 'rgba(5,150,105,0.10)',
+                      color: detalleSusc.lista_espera ? '#92400e' : '#065f46',
+                      border: `1px solid ${detalleSusc.lista_espera ? 'rgba(217,119,6,0.30)' : 'rgba(5,150,105,0.30)'}`,
                       borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
                     }}>
                       {detalleSusc.lista_espera ? '📋 Lista de espera' : '✅ Confirmada'}
@@ -440,15 +441,15 @@ export default function ClientDashboard() {
                   ) : (
                     <>
                       <span style={{
-                        background: detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                        color: detalleSusc.estado === 'activa' ? '#22c55e' : '#f59e0b',
-                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                        background: detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.10)' : 'rgba(217,119,6,0.10)',
+                        color: detalleSusc.estado === 'activa' ? '#065f46' : '#92400e',
+                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.30)' : 'rgba(217,119,6,0.30)'}`,
                         borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
                       }}>
                         {detalleSusc.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
                       </span>
                       {detalleSusc.en_espera && (
-                        <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>
+                        <span style={{ background: 'rgba(217,119,6,0.10)', color: '#92400e', border: '1px solid rgba(217,119,6,0.30)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>
                           📋 Lista de espera
                         </span>
                       )}
@@ -457,7 +458,7 @@ export default function ClientDashboard() {
                 </div>
 
                 {/* Info grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 1rem', fontSize: '0.88rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 1.2rem', fontSize: '0.88rem' }}>
                   {(esUnica ? [
                     ['Fecha',     formatFecha(detalleSusc.fecha)],
                     ['Horario',   detalleSusc.horario],
@@ -474,8 +475,8 @@ export default function ClientDashboard() {
                     ['Clases incluidas',`${detalleSusc.total_clases} clase${detalleSusc.total_clases !== 1 ? 's' : ''}`],
                   ]).map(([k, v]) => (
                     <>
-                      <span style={{ color: '#868e96' }} key={`k-${k}`}>{k}</span>
-                      <span style={{ color: '#e2e8f0' }} key={`v-${k}`}>{v}</span>
+                      <span style={{ color: '#3d6b55', fontWeight: 500 }} key={`k-${k}`}>{k}</span>
+                      <span style={{ color: '#1a2e25', fontWeight: 600 }} key={`v-${k}`}>{v}</span>
                     </>
                   ))}
                 </div>
@@ -483,7 +484,7 @@ export default function ClientDashboard() {
                 {/* Fechas de clases (solo suscripción) */}
                 {!esUnica && detalleSusc.reservas && (
                   <div>
-                    <p style={{ color: '#868e96', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <p style={{ color: '#1a9d85', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
                       Fechas de clases
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -493,11 +494,13 @@ export default function ClientDashboard() {
                         return (
                           <div key={r.fecha} style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '6px 10px'
+                            background: 'linear-gradient(145deg, #eaf5ef, #f4faf7)',
+                            border: '1px solid #c8e6d4',
+                            borderRadius: '8px', padding: '6px 10px'
                           }}>
-                            <span style={{ color: '#c8cbdf', fontSize: '0.85rem' }}>{label}</span>
+                            <span style={{ color: '#1a2e25', fontSize: '0.85rem', fontWeight: 500 }}>{label}</span>
                             {r.estado === 'lista_espera' && (
-                              <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', borderRadius: '4px', padding: '2px 6px', fontSize: '0.72rem' }}>
+                              <span style={{ background: 'rgba(217,119,6,0.10)', color: '#92400e', border: '1px solid rgba(217,119,6,0.25)', borderRadius: '4px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700 }}>
                                 Lista de espera
                               </span>
                             )}

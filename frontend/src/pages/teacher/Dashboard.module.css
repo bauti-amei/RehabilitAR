@@ -10,10 +10,10 @@
   font-size: 1.8rem;
   font-weight: 700;
   margin: 0 0 0.3rem;
-  color: white;
+  color: #e8f5ee;
 }
-.greeting h1 span { color: #34d399; }
-.greeting p { color: #6b7090; margin: 0; font-size: 0.95rem; }
+.greeting h1 span { color: #0f7a5e; }
+.greeting p { color: rgba(232,245,238,0.75); margin: 0; font-size: 0.95rem; }
 
 /* ── Top row ─────────────────────────────────────────────── */
 .topRow {
@@ -24,8 +24,8 @@
 
 /* ── Cards ───────────────────────────────────────────────── */
 .card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%);
+  border: 1px solid rgba(30,153,136,0.15);
   border-radius: 18px;
   padding: 1.5rem;
 }
@@ -33,7 +33,7 @@
 .cardTitle {
   font-size: 1rem;
   font-weight: 600;
-  color: #c8cbdf;
+  color: #c8e8d8;
   margin: 0 0 1.2rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -47,7 +47,7 @@
   align-items: center;
   gap: 0.6rem;
   padding: 1.5rem 1rem;
-  color: #6b7090;
+  color: #3d6b55;
   text-align: center;
   font-size: 0.92rem;
 }
@@ -66,12 +66,12 @@
 }
 .proximaLabel {
   font-size: 0.8rem;
-  color: #6b7090;
+  color: #3d6b55;
   min-width: 64px;
 }
 .proximaValor {
   font-size: 0.95rem;
-  color: #d0d3e8;
+  color: #c8e8d8;
   font-weight: 500;
 }
 .verDetalleBtn {
@@ -81,7 +81,7 @@
   border: 1px solid rgba(52, 211, 153, 0.4);
   border-radius: 8px;
   background: rgba(52, 211, 153, 0.08);
-  color: #34d399;
+  color: #0f7a5e;
   font-size: 0.88rem;
   cursor: pointer;
   transition: background 0.2s;
@@ -100,21 +100,21 @@
   gap: 0.65rem;
   padding: 0.75rem;
   border-radius: 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
+  background: #f0f7f3;
+  border: 1px solid #f8fafb;
 }
 .notifUnread { background: rgba(52, 211, 153, 0.05); border-color: rgba(52, 211, 153, 0.15); }
 .notifDot {
   width: 7px; height: 7px; border-radius: 50%;
   background: #34d399; flex-shrink: 0; margin-top: 5px;
 }
-.notifTexto { color: #d0d3e8; font-size: 0.88rem; margin: 0 0 0.2rem; }
-.notifHora  { color: #6b7090; font-size: 0.75rem; margin: 0; }
+.notifTexto { color: #c8e8d8; font-size: 0.88rem; margin: 0 0 0.2rem; }
+.notifHora  { color: #3d6b55; font-size: 0.75rem; margin: 0; }
 
 /* ── Sections ────────────────────────────────────────────── */
 .section {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%);
+  border: 1px solid rgba(30,153,136,0.12);
   border-radius: 18px;
   padding: 1.75rem;
   display: flex;
@@ -132,17 +132,17 @@
 .sectionTitle {
   font-size: 1.15rem;
   font-weight: 700;
-  color: white;
+  color: #1a2e25;
   margin: 0;
 }
 
 .claseActivaBadge {
-  color: #34d399;
+  color: #0f7a5e;
   font-weight: 600;
 }
 
 .sectionSubtitle {
-  color: #6b7090;
+  color: #3d6b55;
   font-size: 0.85rem;
   margin: 0.3rem 0 0;
 }
@@ -154,10 +154,10 @@
   align-items: center;
   gap: 0.6rem;
   padding: 2rem;
-  color: #6b7090;
+  color: #3d6b55;
   text-align: center;
   background: rgba(255,255,255,0.02);
-  border: 1px dashed rgba(255,255,255,0.08);
+  border: 1px dashed rgba(30,153,136,0.15);
   border-radius: 12px;
 }
 
@@ -171,15 +171,15 @@
 .buscador {
   flex: 1;
   padding: 0.65rem 1rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(30,153,136,0.18);
   border-radius: 10px;
-  background: rgba(255,255,255,0.05);
-  color: white;
+  background: #f0f7f3;
+  color: #1a2e25;
   font-size: 0.92rem;
   outline: none;
   transition: border-color 0.2s;
 }
-.buscador::placeholder { color: #6b7090; }
+.buscador::placeholder { color: #3d6b55; }
 .buscador:focus { border-color: rgba(52, 211, 153, 0.4); }
 
 /* ── Buttons ─────────────────────────────────────────────── */
@@ -188,7 +188,7 @@
   border: none;
   border-radius: 10px;
   background: linear-gradient(135deg, #34d399, #059669);
-  color: white;
+  color: #1a2e25;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -203,7 +203,7 @@
   border: 1px solid rgba(52, 211, 153, 0.4);
   border-radius: 10px;
   background: transparent;
-  color: #34d399;
+  color: #0f7a5e;
   font-size: 0.92rem;
   font-weight: 600;
   cursor: pointer;
@@ -216,7 +216,7 @@
   border: 1px solid rgba(52, 211, 153, 0.35);
   border-radius: 10px;
   background: rgba(52, 211, 153, 0.08);
-  color: #34d399;
+  color: #0f7a5e;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -227,23 +227,23 @@
 
 .verInscriptosBtn {
   padding: 0.5rem 1.1rem;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(30,153,136,0.22);
   border-radius: 8px;
-  background: rgba(255,255,255,0.05);
-  color: #c8cbdf;
+  background: #f0f7f3;
+  color: #c8e8d8;
   font-size: 0.88rem;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.2s, color 0.2s;
 }
-.verInscriptosBtn:hover { background: rgba(52, 211, 153, 0.1); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
+.verInscriptosBtn:hover { background: rgba(52, 211, 153, 0.1); color: #0f7a5e; border-color: rgba(52, 211, 153, 0.3); }
 
 .registrarBtn {
   padding: 0.4rem 0.9rem;
   border: 1px solid rgba(52, 211, 153, 0.3);
   border-radius: 8px;
   background: rgba(52, 211, 153, 0.07);
-  color: #34d399;
+  color: #0f7a5e;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -277,15 +277,28 @@
   gap: 1rem;
   padding: 0.85rem 1rem;
   border-radius: 10px;
-  background: rgba(255,255,255,0.03);
+  background: linear-gradient(to right, #eaf5ef, #f4faf7);
   border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 2px 6px rgba(26,157,133,0.07);
+  transition: box-shadow 0.2s, background 0.2s, border-color 0.2s;
 }
+.inscriptoRow:hover {
+  background: linear-gradient(to right, #ddf0e8, #edf7f2);
+  border-color: #a0d8c0;
+  border-left-color: #147a68;
+  box-shadow: 0 4px 14px rgba(26,157,133,0.13);
+}
+.inscriptoRow:nth-child(even) {
+  background: linear-gradient(to right, #e4f2ec, #eff8f4);
+  border-left-color: #52b788;
+}
+
 
 .inscriptoNombre {
   flex: 1;
   background: none;
   border: none;
-  color: #d0d3e8;
+  color: #c8e8d8;
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
@@ -296,7 +309,7 @@
   text-decoration-color: rgba(255,255,255,0.2);
   transition: color 0.2s;
 }
-.inscriptoNombre:hover { color: #34d399; }
+.inscriptoNombre:hover { color: #0f7a5e; }
 
 /* ── Badges ──────────────────────────────────────────────── */
 .badgePresente {
@@ -305,7 +318,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   background: rgba(52, 211, 153, 0.12);
-  color: #34d399;
+  color: #0f7a5e;
   border: 1px solid rgba(52, 211, 153, 0.25);
   white-space: nowrap;
 }
@@ -335,9 +348,23 @@
   gap: 1rem;
   padding: 1rem 1.25rem;
   border-radius: 12px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: linear-gradient(to right, #eaf5ef, #f4faf7);
+  border: 1px solid #c8e6d4;
+  border-left: 4px solid #1a9d85;
+  box-shadow: 0 2px 6px rgba(26,157,133,0.07);
+  transition: box-shadow 0.2s, background 0.2s, border-color 0.2s;
 }
+.miClaseRow:hover {
+  background: linear-gradient(to right, #ddf0e8, #edf7f2);
+  border-color: #a0d8c0;
+  border-left-color: #147a68;
+  box-shadow: 0 4px 14px rgba(26,157,133,0.13);
+}
+.miClaseRow:nth-child(even) {
+  background: linear-gradient(to right, #e4f2ec, #eff8f4);
+  border-left-color: #52b788;
+}
+
 
 .miClaseInfo {
   display: flex;
@@ -348,19 +375,19 @@
 .miClaseNombre {
   font-size: 1rem;
   font-weight: 600;
-  color: white;
+  color: #1a2e25;
   margin: 0;
 }
 
 .miClaseMeta {
   font-size: 0.85rem;
-  color: #8b90b0;
+  color: #3d6b55;
   margin: 0;
 }
 
 .miClaseCupo {
   font-size: 0.82rem;
-  color: #6b7090;
+  color: #3d6b55;
   margin: 0;
 }
 
@@ -378,13 +405,13 @@
   gap: 1rem;
   padding: 0.85rem 1rem;
   border-radius: 10px;
-  background: rgba(255,255,255,0.03);
+  background: #f0f7f3;
   border: 1px solid rgba(255,255,255,0.06);
 }
 
 .inscriptoEmail {
   font-size: 0.8rem;
-  color: #6b7090;
+  color: #3d6b55;
   margin: 0.15rem 0 0;
 }
 
@@ -407,13 +434,13 @@
   justify-content: center;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #34d399;
+  color: #0f7a5e;
   background: rgba(52, 211, 153, 0.05);
   letter-spacing: 0.1em;
 }
 
 .qrDesc {
-  color: #8b90b0;
+  color: #3d6b55;
   font-size: 0.88rem;
   text-align: center;
   max-width: 280px;
@@ -426,29 +453,29 @@
   grid-template-columns: auto 1fr;
   gap: 0.65rem 1.5rem;
   padding: 0.5rem 0;
-  color: #b0b3c7;
+  color: #3d6b55;
   font-size: 0.92rem;
 }
 
 .detalleGrid span:nth-child(odd) {
-  color: #6b7090;
+  color: #3d6b55;
   font-weight: 500;
 }
 
 .detalleGrid span:nth-child(even) {
-  color: #d0d3e8;
+  color: #c8e8d8;
 }
 
 /* ── No resultados ───────────────────────────────────────── */
 .noResultados {
-  color: #6b7090;
+  color: #3d6b55;
   font-size: 0.9rem;
   padding: 0.5rem 0;
   margin: 0;
 }
 
 .emptyMsg {
-  color: #6b7090;
+  color: #3d6b55;
   font-size: 0.9rem;
   text-align: center;
   padding: 1rem 0;
@@ -471,12 +498,12 @@
 }
 
 .modal {
-  background: #12162e;
-  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%);
+  border: 1px solid rgba(30,153,136,0.18);
   border-radius: 20px;
   padding: 1.5rem;
   width: 100%; max-width: 460px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 0 12px 40px rgba(30,153,136,0.14);
   animation: slideUp 0.2s ease;
 }
 
@@ -492,17 +519,17 @@
   margin-bottom: 1.2rem;
 }
 
-.modalTitle { font-size: 1.1rem; font-weight: 600; color: white; margin: 0; }
+.modalTitle { font-size: 1.1rem; font-weight: 600; color: #1a2e25; margin: 0; }
 
 .closeBtn {
-  background: rgba(255,255,255,0.07);
-  border: none; color: #8b90b0;
+  background: rgba(30,153,136,0.12);
+  border: none; color: #3d6b55;
   width: 30px; height: 30px;
   border-radius: 8px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.2s;
 }
-.closeBtn:hover { background: rgba(255,255,255,0.12); color: white; }
+.closeBtn:hover { background: rgba(30,153,136,0.22); color: #1a2e25; }
 
 /* ── Clases ofertadas ─────────────────────────────────────── */
 .ofertadasList {
@@ -516,30 +543,44 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(to right, #eaf5ef, #f4faf7);
+  border: 1px solid #c8e6d4;
+  border-left: 4px solid #1a9d85;
   border-radius: 12px;
   padding: 0.9rem 1rem;
+  box-shadow: 0 2px 6px rgba(26,157,133,0.07);
+  transition: box-shadow 0.2s, background 0.2s, border-color 0.2s;
 }
+.ofertadaRow:hover {
+  background: linear-gradient(to right, #ddf0e8, #edf7f2);
+  border-color: #a0d8c0;
+  border-left-color: #147a68;
+  box-shadow: 0 4px 14px rgba(26,157,133,0.13);
+}
+.ofertadaRow:nth-child(even) {
+  background: linear-gradient(to right, #e4f2ec, #eff8f4);
+  border-left-color: #52b788;
+}
+
 
 .ofertadaInfo { flex: 1; }
 
 .ofertadaNombre {
   font-size: 0.97rem;
   font-weight: 600;
-  color: white;
+  color: #1a2e25;
   margin: 0 0 0.2rem;
 }
 
 .ofertadaMeta {
   font-size: 0.82rem;
-  color: #8b90b0;
+  color: #3d6b55;
   margin: 0 0 0.15rem;
 }
 
 .ofertadaCupo {
   font-size: 0.8rem;
-  color: #6b7090;
+  color: #3d6b55;
   margin: 0;
 }
 
@@ -577,7 +618,7 @@
 
 .formExito {
   font-size: 0.88rem;
-  color: #34d399;
+  color: #0f7a5e;
   background: rgba(52,211,153,0.1);
   border: 1px solid rgba(52,211,153,0.3);
   border-radius: 8px;
@@ -610,10 +651,10 @@
 }
 .btnSecundario {
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(30,153,136,0.18);
   border-radius: 10px;
   background: transparent;
-  color: #c8cbdf;
+  color: #c8e8d8;
   font-size: 0.88rem;
   font-weight: 500;
   cursor: pointer;
@@ -625,7 +666,7 @@
   border: none;
   border-radius: 10px;
   background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: white;
+  color: #1a2e25;
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -636,7 +677,7 @@
 
 .desasMsgOk {
   font-size: 0.88rem;
-  color: #34d399;
+  color: #0f7a5e;
   background: rgba(52,211,153,0.1);
   border: 1px solid rgba(52,211,153,0.3);
   border-radius: 8px;

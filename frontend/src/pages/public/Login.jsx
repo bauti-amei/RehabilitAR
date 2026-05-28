@@ -118,7 +118,7 @@ export default function Login() {
   return (
     <div className={styles.container}>
       <div className={styles.leftSide}>
-        <h1 className={styles.logo}>Rehabilitar</h1>
+        <img src="/logo.png" alt="RehabilitAR" className={styles.logoImg} />
 
         <p className={styles.subtitle}>
           Centro de kinesiología
