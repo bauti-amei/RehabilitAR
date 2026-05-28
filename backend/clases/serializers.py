@@ -59,7 +59,7 @@ class ClaseSerializer(serializers.ModelSerializer):
             'tipo_clase', 'fecha', 'valor', 'descripcion', 'ofertada',
             'horario_inicio', 'horario_fin', 'horario',
             'dias', 'sala', 'aula', 'cupo', 'profesor', 'profesor_nombre',
-            'cantidad_inscriptos', 'lista_espera', 'en_curso',
+            'cantidad_inscriptos', 'lista_espera', 'en_curso', 'estado'
         ]
 
     def get_profesor_nombre(self, obj):

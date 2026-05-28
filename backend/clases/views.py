@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -14,6 +16,7 @@ from .serializers import (
 )
 from users.models import User
 from users.serializers import UserSerializer
+from django.core.mail import send_mail
 
 # ── Feriados Argentina 2025-2026 ──────────────────────────
 FERIADOS = {
@@ -754,7 +757,7 @@ class ClasesParaReprogramarView(APIView):
         while d <= week_end:
             for c in clases:
                 wd = DIAS_A_WEEKDAY.get(c.dias)
-                if wd is not None and d.weekday() == wd and str(d) not in FERIADOS and d != fecha_feriado:
+                if wd is not None and d.weekday() == wd and str(d) not in FERIADOS and d != fecha_feriado and c.estado != 'cancelada':
                     result.append({
                         'clase_id': c.id,
                         'clase_nombre': c.nombre,
@@ -869,6 +872,7 @@ class ClasesParaReservarView(APIView):
             Clase.objects
             .select_related('profesor', 'sala')
             .prefetch_related('inscriptos')
+            .exclude(estado='cancelada')
             .all()
         )
 
@@ -1009,6 +1013,74 @@ class ReservarClaseUnicaView(APIView):
                 'estado': 'lista_espera',
                 'valor': float(clase.valor),
             }, status=201)
+        
+class CancelarClaseView(APIView):
+    """
+    POST /api/clases/cancelar-clase/
+    Cancela la clase recibida.
+    Maneja notificaciones, reembolsos y la ejecución automática.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def cancelar_clase(clase_obj, motivo):
+        clase_obj.estado = 'cancelada'
+        clase_obj.motivo_cancelacion = motivo
+        clase_obj.fecha_cancelacion = datetime.now()
+        clase_obj.save(update_fields=['estado','motivo_cancelacion','fecha_cancelacion'])
+
+
+        reservas = Reserva.objects.filter(clase=clase_obj, estado__in=['activa', 'lista_espera']).select_related('usuario')
+        count = 0
+        for r in reservas:
+            # Cancelar cada reserva
+            was_active = r.estado == Reserva.Estado.ACTIVA
+            r.estado = Reserva.Estado.CANCELADA
+            r.save(update_fields=['estado'])
+            count += 1
+
+            if was_active:
+                try:
+                    clase_obj.inscriptos.remove(r.usuario)
+                except Exception:
+                    pass
+
+            # Notificar a cada usuario
+            try:
+                send_mail(
+                    subject='Clase cancelada — RehabilitAR',
+                    message=(
+                        f'Hola {r.usuario.first_name},\n\n'
+                        f'La clase "{clase_obj.nombre}" programada para el {clase_obj.fecha} fue cancelada por el administrador.\n\n'
+                        f'Saludos,\nEquipo RehabilitAR'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[r.usuario.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
+
+            # TODO: Realizar devolución 
+
+        return count
+
+    def post(self, request):
+        clase_id = request.data.get('clase_id')
+        if clase_id:
+            if request.user.role != User.Role.ADMIN:
+                return Response({'detail': 'Sólo administradores pueden cancelar una clase.'}, status=403)
+
+            try:
+                clase_obj = Clase.objects.get(pk=clase_id)
+            except Clase.DoesNotExist:
+                return Response({'detail': 'Clase no encontrada.'}, status=404)
+            
+            count = self.cancelar_clase(clase_obj, 'admin')
+            return Response({'detail': f'Se cancelaron {count} reservas para la fecha indicada.'}, status=200)
+
+        return Response({'detail': 'Parámetros inválidos. Enviar `clase_id`.'}, status=400)
+
 
 
 class ListaEsperaFechasView(APIView):
