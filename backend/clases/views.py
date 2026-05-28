@@ -94,7 +94,7 @@ class ClaseListView(APIView):
     def get(self, request):
         if request.user.role != User.Role.ADMIN:
             return Response({'detail': 'No tenés permiso.'}, status=403)
-        clases = Clase.objects.select_related('profesor', 'sala').prefetch_related('inscriptos', 'lista_espera').all()
+        clases = Clase.objects.select_related('profesor', 'sala').prefetch_related('inscriptos', 'lista_espera').exclude(estado='cancelada')
         return Response(ClaseSerializer(clases, many=True).data)
 
     def post(self, request):
@@ -669,6 +669,7 @@ class MisReservasView(APIView):
 
         qs = (Reserva.objects
               .filter(usuario=request.user)
+              .exclude(clase__estado='cancelada')
               .select_related('clase', 'clase__sala', 'clase__profesor')
               .prefetch_related('suscripcion_set'))
         if mes:
@@ -712,6 +713,7 @@ class MisSuscripcionesView(APIView):
 
         suscripciones = (Suscripcion.objects
                          .filter(usuario=request.user)
+                         .exclude(clase__estado='cancelada')
                          .select_related('clase', 'clase__sala', 'clase__profesor')
                          .prefetch_related('reservas')
                          .order_by('-anio', '-mes'))

@@ -579,14 +579,14 @@ function AreaClases() {
               <>
                 <div className={styles.claseProfesor}>
                   {c.profesor_nombre ? (
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <button 
-                      className={styles.verMasBtn} // <-- Usamos la clase nativa del CSS
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className={styles.verMasBtn}
                       onClick={() => {
                         setDesasignar(c);
                         setInfoProfesorSel(null);
                         setConfirmarPaso(false);
-                        
+
                         getProfesoresPorEspecialidadRequest(c.especialidad)
                           .then(res => {
                             const profeDetalle = res.data.find(p => p.nombre === c.profesor_nombre);
@@ -595,24 +595,18 @@ function AreaClases() {
                           .catch(() => setInfoProfesorSel(null));
                       }}
                       title="Ver información del profesor"
-                      style={{ 
-                        padding: '0.5rem 1rem',   /* Mucho más alto y ancho, resalta un montón */
-                        fontSize: '1rem',           /* Tamaño de letra estándar grande (mayor al primario) */
-                        borderRadius: '30px',       /* Esquinas un toque más curvas para acompañar el tamaño */
-                        letterSpacing: '0.5px',     /* Separa un poquito las letras para que respire el texto */
-                        boxShadow: '0 2px 8px rgba(30, 153, 136, 0.05)' /* Una sombrita violeta muy sutil de fondo */
+                      style={{
+                        padding: '0.5rem 1rem',
+                        fontSize: '1rem',
+                        borderRadius: '30px',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 2px 8px rgba(30, 153, 136, 0.05)'
                       }}
                     >
                       Ver lista de espera
                       {c.lista_espera.length > 0 && (
                         <span className={styles.listaCount}>{c.lista_espera.length}</span>
                       )}
-                    </button>
-                    <button
-                      className={styles.cancelarClaseBtn}
-                      onClick={() => handleCancelarClase(c)}
-                    >
-                      Cancelar clase
                     </button>
                   </div>
                     ) : (
@@ -621,6 +615,12 @@ function AreaClases() {
                         <button className={styles.asignarBtn} onClick={() => abrirAsignar(c)}>Asignar profesor</button>
                       </div>
                     )}
+                  <button
+                    className={styles.cancelarClaseBtn}
+                    onClick={() => handleCancelarClase(c)}
+                  >
+                    Cancelar clase
+                  </button>
                   </div>
                   <div className={styles.claseCupo}>
                     <span className={`${styles.cupoTag} ${c.cantidad_inscriptos >= c.cupo ? styles.cupoLleno : ''}`}>
