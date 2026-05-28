@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getMisReservasRequest, getMisSuscripcionesRequest } from '../../api/clases'
+import {
+  getMisReservasRequest, getMisSuscripcionesRequest,
+  getMisCreditosRequest,
+  cancelarReservaUnicaRequest, cancelarClaseSuscripcionRequest,
+  cancelarSuscripcionRequest,
+} from '../../api/clases'
 import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
 import ReservarClaseModal from '../../components/client/ReservarClaseModal'
 import styles from './Dashboard.module.css'
@@ -203,7 +208,24 @@ export default function ClientDashboard() {
   const [modalReserva,     setModalReserva]     = useState(false)
   const [suscripciones,    setSuscripciones]    = useState([])
   const [reservasUnicas,   setReservasUnicas]   = useState([])
-  const [detalleSusc,      setDetalleSusc]      = useState(null)   // suscripción seleccionada para ver más
+  const [detalleSusc,      setDetalleSusc]      = useState(null)
+  const [creditos,         setCreditos]         = useState([])
+
+  // Cancelación — reserva única
+  const [cancelUnica,      setCancelUnica]      = useState(null)   // reserva object
+  const [cancelUnicaLoading, setCancelUnicaLoading] = useState(false)
+  const [cancelUnicaResult,  setCancelUnicaResult]  = useState(null)
+
+  // Cancelación — clase de suscripción
+  const [cancelSusc,       setCancelSusc]       = useState(null)   // suscripción object
+  const [cancelSuscFecha,  setCancelSuscFecha]  = useState(null)   // reserva object (fecha seleccionada)
+  const [cancelSuscLoading,setCancelSuscLoading]= useState(false)
+  const [cancelSuscResult, setCancelSuscResult] = useState(null)
+
+  // Cancelación — suscripción completa
+  const [cancelSuscTotal,        setCancelSuscTotal]        = useState(null)  // suscripción object
+  const [cancelSuscTotalLoading, setCancelSuscTotalLoading] = useState(false)
+  const [cancelSuscTotalOk,      setCancelSuscTotalOk]      = useState(false)
 
   const cargarReservas = useCallback(async () => {
     try {
@@ -212,11 +234,13 @@ export default function ClientDashboard() {
       const mesSig  = mes === 12 ? 1 : mes + 1
       const anioSig = mes === 12 ? anio + 1 : anio
 
-      const [r1, r2, rSusc] = await Promise.all([
+      const [r1, r2, rSusc, rCred] = await Promise.all([
         getMisReservasRequest(mes, anio),
         getMisReservasRequest(mesSig, anioSig),
         getMisSuscripcionesRequest(),
+        getMisCreditosRequest(),
       ])
+      setCreditos(rCred.data)
 
       const map = {}
       const todas = [...r1.data, ...r2.data]
@@ -243,6 +267,67 @@ export default function ClientDashboard() {
   }, [])
 
   useEffect(() => { cargarReservas() }, [cargarReservas])
+
+  /* ── Cancelar reserva única ─────────────────────────────── */
+  const handleCancelarUnica = async () => {
+    if (!cancelUnica) return
+    setCancelUnicaLoading(true)
+    try {
+      const res = await cancelarReservaUnicaRequest(cancelUnica.id)
+      setCancelUnicaResult(res.data)
+      cargarReservas()
+    } catch (e) {
+      setCancelUnicaResult({ error: e?.response?.data?.detail || 'Error al cancelar.' })
+    } finally {
+      setCancelUnicaLoading(false)
+    }
+  }
+
+  const cerrarCancelUnica = () => {
+    setCancelUnica(null)
+    setCancelUnicaResult(null)
+  }
+
+  /* ── Cancelar clase de suscripción ──────────────────────── */
+  const handleCancelarClaseSusc = async () => {
+    if (!cancelSuscFecha) return
+    setCancelSuscLoading(true)
+    try {
+      const res = await cancelarClaseSuscripcionRequest(cancelSuscFecha.id)
+      setCancelSuscResult(res.data)
+      cargarReservas()
+    } catch (e) {
+      setCancelSuscResult({ error: e?.response?.data?.detail || 'Error al cancelar.' })
+    } finally {
+      setCancelSuscLoading(false)
+    }
+  }
+
+  const cerrarCancelSusc = () => {
+    setCancelSusc(null)
+    setCancelSuscFecha(null)
+    setCancelSuscResult(null)
+  }
+
+  /* ── Cancelar suscripción completa ──────────────────────── */
+  const handleCancelarSuscripcionTotal = async () => {
+    if (!cancelSuscTotal) return
+    setCancelSuscTotalLoading(true)
+    try {
+      await cancelarSuscripcionRequest(cancelSuscTotal.id)
+      setCancelSuscTotalOk(true)
+      cargarReservas()
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Error al cancelar la suscripción.')
+    } finally {
+      setCancelSuscTotalLoading(false)
+    }
+  }
+
+  const cerrarCancelSuscTotal = () => {
+    setCancelSuscTotal(null)
+    setCancelSuscTotalOk(false)
+  }
 
   const fechaProximaLabel = proximaClase
     ? proximaClase.fecha === todayStr
@@ -296,13 +381,19 @@ export default function ClientDashboard() {
 
               {/* Suscripciones */}
               {suscripciones.map(s => {
-                const activa = s.estado === 'activa'
+                const activa    = s.estado === 'activa'
+                const cancelada = s.estado === 'cancelada'
                 return (
                   <div key={`s-${s.id}`} className={styles.planItem}>
                     {/* Col 1 — Nombre + tipo */}
                     <div className={styles.planColNombre}>
                       <p className={styles.planNombre}>{s.clase_nombre}</p>
                       <span className={`${styles.planBadge} ${styles.planBadgeSusc}`}>Suscripción</span>
+                      {cancelada && s.vigente_hasta && (
+                        <span className={styles.vigenteHasta}>
+                          Vigente hasta {formatFecha(s.vigente_hasta)}
+                        </span>
+                      )}
                     </div>
                     {/* Col 2 — Detalles */}
                     <div className={styles.planColDetalle}>
@@ -310,13 +401,15 @@ export default function ClientDashboard() {
                       <span className={styles.planDetalleItem}>🕐 {s.horario}</span>
                       <span className={styles.planDetalleItem}>🏠 {s.aula || 'Sin aula'}</span>
                     </div>
-                    {/* Col 3 — Estado + botón */}
+                    {/* Col 3 — Estado + botones */}
                     <div className={styles.planColAccion}>
                       <span className={styles.planEstadoBadge} style={{
-                        background: activa ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                        color:      activa ? '#22c55e'              : '#f59e0b',
-                        border: `1px solid ${activa ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                      }}>{activa ? '✅ Activa' : '⏳ Pendiente'}</span>
+                        background: cancelada ? 'rgba(245,158,11,0.12)' : activa ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color:      cancelada ? '#d97706'               : activa ? '#22c55e'              : '#f59e0b',
+                        border: `1px solid ${cancelada ? 'rgba(217,119,6,0.3)' : activa ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      }}>
+                        {cancelada ? '🚫 Cancelada' : activa ? '✅ Activa' : '⏳ Pendiente'}
+                      </span>
                       {s.en_espera && (
                         <span className={styles.planEstadoBadge} style={{
                           background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
@@ -324,6 +417,12 @@ export default function ClientDashboard() {
                         }}>📋 En espera</span>
                       )}
                       <button className={styles.verMasBtn} onClick={() => setDetalleSusc(s)}>Ver más</button>
+                      {!cancelada && (
+                        <>
+                          <button className={styles.cancelarBtn} onClick={() => { setCancelSusc(s); setCancelSuscFecha(null); setCancelSuscResult(null) }}>Cancelar clase</button>
+                          <button className={styles.cancelarSuscBtn} onClick={() => { setCancelSuscTotal(s); setCancelSuscTotalOk(false) }}>Cancelar suscripción</button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )
@@ -351,6 +450,7 @@ export default function ClientDashboard() {
                       border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
                     }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
                     <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
+                    <button className={styles.cancelarBtn} onClick={() => { setCancelUnica(r); setCancelUnicaResult(null) }}>Cancelar</button>
                   </div>
                 </div>
               ))}
@@ -374,6 +474,36 @@ export default function ClientDashboard() {
       {/* ── Calendario ── */}
       <Calendario misClases={misClases} />
 
+      {/* ── Mis Créditos ── */}
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>Mis créditos del mes</h2>
+        {creditos.length === 0 ? (
+          <div className={styles.emptyState}>
+            <span className={styles.emptyIcon}>🎟️</span>
+            <p>No tenés créditos activos este mes</p>
+          </div>
+        ) : (
+          <div className={styles.creditosWrap}>
+            <p className={styles.creditosTotal}>
+              Total: <strong>{creditos.length}/3</strong>
+            </p>
+            <div className={styles.creditosList}>
+              {creditos.map(c => (
+                <div key={c.id} className={styles.creditoItem}>
+                  <span className={styles.creditoIcon}>
+                    {c.tipo_clase === 'tren_superior' ? '💪' : c.tipo_clase === 'tren_inferior' ? '🦵' : '🧘'}
+                  </span>
+                  <span className={styles.creditoLabel}>{c.tipo_clase_display}</span>
+                  <span className={styles.creditoBadge}>Crédito</span>
+                  <button className={styles.canjearBtn} disabled>Canjear</button>
+                </div>
+              ))}
+            </div>
+            <p className={styles.creditosNote}>Los créditos vencen el 1° del mes siguiente.</p>
+          </div>
+        )}
+      </div>
+
       {/* ── Modal comprar suscripción ── */}
       {modalSusc && (
         <ComprarSuscripcionModal
@@ -388,6 +518,213 @@ export default function ClientDashboard() {
           onClose={() => setModalReserva(false)}
           onReservaOk={() => cargarReservas()}
         />
+      )}
+
+      {/* ── Modal cancelar reserva única ── */}
+      {cancelUnica && (
+        <div className={styles.overlay} onClick={cerrarCancelUnica}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Cancelar reserva</h3>
+              <button className={styles.closeBtn} onClick={cerrarCancelUnica}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+              {!cancelUnicaResult ? (
+                <>
+                  <p style={{ color: '#3d6b55', marginBottom: '0.5rem' }}>
+                    ¿Confirmás la cancelación de:
+                  </p>
+                  <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1.2rem' }}>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{cancelUnica.clase_nombre}</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem', margin: 0 }}>📅 {formatFecha(cancelUnica.fecha)} · 🕐 {cancelUnica.horario}</p>
+                  </div>
+                  <p style={{ color: '#92400e', fontSize: '0.83rem', background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)', borderRadius: '8px', padding: '0.6rem 0.9rem', marginBottom: '1.2rem' }}>
+                    ⚠️ Si cancelás con menos de 24 h de anticipación, perdés la seña.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={cerrarCancelUnica} disabled={cancelUnicaLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                      No, volver
+                    </button>
+                    <button onClick={handleCancelarUnica} disabled={cancelUnicaLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                      {cancelUnicaLoading ? 'Cancelando…' : 'Sí, cancelar'}
+                    </button>
+                  </div>
+                </>
+              ) : cancelUnicaResult.error ? (
+                <>
+                  <p style={{ color: '#b91c1c', fontWeight: 600, marginBottom: '1rem' }}>❌ {cancelUnicaResult.error}</p>
+                  <button onClick={cerrarCancelUnica} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
+                </>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                    <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{cancelUnicaResult.devolver_sena ? '✅' : 'ℹ️'}</p>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, marginBottom: '0.4rem' }}>Reserva cancelada</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem' }}>
+                      {cancelUnicaResult.devolver_sena
+                        ? 'Cancelaste con más de 24 h de anticipación. Recibirás un mail con la acreditación de la seña.'
+                        : 'Cancelaste con menos de 24 h de anticipación. La seña no puede ser reintegrada.'}
+                    </p>
+                  </div>
+                  <button onClick={cerrarCancelUnica} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Aceptar</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal cancelar clase de suscripción ── */}
+      {cancelSusc && (
+        <div className={styles.overlay} onClick={cerrarCancelSusc}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>
+                {cancelSuscResult ? 'Resultado' : cancelSuscFecha ? 'Confirmar cancelación' : 'Seleccioná la clase a cancelar'}
+              </h3>
+              <button className={styles.closeBtn} onClick={cerrarCancelSusc}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+
+              {/* Paso 1 — lista de fechas */}
+              {!cancelSuscFecha && !cancelSuscResult && (
+                <>
+                  <p style={{ color: '#3d6b55', fontSize: '0.88rem', marginBottom: '1rem' }}>
+                    Suscripción: <strong style={{ color: '#1a2e25' }}>{cancelSusc.clase_nombre}</strong>
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
+                    {(cancelSusc.reservas || []).filter(r => r.estado !== 'cancelada').map(r => {
+                      const [y, m, d] = r.fecha.split('-')
+                      const label = new Date(+y, +m - 1, +d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+                      return (
+                        <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                          <div>
+                            <p style={{ color: '#1a2e25', fontWeight: 600, margin: '0 0 2px', fontSize: '0.88rem' }}>{label}</p>
+                            <p style={{ color: '#3d6b55', fontSize: '0.78rem', margin: 0 }}>
+                              {r.estado === 'lista_espera' ? '📋 Lista de espera' : '✅ Activa'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setCancelSuscFecha(r)}
+                            style={{ padding: '0.4rem 0.9rem', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            Cancelar esta
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button onClick={cerrarCancelSusc} style={{ marginTop: '1.2rem', width: '100%', padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                    Cerrar
+                  </button>
+                </>
+              )}
+
+              {/* Paso 2 — confirmar fecha seleccionada */}
+              {cancelSuscFecha && !cancelSuscResult && (() => {
+                const [y, m, d] = cancelSuscFecha.fecha.split('-')
+                const label = new Date(+y, +m - 1, +d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                return (
+                  <>
+                    <p style={{ color: '#3d6b55', marginBottom: '0.5rem' }}>¿Confirmás la cancelación de la clase del:</p>
+                    <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+                      <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{cancelSusc.clase_nombre}</p>
+                      <p style={{ color: '#3d6b55', fontSize: '0.88rem', margin: 0 }}>📅 {label} · 🕐 {cancelSusc.horario}</p>
+                    </div>
+                    <div style={{ background: 'rgba(26,157,133,0.06)', border: '1px solid rgba(26,157,133,0.2)', borderRadius: '8px', padding: '0.7rem 1rem', marginBottom: '1.2rem', fontSize: '0.82rem', color: '#1a6b55' }}>
+                      <p style={{ margin: '0 0 4px', fontWeight: 600 }}>ℹ️ Reglas de cancelación:</p>
+                      <p style={{ margin: 0 }}>+48 h → crédito del mismo tipo de clase<br/>24-48 h → descuento en próxima cuota<br/>-24 h → sin beneficio</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button onClick={() => setCancelSuscFecha(null)} disabled={cancelSuscLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                        ← Volver
+                      </button>
+                      <button onClick={handleCancelarClaseSusc} disabled={cancelSuscLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                        {cancelSuscLoading ? 'Cancelando…' : 'Sí, cancelar'}
+                      </button>
+                    </div>
+                  </>
+                )
+              })()}
+
+              {/* Paso 3 — resultado */}
+              {cancelSuscResult && (() => {
+                const MSGS = {
+                  credito_generado: { icon: '🎟️', title: 'Crédito generado', desc: `Se generó un crédito de ${cancelSusc.clase_nombre?.split(' ')[0] || 'clase'} válido para el mes en curso.` },
+                  limite_creditos:  { icon: 'ℹ️', title: 'Límite de créditos', desc: 'Ya tenés 3 créditos activos este mes. No se generó un nuevo crédito.' },
+                  descuento_20:     { icon: '🏷️', title: '20% de descuento', desc: 'Tendrás un 20% de descuento en tu próxima mensualidad.' },
+                  descuento_30:     { icon: '🏷️', title: '30% de descuento', desc: 'Tendrás un 30% de descuento en tu próxima mensualidad.' },
+                  sin_beneficio:    { icon: 'ℹ️', title: 'Sin beneficio', desc: 'La cancelación no genera crédito ni descuento.' },
+                }
+                const info = cancelSuscResult.error
+                  ? { icon: '❌', title: 'Error', desc: cancelSuscResult.error }
+                  : (MSGS[cancelSuscResult.resultado] || { icon: 'ℹ️', title: 'Clase cancelada', desc: '' })
+                return (
+                  <>
+                    <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                      <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{info.icon}</p>
+                      <p style={{ color: '#1a2e25', fontWeight: 700, marginBottom: '0.4rem' }}>{info.title}</p>
+                      <p style={{ color: '#3d6b55', fontSize: '0.88rem' }}>{info.desc}</p>
+                    </div>
+                    <button onClick={cerrarCancelSusc} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Aceptar</button>
+                  </>
+                )
+              })()}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal cancelar suscripción completa ── */}
+      {cancelSuscTotal && (
+        <div className={styles.overlay} onClick={cerrarCancelSuscTotal}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Cancelar suscripción</h3>
+              <button className={styles.closeBtn} onClick={cerrarCancelSuscTotal}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+              {!cancelSuscTotalOk ? (
+                <>
+                  <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{cancelSuscTotal.clase_nombre}</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.85rem', margin: 0 }}>📅 {cancelSuscTotal.dias} · 🕐 {cancelSuscTotal.horario}</p>
+                  </div>
+                  <p style={{ color: '#3d6b55', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                    ¿Estás seguro que deseás cancelar esta suscripción?
+                  </p>
+                  <div style={{ background: 'rgba(26,157,133,0.06)', border: '1px solid rgba(26,157,133,0.2)', borderRadius: '8px', padding: '0.7rem 1rem', marginBottom: '1.2rem', fontSize: '0.82rem', color: '#1a6b55' }}>
+                    <p style={{ margin: 0 }}>
+                      ℹ️ Tus clases ya abonadas de este mes se mantienen activas.
+                      A partir del próximo mes la suscripción no se renovará.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={cerrarCancelSuscTotal} disabled={cancelSuscTotalLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                      No, volver
+                    </button>
+                    <button onClick={handleCancelarSuscripcionTotal} disabled={cancelSuscTotalLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                      {cancelSuscTotalLoading ? 'Cancelando…' : 'Sí, cancelar'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                    <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</p>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, marginBottom: '0.4rem' }}>Suscripción cancelada</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem' }}>
+                      Tus clases ya abonadas siguen activas hasta la última fecha del período.
+                      No se generarán cargos el próximo mes.
+                    </p>
+                  </div>
+                  <button onClick={cerrarCancelSuscTotal} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Aceptar</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Modal detalle (suscripción o reserva única) ── */}

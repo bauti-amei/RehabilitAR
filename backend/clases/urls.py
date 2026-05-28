@@ -9,7 +9,10 @@ from .views import (
     MisReservasView, MisSuscripcionesView, ClasesParaReprogramarView,
     ClasesParaReservarView, ReservarClaseUnicaView,
     ListaEsperaFechasView,
+    MisCreditosView, CancelarReservaUnicaView, CancelarClaseSuscripcionView,
+    CancelarSuscripcionView,
 )
+
 
 urlpatterns = [
     path('',                           ClaseListView.as_view(),                 name='clase-list'),
@@ -35,4 +38,9 @@ urlpatterns = [
     # Reserva única
     path('para-reservar/',             ClasesParaReservarView.as_view(),          name='clases-para-reservar'),
     path('reservar-unica/',            ReservarClaseUnicaView.as_view(),          name='reservar-unica'),
+    # Cancelaciones y créditos
+    path('mis-creditos/',                              MisCreditosView.as_view(),              name='mis-creditos'),
+    path('cancelar-reserva-unica/<int:pk>/',           CancelarReservaUnicaView.as_view(),     name='cancelar-reserva-unica'),
+    path('cancelar-clase-suscripcion/<int:pk>/',       CancelarClaseSuscripcionView.as_view(), name='cancelar-clase-suscripcion'),
+    path('cancelar-suscripcion/<int:pk>/',             CancelarSuscripcionView.as_view(),      name='cancelar-suscripcion'),
 ]

@@ -123,18 +123,35 @@ class Suscripcion(models.Model):
     class Estado(models.TextChoices):
         ACTIVA         = 'activa',         'Activa'
         PENDIENTE_PAGO = 'pendiente_pago', 'Pendiente de pago'
+        CANCELADA      = 'cancelada',      'Cancelada'
 
-    usuario    = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='suscripciones')
-    clase      = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='suscripciones')
-    mes        = models.PositiveSmallIntegerField()
-    anio       = models.PositiveSmallIntegerField()
-    monto      = models.DecimalField(max_digits=10, decimal_places=2)
-    estado     = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
-    reservas   = models.ManyToManyField(Reserva, blank=True, related_name='suscripcion_set')
-    created_at = models.DateTimeField(auto_now_add=True)
+    usuario                = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='suscripciones')
+    clase                  = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='suscripciones')
+    mes                    = models.PositiveSmallIntegerField()
+    anio                   = models.PositiveSmallIntegerField()
+    monto                  = models.DecimalField(max_digits=10, decimal_places=2)
+    estado                 = models.CharField(max_length=20, choices=Estado.choices, default=Estado.ACTIVA)
+    reservas               = models.ManyToManyField(Reserva, blank=True, related_name='suscripcion_set')
+    # Cancelaciones en ventana 24-48h (para descuento en próximo mes)
+    cancelaciones_24_48h   = models.PositiveSmallIntegerField(default=0)
+    descuento_siguiente_mes = models.PositiveSmallIntegerField(default=0)   # 0, 20 o 30 %
+    created_at             = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = [['usuario', 'clase', 'mes', 'anio']]
 
     def __str__(self):
         return f'{self.usuario} — {self.clase.nombre} — {self.mes}/{self.anio}'
+
+
+class Credito(models.Model):
+    """Crédito generado por cancelación de clase de suscripción con > 48 h de anticipación."""
+    usuario       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='creditos')
+    tipo_clase    = models.CharField(max_length=20)   # 'tren_superior' | 'tren_inferior' | 'tren_medio'
+    mes           = models.PositiveSmallIntegerField()
+    anio          = models.PositiveSmallIntegerField()
+    usado         = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.usuario} — {self.tipo_clase} — {self.mes}/{self.anio}'

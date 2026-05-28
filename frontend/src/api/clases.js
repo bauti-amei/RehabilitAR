@@ -73,3 +73,16 @@ export const getListaEsperaFechasRequest = (claseId) =>
 
 export const getListaEsperaUsuariosRequest = (claseId, fecha) =>
   api.get(`/clases/${claseId}/lista-espera/?fecha=${fecha}`)
+
+// Cancelaciones y créditos
+export const getMisCreditosRequest = () =>
+  api.get('/clases/mis-creditos/')
+
+export const cancelarReservaUnicaRequest = (id) =>
+  api.post(`/clases/cancelar-reserva-unica/${id}/`)
+
+export const cancelarClaseSuscripcionRequest = (reservaId) =>
+  api.post(`/clases/cancelar-clase-suscripcion/${reservaId}/`)
+
+export const cancelarSuscripcionRequest = (id) =>
+  api.post(`/clases/cancelar-suscripcion/${id}/`)
