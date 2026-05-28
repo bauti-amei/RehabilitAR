@@ -596,17 +596,14 @@ function AreaClases() {
                       }}
                       title="Ver información del profesor"
                       style={{
-                        padding: '0.5rem 1rem',
-                        fontSize: '1rem',
-                        borderRadius: '30px',
-                        letterSpacing: '0.5px',
+                        padding: '0.3rem 0.75rem',
+                        fontSize: '0.82rem',
+                        borderRadius: '20px',
+                        letterSpacing: '0.3px',
                         boxShadow: '0 2px 8px rgba(30, 153, 136, 0.05)'
                       }}
                     >
-                      Ver lista de espera
-                      {c.lista_espera.length > 0 && (
-                        <span className={styles.listaCount}>{c.lista_espera.length}</span>
-                      )}
+                      Ver profesor de clase
                     </button>
                   </div>
                     ) : (

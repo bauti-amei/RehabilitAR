@@ -1090,7 +1090,10 @@ class CancelarClaseView(APIView):
             except Exception:
                 pass
 
-            # TODO: Realizar devolución 
+            # TODO: Realizar devolución
+
+        # Eliminar la clase de la base de datos para liberar el nombre
+        clase_obj.delete()
 
         return count
 
@@ -1104,9 +1107,9 @@ class CancelarClaseView(APIView):
                 clase_obj = Clase.objects.get(pk=clase_id)
             except Clase.DoesNotExist:
                 return Response({'detail': 'Clase no encontrada.'}, status=404)
-            
+
             count = self.cancelar_clase(clase_obj, 'admin')
-            return Response({'detail': f'Se cancelaron {count} reservas para la fecha indicada.'}, status=200)
+            return Response({'detail': f'Clase cancelada. Se notificaron {count} reservas.'}, status=200)
 
         return Response({'detail': 'Parámetros inválidos. Enviar `clase_id`.'}, status=400)
 
