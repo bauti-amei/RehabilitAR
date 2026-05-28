@@ -34,7 +34,7 @@ export default function PasswordInput({
           border: "none",
           background: "transparent",
           cursor: "pointer",
-          color:"white",
+          color:"#1a9d85",
         }}
       >
         {show ? <FaRegEyeSlash size={22} /> : <FaRegEye size={20} /> }

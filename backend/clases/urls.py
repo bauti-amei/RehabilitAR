@@ -8,6 +8,7 @@ from .views import (
     ClasesFijasView, CalcularSuscripcionView, PagarSuscripcionView,
     MisReservasView, MisSuscripcionesView, ClasesParaReprogramarView,
     ClasesParaReservarView, ReservarClaseUnicaView,
+    ListaEsperaFechasView,
 )
 
 urlpatterns = [
@@ -17,6 +18,7 @@ urlpatterns = [
     path('fijas/',                     ClasesFijasView.as_view(),                name='clases-fijas'),
     path('mis-clases/',                MisClasesView.as_view(),                 name='mis-clases'),
     path('ofertadas/',                 ClasesOfertadasView.as_view(),            name='clases-ofertadas'),
+    path('<int:pk>/lista-espera/',     ListaEsperaFechasView.as_view(),          name='lista-espera-fechas'),
     path('<int:pk>/asignarse/',        AsignarseClaseView.as_view(),             name='clase-asignarse'),
     path('<int:pk>/desasignarse/',     DesasignarseClaseView.as_view(),          name='clase-desasignarse'),
     path('<int:pk>/asignar-profesor/', AsignarProfesorView.as_view(),            name='clase-asignar-profesor'),

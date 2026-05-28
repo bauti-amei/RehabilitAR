@@ -1,310 +1,106 @@
-/* ── Wrapper ─────────────────────────────────────────────── */
-.wrapper {
-  min-height: 100vh;
-  background: radial-gradient(circle at top left, #1a1d35, #090b16 70%);
-  color: white;
-  font-family: sans-serif;
-}
+.wrapper { min-height: 100vh; background: linear-gradient(145deg, #0f3d2e 0%, #1a5c42 35%, #1a7a5e 65%, #1a9d85 100%); color: #1a2e25; font-family: sans-serif; }
 
-/* ── Navbar ──────────────────────────────────────────────── */
 .navbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  height: 64px;
-  background: rgba(15, 18, 40, 0.92);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 64px;
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%); border-bottom: 2px solid #b8dece;
+  box-shadow: 0 2px 12px rgba(30,153,136,0.07);
 }
 
-.brand {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: white;
-  letter-spacing: -0.02em;
-}
+.brand { font-size: 1.4rem; font-weight: 700; color: #1a2e25; letter-spacing: -0.02em; }
+.navActions { display: flex; align-items: center; gap: 0.5rem; }
 
-.navActions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* ── Icon buttons (bell, gear) ──────────────────────────── */
 .iconBtn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.85rem;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  background: rgba(255,255,255,0.04);
-  color: #c8cbdf;
-  font-size: 0.88rem;
-  cursor: pointer;
+  position: relative; display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.85rem; border: 1px solid #b8dece; border-radius: 10px;
+  background: linear-gradient(145deg, #8ec5a8 0%, #7dbda0 50%, #88c2a8 100%); color: #2d5a42; font-size: 0.88rem; cursor: pointer;
   transition: background 0.2s, color 0.2s;
 }
-
-.iconBtn:hover {
-  background: rgba(124, 92, 255, 0.15);
-  color: white;
-  border-color: rgba(124, 92, 255, 0.3);
-}
-
-.iconLabel {
-  font-size: 0.88rem;
-}
+.iconBtn:hover { background: rgba(26,157,133,0.10); color: #1a9d85; border-color: rgba(26,157,133,0.30); }
+.iconLabel { font-size: 0.88rem; }
 
 .badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: 9px;
-  background: #ef4444;
-  color: white;
-  font-size: 0.7rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px;
+  padding: 0 4px; border-radius: 9px; background: #ef4444; color: white;
+  font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
 }
 
-/* ── User menu ───────────────────────────────────────────── */
-.userMenu {
-  position: relative;
-  margin-left: 0.5rem;
-}
+.userMenu { position: relative; margin-left: 0.5rem; }
 
 .userBtn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.9rem 0.4rem 0.5rem;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.05);
-  color: white;
-  cursor: pointer;
-  transition: background 0.2s;
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.9rem 0.4rem 0.5rem; border: 1px solid #b8dece;
+  border-radius: 999px; background: linear-gradient(145deg, #8ec5a8 0%, #7dbda0 50%, #88c2a8 100%); color: #1a2e25;
+  cursor: pointer; transition: background 0.2s;
 }
-
-.userBtn:hover {
-  background: rgba(124, 92, 255, 0.15);
-  border-color: rgba(124, 92, 255, 0.3);
-}
+.userBtn:hover { background: rgba(26,157,133,0.10); border-color: rgba(26,157,133,0.30); }
 
 .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #7c5cff, #5a3df0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: white;
-  flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #1a9d85, #147a68);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700; color: white; flex-shrink: 0;
 }
 
-.userName {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
+.userName { font-size: 0.9rem; font-weight: 500; color: #1a2e25; }
+.chevron { display: flex; color: #3d6b55; transition: transform 0.2s; }
+.chevronOpen { transform: rotate(180deg); }
 
-.chevron {
-  display: flex;
-  color: #8b90b0;
-  transition: transform 0.2s;
-}
-
-.chevronOpen {
-  transform: rotate(180deg);
-}
-
-/* ── Dropdown ────────────────────────────────────────────── */
 .dropdown {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  min-width: 200px;
-  background: #12162e;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-  overflow: hidden;
-  animation: fadeIn 0.15s ease;
+  position: absolute; top: calc(100% + 10px); right: 0; min-width: 200px;
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%); border: 1px solid #b8dece; border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(30,153,136,0.12); overflow: hidden; animation: fadeIn 0.15s ease;
 }
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 .dropItem {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.75rem 1.1rem;
-  background: none;
-  border: none;
-  color: #c8cbdf;
-  font-size: 0.92rem;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s;
+  width: 100%; display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.75rem 1.1rem; background: none; border: none; color: #1f2937;
+  font-size: 0.92rem; cursor: pointer; text-align: left; transition: background 0.15s;
 }
+.dropItem:hover { background: rgba(26,157,133,0.08); color: #1a9d85; }
+.dropDivider { height: 1px; background: #b8dece; margin: 0.25rem 0; }
+.dropLogout { color: #dc2626; }
+.dropLogout:hover { background: rgba(220,38,38,0.06); color: #dc2626; }
 
-.dropItem:hover {
-  background: rgba(124, 92, 255, 0.12);
-  color: white;
-}
-
-.dropDivider {
-  height: 1px;
-  background: rgba(255,255,255,0.07);
-  margin: 0.25rem 0;
-}
-
-.dropLogout {
-  color: #f87171;
-}
-
-.dropLogout:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #fca5a5;
-}
-
-/* ── Modal overlay ───────────────────────────────────────── */
 .overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  backdrop-filter: blur(4px);
+  position: fixed; inset: 0; background: rgba(26,46,37,0.30);
+  display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(4px);
 }
 
 .modal {
-  background: #12162e;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 20px;
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 440px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  animation: slideUp 0.2s ease;
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%); border: 1px solid #b8dece; border-radius: 20px; padding: 1.5rem;
+  width: 100%; max-width: 440px; box-shadow: 0 12px 40px rgba(30,153,136,0.14); animation: slideUp 0.2s ease;
 }
-
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.modalHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.2rem;
-}
-
-.modalTitle {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: white;
-  margin: 0;
-}
+.modalHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
+.modalTitle { font-size: 1.1rem; font-weight: 600; color: #1a2e25; margin: 0; }
 
 .closeBtn {
-  background: rgba(255,255,255,0.07);
-  border: none;
-  color: #8b90b0;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
+  background: #f0f7f3; border: none; color: #3d6b55; width: 30px; height: 30px;
+  border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+  display: flex; align-items: center; justify-content: center; transition: background 0.2s;
 }
+.closeBtn:hover { background: rgba(26,157,133,0.12); color: #1a9d85; }
+.modalBody { color: #1f2937; }
 
-.closeBtn:hover {
-  background: rgba(255,255,255,0.12);
-  color: white;
-}
-
-.modalBody {
-  color: #b0b3c7;
-}
-
-/* ── Notifications ───────────────────────────────────────── */
-.notifList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
+.notifList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
 .notifItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.05);
+  display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.85rem 1rem;
+  border-radius: 12px; background: linear-gradient(145deg, #8ec5a8 0%, #7dbda0 50%, #88c2a8 100%); border: 1px solid #b8dece;
 }
+.notifUnread { background: rgba(26,157,133,0.06); border-color: rgba(26,157,133,0.20); }
+.notifDot { width: 8px; height: 8px; border-radius: 50%; background: #1a9d85; flex-shrink: 0; margin-top: 5px; }
+.notifTexto { color: #1f2937; font-size: 0.9rem; margin: 0 0 0.25rem; }
+.notifHora { color: #3d6b55; font-size: 0.78rem; margin: 0; }
+.emptyMsg { color: #3d6b55; text-align: center; padding: 1rem 0; }
 
-.notifUnread {
-  background: rgba(124, 92, 255, 0.07);
-  border-color: rgba(124, 92, 255, 0.2);
-}
-
-.notifDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #7c5cff;
-  flex-shrink: 0;
-  margin-top: 5px;
-}
-
-.notifTexto {
-  color: #d0d3e8;
-  font-size: 0.9rem;
-  margin: 0 0 0.25rem;
-}
-
-.notifHora {
-  color: #6b7090;
-  font-size: 0.78rem;
-  margin: 0;
-}
-
-.emptyMsg {
-  color: #6b7090;
-  text-align: center;
-  padding: 1rem 0;
-}
-
-/* ── Main content ────────────────────────────────────────── */
-.main {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
+.main { padding: 2rem; max-width: 1200px; margin: 0 auto; }

@@ -225,7 +225,7 @@ if (rolUsuario === 'client' || rolUsuario === 'cliente') {
                 alignItems: 'center', 
                 justifyContent: 'center',
                 fontSize: '1.5rem',      // Hace la flecha un poco más grande y visible
-                color: '#a78bfa',        // Color violeta combinando con tu diseño oscuro
+                color: '#52b788',        // Color violeta combinando con tu diseño oscuro
                 textDecoration: 'none',
                 cursor: 'pointer',
                 transition: 'transform 0.2s ease, color 0.2s ease',
@@ -237,7 +237,7 @@ if (rolUsuario === 'client' || rolUsuario === 'cliente') {
                 }}
                 onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateX(0)';
-                e.currentTarget.style.color = '#a78bfa';
+                e.currentTarget.style.color = '#52b788';
                 }}
             >
                 🡠 
@@ -269,7 +269,7 @@ if (rolUsuario === 'client' || rolUsuario === 'cliente') {
             <div className={styles.row}>
               <div className={styles.datoGrupo}>
                 <label>Fecha de nacimiento</label>
-                <input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} />
+                <input type="date" value={fechaNacimiento} readOnly className={styles.inputBloqueado} />
               </div>
               <div className={styles.datoGrupo}>
                 <label>Celular</label>
@@ -277,7 +277,7 @@ if (rolUsuario === 'client' || rolUsuario === 'cliente') {
               </div>
             </div>
 
-            <div className={styles.sectionLabel} style={{ marginTop: '1.5rem', marginBottom: '0.5rem', fontWeight: '600', color: '#a78bfa' }}>
+            <div className={styles.sectionLabel} style={{ marginTop: '1.5rem', marginBottom: '0.5rem', fontWeight: '600', color: '#52b788' }}>
               Dirección
             </div>
 

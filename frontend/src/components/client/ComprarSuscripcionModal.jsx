@@ -32,19 +32,14 @@ function fmtLargo(fecha) {
 }
 
 export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
-  const hoy  = new Date()
-  const mes  = hoy.getMonth() + 1
-  const anio = hoy.getFullYear()
-
-  // ── Cálculo de calendario (paso 1) ───────────────────
-  const primerDia = new Date(anio, mes - 1, 1).getDay()  // 0=Dom
-  const diasEnMes = new Date(anio, mes, 0).getDate()
-  const todayStr  = `${anio}-${String(mes).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`
-  const celdas    = [...Array(primerDia).fill(null), ...Array.from({ length: diasEnMes }, (_, i) => i + 1)]
+  const hoy = new Date()
 
   // ── Estado general ────────────────────────────────────
   const [paso,         setPaso]         = useState(1)
+  const [mes,          setMes]          = useState(hoy.getMonth() + 1)
+  const [anio,         setAnio]         = useState(hoy.getFullYear())
   const [clasesFijas,  setClasesFijas]  = useState([])
+  const [aptoOk,       setAptoOk]       = useState(true)
   const [cargando,     setCargando]     = useState(true)
   const [claseSelec,   setClaseSelec]   = useState(null)
   const [calculo,      setCalculo]      = useState(null)
@@ -62,10 +57,31 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
   const [pagando, setPagando] = useState(false)
   const [error,   setError]   = useState('')
 
+  // ── Cálculo de calendario (reactivo al mes/anio) ──────
+  const primerDia  = new Date(anio, mes - 1, 1).getDay()
+  const diasEnMes  = new Date(anio, mes, 0).getDate()
+  const todayStr   = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`
+  const celdas     = [...Array(primerDia).fill(null), ...Array.from({ length: diasEnMes }, (_, i) => i + 1)]
+  const esMesActual = anio === hoy.getFullYear() && mes === hoy.getMonth() + 1
+
+  // ── Navegar meses ─────────────────────────────────────
+  const prevMes = () => {
+    if (esMesActual) return
+    if (mes === 1) { setMes(12); setAnio(a => a - 1) }
+    else setMes(m => m - 1)
+  }
+  const nextMes = () => {
+    if (mes === 12) { setMes(1); setAnio(a => a + 1) }
+    else setMes(m => m + 1)
+  }
+
   // ── Carga clases fijas ────────────────────────────────
   useEffect(() => {
     getClasesFijasRequest()
-      .then(r => setClasesFijas(r.data))
+      .then(r => {
+        setClasesFijas(r.data.clases)
+        setAptoOk(r.data.apto_aprobado)
+      })
       .catch(() => setError('No se pudieron cargar las clases.'))
       .finally(() => setCargando(false))
   }, [])
@@ -219,9 +235,27 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
               <p className={styles.loading}>Cargando clases...</p>
             ) : (
               <>
-                <p className={styles.subtitle} style={{ marginBottom: '0.75rem' }}>
-                  Tocá una clase del calendario para suscribirte · {MESES_ES[mes]} {anio}
+                <p className={styles.subtitle} style={{ marginBottom: '0.5rem' }}>
+                  Tocá una clase del calendario para suscribirte.
                 </p>
+
+                {/* Navegación de mes */}
+                <div className={styles.calNav}>
+                  <button className={styles.calNavBtn} onClick={prevMes} disabled={esMesActual} style={esMesActual ? { opacity: 0.3, cursor: 'default' } : {}}>‹</button>
+                  <span className={styles.calNavTitle}>{MESES_ES[mes]} {anio}</span>
+                  <button className={styles.calNavBtn} onClick={nextMes}>›</button>
+                </div>
+
+                {/* Apto físico warning */}
+                {!aptoOk && (
+                  <div className={styles.alertaApto}>
+                    <span className={styles.alertaAptoIcon}>🔒</span>
+                    <div className={styles.alertaAptoTexto}>
+                      <strong>Apto físico requerido</strong>
+                      <span>Necesitás tener un apto físico aprobado para suscribirte a clases. Cargalo desde "Mi Perfil".</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Nombres días */}
                 <div className={styles.calHeader}>
@@ -248,9 +282,9 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
                           <button
                             key={c.id}
                             className={styles.calClaseBtn}
-                            onClick={() => !pasado && !calcCargando && seleccionarClase(c)}
-                            disabled={pasado || calcCargando}
-                            title={`${c.nombre} · ${c.horario}`}
+                            onClick={() => !pasado && !calcCargando && aptoOk && seleccionarClase(c)}
+                            disabled={pasado || calcCargando || !aptoOk}
+                            title={!aptoOk ? 'Necesitás un apto físico aprobado' : `${c.nombre} · ${c.horario}`}
                           >
                             <span className={styles.calClaseNombre}>{c.nombre}</span>
                             <span className={styles.calClaseHorario}>{c.horario}</span>
@@ -527,8 +561,8 @@ export default function ComprarSuscripcionModal({ onClose, onSuscripcionOk }) {
             <h2 style={{ color: '#22c55e', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
               ¡Pago aprobado!
             </h2>
-            <p style={{ color: '#b0b3c7', marginBottom: '2rem' }}>
-              Tu suscripción a <strong style={{ color: 'white' }}>{claseSelec?.nombre}</strong> fue registrada correctamente.
+            <p style={{ color: '#3d6b55', marginBottom: '2rem' }}>
+              Tu suscripción a <strong style={{ color: '#0f1f17' }}>{claseSelec?.nombre}</strong> fue registrada correctamente.
               Tus clases ya aparecen en tu calendario.
             </p>
             <button className={styles.btnPrimary} onClick={onClose}>
