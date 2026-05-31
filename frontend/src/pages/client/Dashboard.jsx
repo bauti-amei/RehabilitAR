@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   getMisReservasRequest, getMisSuscripcionesRequest,
-  cancelarSuscripcionRequest, cambiarTurnoRequest, getClasesDisponiblesParaCambioRequest,
+  getMisCreditosRequest,
+  cancelarReservaUnicaRequest, cancelarClaseSuscripcionRequest,
+  cancelarSuscripcionRequest,
+  pagarSaldoReservaRequest,
+  getClasesDisponiblesParaCambioRequest, cambiarTurnoRequest,
 } from '../../api/clases'
 import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
 import ReservarClaseModal from '../../components/client/ReservarClaseModal'
@@ -206,100 +210,40 @@ export default function ClientDashboard() {
   const [modalReserva,     setModalReserva]     = useState(false)
   const [suscripciones,    setSuscripciones]    = useState([])
   const [reservasUnicas,   setReservasUnicas]   = useState([])
-  const [detalleSusc,      setDetalleSusc]      = useState(null)   // suscripción seleccionada para ver más
-  const [accionSusc,       setAccionSusc]       = useState(null)   // 'cancelar' | 'turno'
-  const [clasesDisp,       setClasesDisp]       = useState([])
-  const [claseElegida,     setClaseElegida]     = useState(null)
-  const [feedbackSusc,     setFeedbackSusc]     = useState('')
-  // Panel "Mis suscripciones"
-  const [verSuscPanel,     setVerSuscPanel]     = useState(false)
-  const [panelAccion,      setPanelAccion]      = useState(null)  // { susId, tipo: 'cancelar'|'turno' }
-  const [panelClasesDisp,  setPanelClasesDisp]  = useState([])
-  const [panelClase,       setPanelClase]       = useState(null)
-  const [panelFeedback,    setPanelFeedback]    = useState('')
+  const [detalleSusc,      setDetalleSusc]      = useState(null)
+  const [creditos,         setCreditos]         = useState([])
 
-  const cerrarDetalle = () => {
-    setDetalleSusc(null)
-    setAccionSusc(null)
-    setClasesDisp([])
-    setClaseElegida(null)
-    setFeedbackSusc('')
-  }
+  // Cancelación — reserva única
+  const [cancelUnica,      setCancelUnica]      = useState(null)   // reserva object
+  const [cancelUnicaLoading, setCancelUnicaLoading] = useState(false)
+  const [cancelUnicaResult,  setCancelUnicaResult]  = useState(null)
 
-  const handleCancelar = async (id) => {
-    try {
-      await cancelarSuscripcionRequest(id)
-      setFeedbackSusc('Suscripción cancelada.')
-      setTimeout(() => { cerrarDetalle(); cargarReservas() }, 1200)
-    } catch (e) {
-      setFeedbackSusc(e.response?.data?.detail ?? 'Error al cancelar.')
-    }
-  }
+  // Cancelación — clase de suscripción
+  const [cancelSusc,       setCancelSusc]       = useState(null)   // suscripción object
+  const [cancelSuscFecha,  setCancelSuscFecha]  = useState(null)   // reserva object (fecha seleccionada)
+  const [cancelSuscLoading,setCancelSuscLoading]= useState(false)
+  const [cancelSuscResult, setCancelSuscResult] = useState(null)
 
-  const handleAbrirCambioTurno = async (id) => {
-    setAccionSusc('turno')
-    setFeedbackSusc('')
-    try {
-      const res = await getClasesDisponiblesParaCambioRequest(id)
-      setClasesDisp(res.data)
-    } catch {
-      setFeedbackSusc('No se pudieron cargar las clases disponibles.')
-    }
-  }
+  // Cancelación — suscripción completa
+  const [cancelSuscTotal,        setCancelSuscTotal]        = useState(null)
+  const [cancelSuscTotalLoading, setCancelSuscTotalLoading] = useState(false)
+  const [cancelSuscTotalOk,      setCancelSuscTotalOk]      = useState(false)
 
-  const handleCambiarTurno = async (susId) => {
-    if (!claseElegida) return
-    try {
-      await cambiarTurnoRequest(susId, claseElegida)
-      setFeedbackSusc('Turno cambiado con éxito.')
-      setTimeout(() => { cerrarDetalle(); cargarReservas() }, 1200)
-    } catch (e) {
-      setFeedbackSusc(e.response?.data?.detail ?? 'Error al cambiar el turno.')
-    }
-  }
+  // Pago de saldo pendiente
+  const [pagarSaldo,       setPagarSaldo]       = useState(null)   // reserva object
+  const [pagarSaldoPago,   setPagarSaldoPago]   = useState({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' })
+  const [pagarSaldoLoading,setPagarSaldoLoading]= useState(false)
+  const [pagarSaldoOk,     setPagarSaldoOk]     = useState(false)
+  const [pagarSaldoError,  setPagarSaldoError]  = useState('')
 
-  // ── Handlers para el panel "Mis suscripciones" ─────────
-  const cerrarPanelAccion = () => {
-    setPanelAccion(null)
-    setPanelClasesDisp([])
-    setPanelClase(null)
-    setPanelFeedback('')
-  }
-
-  const panelAbrirCambioTurno = async (susId) => {
-    setPanelAccion({ susId, tipo: 'turno' })
-    setPanelFeedback('')
-    setPanelClase(null)
-    try {
-      const res = await getClasesDisponiblesParaCambioRequest(susId)
-      setPanelClasesDisp(res.data)
-    } catch {
-      setPanelFeedback('No se pudieron cargar las clases disponibles.')
-    }
-  }
-
-  const panelHandleCancelar = async (susId) => {
-    try {
-      await cancelarSuscripcionRequest(susId)
-      setPanelFeedback('✅ Suscripción cancelada.')
-      cerrarPanelAccion()
-      setTimeout(() => cargarReservas(), 800)
-    } catch (e) {
-      setPanelFeedback(e.response?.data?.detail ?? 'Error al cancelar.')
-    }
-  }
-
-  const panelHandleCambiarTurno = async (susId) => {
-    if (!panelClase) return
-    try {
-      await cambiarTurnoRequest(susId, panelClase)
-      setPanelFeedback('✅ Turno cambiado con éxito.')
-      cerrarPanelAccion()
-      setTimeout(() => cargarReservas(), 800)
-    } catch (e) {
-      setPanelFeedback(e.response?.data?.detail ?? 'Error al cambiar el turno.')
-    }
-  }
+  // Cambiar turno
+  const [cambiarTurnoSusc,    setCambiarTurnoSusc]    = useState(null)   // suscripción object
+  const [clasesDisponibles,   setClasesDisponibles]   = useState([])
+  const [clasesDispLoading,   setClasesDispLoading]   = useState(false)
+  const [nuevaClaseSel,       setNuevaClaseSel]       = useState(null)
+  const [cambiarTurnoLoading, setCambiarTurnoLoading] = useState(false)
+  const [cambiarTurnoOk,      setCambiarTurnoOk]      = useState(false)
+  const [cambiarTurnoError,   setCambiarTurnoError]   = useState('')
 
   const cargarReservas = useCallback(async () => {
     try {
@@ -308,11 +252,13 @@ export default function ClientDashboard() {
       const mesSig  = mes === 12 ? 1 : mes + 1
       const anioSig = mes === 12 ? anio + 1 : anio
 
-      const [r1, r2, rSusc] = await Promise.all([
+      const [r1, r2, rSusc, rCred] = await Promise.all([
         getMisReservasRequest(mes, anio),
         getMisReservasRequest(mesSig, anioSig),
         getMisSuscripcionesRequest(),
+        getMisCreditosRequest(),
       ])
+      setCreditos(rCred.data)
 
       const map = {}
       const todas = [...r1.data, ...r2.data]
@@ -339,6 +285,134 @@ export default function ClientDashboard() {
   }, [])
 
   useEffect(() => { cargarReservas() }, [cargarReservas])
+
+  /* ── Cancelar reserva única ─────────────────────────────── */
+  const handleCancelarUnica = async () => {
+    if (!cancelUnica) return
+    setCancelUnicaLoading(true)
+    try {
+      const res = await cancelarReservaUnicaRequest(cancelUnica.id)
+      setCancelUnicaResult(res.data)
+      cargarReservas()
+    } catch (e) {
+      setCancelUnicaResult({ error: e?.response?.data?.detail || 'Error al cancelar.' })
+    } finally {
+      setCancelUnicaLoading(false)
+    }
+  }
+
+  const cerrarCancelUnica = () => {
+    setCancelUnica(null)
+    setCancelUnicaResult(null)
+  }
+
+  /* ── Pagar saldo pendiente ───────────────────────────────── */
+  const handlePagarSaldo = async () => {
+    const { numero, nombre, apellido, dni, cvv } = pagarSaldoPago
+    if (!numero || !nombre || !apellido || !dni || !cvv) {
+      setPagarSaldoError('Completá todos los campos.')
+      return
+    }
+    setPagarSaldoLoading(true)
+    setPagarSaldoError('')
+    try {
+      await pagarSaldoReservaRequest(pagarSaldo.id, pagarSaldoPago)
+      setPagarSaldoOk(true)
+      cargarReservas()
+    } catch (e) {
+      setPagarSaldoError(e?.response?.data?.detail || 'Error al procesar el pago.')
+    } finally {
+      setPagarSaldoLoading(false)
+    }
+  }
+
+  const cerrarPagarSaldo = () => {
+    setPagarSaldo(null)
+    setPagarSaldoOk(false)
+    setPagarSaldoError('')
+    setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' })
+  }
+
+  /* ── Cancelar clase de suscripción ──────────────────────── */
+  const handleCancelarClaseSusc = async () => {
+    if (!cancelSuscFecha) return
+    setCancelSuscLoading(true)
+    try {
+      const res = await cancelarClaseSuscripcionRequest(cancelSuscFecha.id)
+      setCancelSuscResult(res.data)
+      cargarReservas()
+    } catch (e) {
+      setCancelSuscResult({ error: e?.response?.data?.detail || 'Error al cancelar.' })
+    } finally {
+      setCancelSuscLoading(false)
+    }
+  }
+
+  const cerrarCancelSusc = () => {
+    setCancelSusc(null)
+    setCancelSuscFecha(null)
+    setCancelSuscResult(null)
+  }
+
+  /* ── Cancelar suscripción completa ──────────────────────── */
+  const handleCancelarSuscripcionTotal = async () => {
+    if (!cancelSuscTotal) return
+    setCancelSuscTotalLoading(true)
+    try {
+      await cancelarSuscripcionRequest(cancelSuscTotal.id)
+      setCancelSuscTotalOk(true)
+      cargarReservas()
+    } catch (e) {
+      alert(e?.response?.data?.detail || 'Error al cancelar la suscripción.')
+    } finally {
+      setCancelSuscTotalLoading(false)
+    }
+  }
+
+  const cerrarCancelSuscTotal = () => {
+    setCancelSuscTotal(null)
+    setCancelSuscTotalOk(false)
+  }
+
+  /* ── Cambiar turno ───────────────────────────────────────── */
+  const abrirCambiarTurno = async (susc) => {
+    setCambiarTurnoSusc(susc)
+    setNuevaClaseSel(null)
+    setCambiarTurnoOk(false)
+    setCambiarTurnoError('')
+    setClasesDispLoading(true)
+    try {
+      const res = await getClasesDisponiblesParaCambioRequest(susc.id)
+      setClasesDisponibles(res.data)
+    } catch {
+      setClasesDisponibles([])
+    } finally {
+      setClasesDispLoading(false)
+    }
+  }
+
+  const handleCambiarTurno = async () => {
+    if (!nuevaClaseSel) return
+    setCambiarTurnoLoading(true)
+    setCambiarTurnoError('')
+    try {
+      await cambiarTurnoRequest(cambiarTurnoSusc.id, nuevaClaseSel.id)
+      setCambiarTurnoOk(true)
+      cargarReservas()
+    } catch (e) {
+      setCambiarTurnoError(e?.response?.data?.detail || 'Error al cambiar el turno.')
+    } finally {
+      setCambiarTurnoLoading(false)
+    }
+  }
+
+  const cerrarCambiarTurno = () => {
+    setCambiarTurnoSusc(null)
+    setClasesDisponibles([])
+    setNuevaClaseSel(null)
+    setCambiarTurnoOk(false)
+    setCambiarTurnoError('')
+  }
 
   const fechaProximaLabel = proximaClase
     ? proximaClase.fecha === todayStr
@@ -382,7 +456,7 @@ export default function ClientDashboard() {
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Mi plan</h2>
 
-          {suscripciones.filter(s => s.estado !== 'cancelada').length === 0 && reservasUnicas.length === 0 ? (
+          {suscripciones.length === 0 && reservasUnicas.length === 0 ? (
             <div className={styles.emptyState}>
               <span className={styles.emptyIcon}>🏋️</span>
               <p>Comprá una suscripción o reservá una clase para empezar</p>
@@ -390,15 +464,22 @@ export default function ClientDashboard() {
           ) : (
             <div className={styles.planLista}>
 
-              {/* Suscripciones (ocultar canceladas) */}
-              {suscripciones.filter(s => s.estado !== 'cancelada').map(s => {
-                const activa = s.estado === 'activa'
+              {/* Suscripciones */}
+              {suscripciones.map(s => {
+                const activa          = s.estado === 'activa'
+                const cancelada       = s.estado === 'cancelada'
+                const pendientePagoS  = s.estado === 'pendiente_pago'
                 return (
                   <div key={`s-${s.id}`} className={styles.planItem}>
                     {/* Col 1 — Nombre + tipo */}
                     <div className={styles.planColNombre}>
                       <p className={styles.planNombre}>{s.clase_nombre}</p>
                       <span className={`${styles.planBadge} ${styles.planBadgeSusc}`}>Suscripción</span>
+                      {cancelada && s.vigente_hasta && (
+                        <span className={styles.vigenteHasta}>
+                          Vigente hasta {formatFecha(s.vigente_hasta)}
+                        </span>
+                      )}
                     </div>
                     {/* Col 2 — Detalles */}
                     <div className={styles.planColDetalle}>
@@ -406,13 +487,26 @@ export default function ClientDashboard() {
                       <span className={styles.planDetalleItem}>🕐 {s.horario}</span>
                       <span className={styles.planDetalleItem}>🏠 {s.aula || 'Sin aula'}</span>
                     </div>
-                    {/* Col 3 — Estado + botón */}
+                    {/* Col 3 — Estado + botones */}
                     <div className={styles.planColAccion}>
                       <span className={styles.planEstadoBadge} style={{
-                        background: activa ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                        color:      activa ? '#22c55e'              : '#f59e0b',
-                        border: `1px solid ${activa ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
-                      }}>{activa ? '✅ Activa' : '⏳ Pendiente'}</span>
+                        background: cancelada ? 'rgba(245,158,11,0.12)' : activa ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                        color:      cancelada ? '#d97706'               : activa ? '#22c55e'              : '#f59e0b',
+                        border: `1px solid ${cancelada ? 'rgba(217,119,6,0.3)' : activa ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      }}>
+                        {cancelada ? '🚫 Cancelada' : activa ? '✅ Activa' : '⏳ Pendiente'}
+                      </span>
+                      {pendientePagoS && (
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(245,158,11,0.12)', color: '#d97706',
+                          border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
+                        }}>
+                          💳 Pendiente de pago
+                          {s.monto_pagado != null && s.monto != null && (
+                            <> · ${s.monto_pagado.toLocaleString('es-AR')} / ${s.monto.toLocaleString('es-AR')}</>
+                          )}
+                        </span>
+                      )}
                       {s.en_espera && (
                         <span className={styles.planEstadoBadge} style={{
                           background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
@@ -420,6 +514,15 @@ export default function ClientDashboard() {
                         }}>📋 En espera</span>
                       )}
                       <button className={styles.verMasBtn} onClick={() => setDetalleSusc(s)}>Ver más</button>
+                      {!cancelada && (
+                        <>
+                          <button className={styles.cancelarBtn} onClick={() => { setCancelSusc(s); setCancelSuscFecha(null); setCancelSuscResult(null) }}>Cancelar clase</button>
+                          <button className={styles.cancelarSuscBtn} onClick={() => { setCancelSuscTotal(s); setCancelSuscTotalOk(false) }}>Cancelar suscripción</button>
+                          {s.tipo_clase !== 'individual' && (
+                            <button className={styles.verMasBtn} onClick={() => abrirCambiarTurno(s)}>Cambiar turno</button>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 )
@@ -446,7 +549,28 @@ export default function ClientDashboard() {
                       color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
                       border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
                     }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
+                    {r.pendiente_pago && (
+                      <span className={styles.planEstadoBadge} style={{
+                        background: 'rgba(245,158,11,0.12)', color: '#d97706',
+                        border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
+                      }}>
+                        💳 Pendiente de pago
+                        {r.monto_pagado != null && r.monto_total != null && (
+                          <> · ${r.monto_pagado.toLocaleString('es-AR')} / ${r.monto_total.toLocaleString('es-AR')}</>
+                        )}
+                      </span>
+                    )}
+                    {r.pendiente_pago && (
+                      <button
+                        className={styles.verMasBtn}
+                        style={{ background: '#2d6a4f', color: '#fff', borderColor: '#2d6a4f' }}
+                        onClick={() => { setPagarSaldo(r); setPagarSaldoOk(false); setPagarSaldoError(''); setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' }) }}
+                      >
+                        💳 Pagar saldo
+                      </button>
+                    )}
                     <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
+                    <button className={styles.cancelarBtn} onClick={() => { setCancelUnica(r); setCancelUnicaResult(null) }}>Cancelar</button>
                   </div>
                 </div>
               ))}
@@ -462,10 +586,6 @@ export default function ClientDashboard() {
               style={{ borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' }}>
               📅 Reservar clase
             </button>
-            <button className={styles.btnOutline} onClick={() => { setVerSuscPanel(true); cerrarPanelAccion() }}
-              style={{ borderColor: 'rgba(124,58,237,0.4)', color: '#a78bfa' }}>
-              📋 Mis suscripciones
-            </button>
           </div>
         </div>
 
@@ -473,6 +593,36 @@ export default function ClientDashboard() {
 
       {/* ── Calendario ── */}
       <Calendario misClases={misClases} />
+
+      {/* ── Mis Créditos ── */}
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>Mis créditos del mes</h2>
+        {creditos.length === 0 ? (
+          <div className={styles.emptyState}>
+            <span className={styles.emptyIcon}>🎟️</span>
+            <p>No tenés créditos activos este mes</p>
+          </div>
+        ) : (
+          <div className={styles.creditosWrap}>
+            <p className={styles.creditosTotal}>
+              Total: <strong>{creditos.length}/3</strong>
+            </p>
+            <div className={styles.creditosList}>
+              {creditos.map(c => (
+                <div key={c.id} className={styles.creditoItem}>
+                  <span className={styles.creditoIcon}>
+                    {c.tipo_clase === 'tren_superior' ? '💪' : c.tipo_clase === 'tren_inferior' ? '🦵' : '🧘'}
+                  </span>
+                  <span className={styles.creditoLabel}>{c.tipo_clase_display}</span>
+                  <span className={styles.creditoBadge}>Crédito</span>
+                  <button className={styles.canjearBtn} disabled>Canjear</button>
+                </div>
+              ))}
+            </div>
+            <p className={styles.creditosNote}>Los créditos vencen el 1° del mes siguiente.</p>
+          </div>
+        )}
+      </div>
 
       {/* ── Modal comprar suscripción ── */}
       {modalSusc && (
@@ -482,178 +632,325 @@ export default function ClientDashboard() {
         />
       )}
 
-      {/* ── Panel Mis suscripciones ── */}
-      {verSuscPanel && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
-          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', zIndex: 9000, padding: '1rem'
-        }} onClick={() => { setVerSuscPanel(false); cerrarPanelAccion() }}>
-          <div style={{
-            background: '#13172e', border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '20px', width: '100%', maxWidth: '600px',
-            maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
-          }} onClick={e => e.stopPropagation()}>
-
-            {/* Header */}
-            <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>📋 Mis suscripciones</h3>
-              <button onClick={() => { setVerSuscPanel(false); cerrarPanelAccion() }}
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', width: 32, height: 32, cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
-            </div>
-
-            {/* Body */}
-            <div style={{ overflowY: 'auto', padding: '1.2rem 1.8rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-              {panelFeedback && (
-                <p style={{ color: panelFeedback.startsWith('✅') ? '#22c55e' : '#f87171', fontSize: '0.88rem', margin: 0 }}>
-                  {panelFeedback}
-                </p>
-              )}
-
-              {suscripciones.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#868e96', padding: '2rem 0' }}>
-                  <p>No tenés suscripciones este mes.</p>
-                </div>
-              ) : (
-                suscripciones.map(s => {
-                  const cancelada  = s.estado === 'cancelada'
-                  const isOpen     = !cancelada && panelAccion?.susId === s.id
-                  const isTurno    = isOpen && panelAccion.tipo === 'turno'
-                  const isCancelar = isOpen && panelAccion.tipo === 'cancelar'
-                  const MESES_L    = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-
-                  const badgeStyle = cancelada
-                    ? { background: 'rgba(107,114,128,0.15)', color: '#9ca3af', border: '1px solid rgba(107,114,128,0.3)' }
-                    : s.estado === 'activa'
-                      ? { background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }
-                      : { background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }
-
-                  const badgeLabel = cancelada
-                    ? '🚫 Cancelada – vigente hasta fin de mes'
-                    : s.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'
-
-                  return (
-                    <div key={s.id} style={{
-                      background: cancelada ? 'rgba(255,255,255,0.015)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${cancelada ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.07)'}`,
-                      borderRadius: '14px', padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '10px',
-                      opacity: cancelada ? 0.7 : 1,
-                    }}>
-
-                      {/* Info principal */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 1rem', alignItems: 'start' }}>
-                        <div>
-                          <p style={{ color: cancelada ? '#9ca3af' : 'white', fontWeight: 700, fontSize: '1rem', margin: '0 0 2px' }}>{s.clase_nombre}</p>
-                          <p style={{ color: '#868e96', fontSize: '0.82rem', margin: 0 }}>{s.especialidad}</p>
-                        </div>
-                        <span style={{ ...badgeStyle, borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          {badgeLabel}
-                        </span>
-                      </div>
-
-                      {/* Detalles */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 12px', fontSize: '0.84rem' }}>
-                        <span style={{ color: '#c8cbdf' }}>📅 {s.dias}</span>
-                        <span style={{ color: '#c8cbdf' }}>🕐 {s.horario}</span>
-                        <span style={{ color: '#c8cbdf' }}>🏠 {s.aula || 'Sin aula'}</span>
-                        <span style={{ color: '#c8cbdf' }}>👤 {s.profesor || 'Sin asignar'}</span>
-                        <span style={{ color: '#c8cbdf' }}>📆 {MESES_L[s.mes]} {s.anio}</span>
-                        <span style={{ color: cancelada ? '#9ca3af' : '#a78bfa', fontWeight: 700 }}>💲 ${parseFloat(s.monto).toLocaleString('es-AR')}</span>
-                      </div>
-
-                      {/* Nota informativa para canceladas */}
-                      {cancelada && (
-                        <p style={{ color: '#6b7280', fontSize: '0.78rem', margin: 0, fontStyle: 'italic' }}>
-                          Podés seguir asistiendo hasta el final del mes. La baja es efectiva el próximo mes.
-                        </p>
-                      )}
-
-                      {/* Botones de acción — solo para suscripciones no canceladas */}
-                      {!cancelada && !isOpen && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => panelAbrirCambioTurno(s.id)}
-                            style={{ flex: 1, padding: '7px 10px', background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' }}>
-                            🔄 Cambiar turno
-                          </button>
-                          <button onClick={() => { setPanelAccion({ susId: s.id, tipo: 'cancelar' }); setPanelFeedback('') }}
-                            style={{ flex: 1, padding: '7px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' }}>
-                            ✕ Cancelar suscripción
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Confirmar cancelación */}
-                      {isCancelar && (
-                        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', padding: '10px 12px' }}>
-                          <p style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '8px' }}>
-                            ¿Confirmás la cancelación? La baja se hace efectiva a partir del próximo mes.
-                          </p>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => panelHandleCancelar(s.id)}
-                              style={{ flex: 1, padding: '7px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}>
-                              Sí, cancelar
-                            </button>
-                            <button onClick={cerrarPanelAccion}
-                              style={{ flex: 1, padding: '7px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' }}>
-                              Volver
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Selector de nuevo turno */}
-                      {isTurno && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <p style={{ color: '#868e96', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', margin: 0 }}>
-                            Seleccioná el nuevo turno (igual o menor precio)
-                          </p>
-                          {panelClasesDisp.length === 0 ? (
-                            <p style={{ color: '#868e96', fontSize: '0.84rem' }}>No hay clases disponibles con cupo y precio compatible.</p>
-                          ) : (
-                            panelClasesDisp.map(c => (
-                              <div key={c.id} onClick={() => setPanelClase(c.id)}
-                                style={{
-                                  background: panelClase === c.id ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.03)',
-                                  border: `1px solid ${panelClase === c.id ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.07)'}`,
-                                  borderRadius: '10px', padding: '8px 12px', cursor: 'pointer',
-                                  display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 10px',
-                                }}>
-                                <span style={{ color: 'white', fontWeight: 700, fontSize: '0.86rem', gridColumn: '1 / -1' }}>{c.nombre}</span>
-                                <span style={{ color: '#868e96', fontSize: '0.78rem' }}>📅 {c.dias} · 🕐 {c.horario}</span>
-                                <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: '0.82rem' }}>💲 ${parseFloat(c.valor).toLocaleString('es-AR')}/clase</span>
-                              </div>
-                            ))
-                          )}
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button disabled={!panelClase} onClick={() => panelHandleCambiarTurno(s.id)}
-                              style={{ flex: 1, padding: '7px', background: panelClase ? '#7c3aed' : 'rgba(124,58,237,0.2)', border: 'none', color: 'white', borderRadius: '8px', cursor: panelClase ? 'pointer' : 'default', fontWeight: 700, fontSize: '0.82rem', opacity: panelClase ? 1 : 0.5 }}>
-                              Confirmar cambio
-                            </button>
-                            <button onClick={cerrarPanelAccion}
-                              style={{ flex: 1, padding: '7px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem' }}>
-                              Volver
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Modal reservar clase única ── */}
       {modalReserva && (
         <ReservarClaseModal
           onClose={() => setModalReserva(false)}
           onReservaOk={() => cargarReservas()}
         />
+      )}
+
+      {/* ── Modal cancelar reserva única ── */}
+      {cancelUnica && (
+        <div className={styles.overlay} onClick={cerrarCancelUnica}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Cancelar reserva</h3>
+              <button className={styles.closeBtn} onClick={cerrarCancelUnica}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+              {!cancelUnicaResult ? (
+                <>
+                  <p style={{ color: '#3d6b55', marginBottom: '0.5rem' }}>
+                    ¿Confirmás la cancelación de:
+                  </p>
+                  <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1.2rem' }}>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{cancelUnica.clase_nombre}</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem', margin: 0 }}>📅 {formatFecha(cancelUnica.fecha)} · 🕐 {cancelUnica.horario}</p>
+                  </div>
+                  <p style={{ color: '#92400e', fontSize: '0.83rem', background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)', borderRadius: '8px', padding: '0.6rem 0.9rem', marginBottom: '1.2rem' }}>
+                    ⚠️ Si cancelás con menos de 24 h de anticipación, perdés la seña.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={cerrarCancelUnica} disabled={cancelUnicaLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                      No, volver
+                    </button>
+                    <button onClick={handleCancelarUnica} disabled={cancelUnicaLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                      {cancelUnicaLoading ? 'Cancelando…' : 'Sí, cancelar'}
+                    </button>
+                  </div>
+                </>
+              ) : cancelUnicaResult.error ? (
+                <>
+                  <p style={{ color: '#b91c1c', fontWeight: 600, marginBottom: '1rem' }}>❌ {cancelUnicaResult.error}</p>
+                  <button onClick={cerrarCancelUnica} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
+                </>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                    <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{cancelUnicaResult.devolver_sena ? '✅' : 'ℹ️'}</p>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, marginBottom: '0.4rem' }}>Reserva cancelada</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem' }}>
+                      {cancelUnicaResult.devolver_sena
+                        ? 'Cancelaste con más de 24 h de anticipación. Recibirás un mail con la acreditación de la seña.'
+                        : 'Cancelaste con menos de 24 h de anticipación. La seña no puede ser reintegrada.'}
+                    </p>
+                  </div>
+                  <button onClick={cerrarCancelUnica} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Aceptar</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal cancelar clase de suscripción ── */}
+      {cancelSusc && (
+        <div className={styles.overlay} onClick={cerrarCancelSusc}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>
+                {cancelSuscResult ? 'Resultado' : cancelSuscFecha ? 'Confirmar cancelación' : 'Seleccioná la clase a cancelar'}
+              </h3>
+              <button className={styles.closeBtn} onClick={cerrarCancelSusc}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+
+              {/* Paso 1 — lista de fechas */}
+              {!cancelSuscFecha && !cancelSuscResult && (
+                <>
+                  <p style={{ color: '#3d6b55', fontSize: '0.88rem', marginBottom: '1rem' }}>
+                    Suscripción: <strong style={{ color: '#1a2e25' }}>{cancelSusc.clase_nombre}</strong>
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
+                    {(cancelSusc.reservas || []).filter(r => r.estado !== 'cancelada').map(r => {
+                      const [y, m, d] = r.fecha.split('-')
+                      const label = new Date(+y, +m - 1, +d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+                      return (
+                        <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                          <div>
+                            <p style={{ color: '#1a2e25', fontWeight: 600, margin: '0 0 2px', fontSize: '0.88rem' }}>{label}</p>
+                            <p style={{ color: '#3d6b55', fontSize: '0.78rem', margin: 0 }}>
+                              {r.estado === 'lista_espera' ? '📋 Lista de espera' : '✅ Activa'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setCancelSuscFecha(r)}
+                            style={{ padding: '0.4rem 0.9rem', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            Cancelar esta
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button onClick={cerrarCancelSusc} style={{ marginTop: '1.2rem', width: '100%', padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                    Cerrar
+                  </button>
+                </>
+              )}
+
+              {/* Paso 2 — confirmar fecha seleccionada */}
+              {cancelSuscFecha && !cancelSuscResult && (() => {
+                const [y, m, d] = cancelSuscFecha.fecha.split('-')
+                const label = new Date(+y, +m - 1, +d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                return (
+                  <>
+                    <p style={{ color: '#3d6b55', marginBottom: '0.5rem' }}>¿Confirmás la cancelación de la clase del:</p>
+                    <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+                      <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{cancelSusc.clase_nombre}</p>
+                      <p style={{ color: '#3d6b55', fontSize: '0.88rem', margin: 0 }}>📅 {label} · 🕐 {cancelSusc.horario}</p>
+                    </div>
+                    <div style={{ background: 'rgba(26,157,133,0.06)', border: '1px solid rgba(26,157,133,0.2)', borderRadius: '8px', padding: '0.7rem 1rem', marginBottom: '1.2rem', fontSize: '0.82rem', color: '#1a6b55' }}>
+                      <p style={{ margin: '0 0 4px', fontWeight: 600 }}>ℹ️ Reglas de cancelación:</p>
+                      <p style={{ margin: 0 }}>+48 h → crédito del mismo tipo de clase<br/>24-48 h → descuento en próxima cuota<br/>-24 h → sin beneficio</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button onClick={() => setCancelSuscFecha(null)} disabled={cancelSuscLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                        ← Volver
+                      </button>
+                      <button onClick={handleCancelarClaseSusc} disabled={cancelSuscLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                        {cancelSuscLoading ? 'Cancelando…' : 'Sí, cancelar'}
+                      </button>
+                    </div>
+                  </>
+                )
+              })()}
+
+              {/* Paso 3 — resultado */}
+              {cancelSuscResult && (() => {
+                const MSGS = {
+                  credito_generado: { icon: '🎟️', title: 'Crédito generado', desc: `Se generó un crédito de ${cancelSusc.clase_nombre?.split(' ')[0] || 'clase'} válido para el mes en curso.` },
+                  limite_creditos:  { icon: 'ℹ️', title: 'Límite de créditos', desc: 'Ya tenés 3 créditos activos este mes. No se generó un nuevo crédito.' },
+                  descuento_20:     { icon: '🏷️', title: '20% de descuento', desc: 'Tendrás un 20% de descuento en tu próxima mensualidad.' },
+                  descuento_30:     { icon: '🏷️', title: '30% de descuento', desc: 'Tendrás un 30% de descuento en tu próxima mensualidad.' },
+                  sin_beneficio:    { icon: 'ℹ️', title: 'Sin beneficio', desc: 'La cancelación no genera crédito ni descuento.' },
+                }
+                const info = cancelSuscResult.error
+                  ? { icon: '❌', title: 'Error', desc: cancelSuscResult.error }
+                  : (MSGS[cancelSuscResult.resultado] || { icon: 'ℹ️', title: 'Clase cancelada', desc: '' })
+                return (
+                  <>
+                    <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                      <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{info.icon}</p>
+                      <p style={{ color: '#1a2e25', fontWeight: 700, marginBottom: '0.4rem' }}>{info.title}</p>
+                      <p style={{ color: '#3d6b55', fontSize: '0.88rem' }}>{info.desc}</p>
+                    </div>
+                    <button onClick={cerrarCancelSusc} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Aceptar</button>
+                  </>
+                )
+              })()}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal cancelar suscripción completa ── */}
+      {cancelSuscTotal && (
+        <div className={styles.overlay} onClick={cerrarCancelSuscTotal}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Cancelar suscripción</h3>
+              <button className={styles.closeBtn} onClick={cerrarCancelSuscTotal}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+              {!cancelSuscTotalOk ? (
+                <>
+                  <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1rem' }}>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{cancelSuscTotal.clase_nombre}</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.85rem', margin: 0 }}>📅 {cancelSuscTotal.dias} · 🕐 {cancelSuscTotal.horario}</p>
+                  </div>
+                  <p style={{ color: '#3d6b55', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                    ¿Estás seguro que deseás cancelar esta suscripción?
+                  </p>
+                  <div style={{ background: 'rgba(26,157,133,0.06)', border: '1px solid rgba(26,157,133,0.2)', borderRadius: '8px', padding: '0.7rem 1rem', marginBottom: '1.2rem', fontSize: '0.82rem', color: '#1a6b55' }}>
+                    <p style={{ margin: 0 }}>
+                      ℹ️ Tus clases ya abonadas de este mes se mantienen activas.
+                      A partir del próximo mes la suscripción no se renovará.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={cerrarCancelSuscTotal} disabled={cancelSuscTotalLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                      No, volver
+                    </button>
+                    <button onClick={handleCancelarSuscripcionTotal} disabled={cancelSuscTotalLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                      {cancelSuscTotalLoading ? 'Cancelando…' : 'Sí, cancelar'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                    <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</p>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, marginBottom: '0.4rem' }}>Suscripción cancelada</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem' }}>
+                      Tus clases ya abonadas siguen activas hasta la última fecha del período.
+                      No se generarán cargos el próximo mes.
+                    </p>
+                  </div>
+                  <button onClick={cerrarCancelSuscTotal} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Aceptar</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal pagar saldo pendiente ── */}
+      {pagarSaldo && (
+        <div className={styles.overlay} onClick={cerrarPagarSaldo}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Pagar saldo pendiente</h3>
+              <button className={styles.closeBtn} onClick={cerrarPagarSaldo}>✕</button>
+            </div>
+            <div style={{ padding: '0.5rem 0' }}>
+              {!pagarSaldoOk ? (
+                <>
+                  {/* Detalle de clase y monto */}
+                  <div style={{ background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #c8e6d4', borderRadius: '10px', padding: '0.9rem 1.1rem', marginBottom: '1.2rem' }}>
+                    <p style={{ color: '#1a2e25', fontWeight: 700, margin: '0 0 4px' }}>{pagarSaldo.clase_nombre}</p>
+                    <p style={{ color: '#3d6b55', fontSize: '0.88rem', margin: '0 0 8px' }}>📅 {formatFecha(pagarSaldo.fecha)} · 🕐 {pagarSaldo.horario}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #c8e6d4', paddingTop: '8px', marginTop: '4px' }}>
+                      <span style={{ color: '#3d6b55', fontSize: '0.85rem' }}>Ya abonado</span>
+                      <span style={{ color: '#1a2e25', fontWeight: 600 }}>${(pagarSaldo.monto_pagado ?? 0).toLocaleString('es-AR')}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                      <span style={{ color: '#1a6b55', fontWeight: 700, fontSize: '0.9rem' }}>Monto a pagar</span>
+                      <span style={{ color: '#1a2e25', fontWeight: 800, fontSize: '1.05rem' }}>
+                        ${(((pagarSaldo.monto_total ?? 0) - (pagarSaldo.monto_pagado ?? 0))).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Formulario de tarjeta */}
+                  <p style={{ color: '#3d6b55', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.75rem' }}>Ingresá los datos de tu tarjeta</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
+                    <input
+                      type="text"
+                      placeholder="Número de tarjeta"
+                      maxLength={19}
+                      value={pagarSaldoPago.numero}
+                      onChange={e => setPagarSaldoPago(p => ({ ...p, numero: e.target.value }))}
+                      style={{ padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        placeholder="Nombre"
+                        value={pagarSaldoPago.nombre}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, nombre: e.target.value }))}
+                        style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Apellido"
+                        value={pagarSaldoPago.apellido}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, apellido: e.target.value }))}
+                        style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        placeholder="DNI"
+                        maxLength={8}
+                        value={pagarSaldoPago.dni}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, dni: e.target.value }))}
+                        style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="CVV"
+                        maxLength={4}
+                        value={pagarSaldoPago.cvv}
+                        onChange={e => setPagarSaldoPago(p => ({ ...p, cvv: e.target.value }))}
+                        style={{ width: '90px', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1.5px solid #b8dece', background: '#f4faf7', color: '#1a2e25', fontSize: '0.9rem', outline: 'none' }}
+                      />
+                    </div>
+                  </div>
+
+                  {pagarSaldoError && (
+                    <p style={{ color: '#b91c1c', fontSize: '0.85rem', marginBottom: '0.75rem', background: 'rgba(185,28,28,0.07)', border: '1px solid rgba(185,28,28,0.2)', borderRadius: '8px', padding: '0.5rem 0.8rem' }}>
+                      ❌ {pagarSaldoError}
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={cerrarPagarSaldo} disabled={pagarSaldoLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#3d6b55', fontWeight: 600, cursor: 'pointer' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handlePagarSaldo} disabled={pagarSaldoLoading} style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                      {pagarSaldoLoading ? 'Procesando…' : '💳 Pagar'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+                  <p style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✅</p>
+                  <p style={{ color: '#1a2e25', fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.4rem' }}>¡Pago realizado con éxito!</p>
+                  <p style={{ color: '#3d6b55', fontSize: '0.88rem', marginBottom: '1.5rem' }}>
+                    Tu reserva de <strong>{pagarSaldo.clase_nombre}</strong> está completamente abonada.
+                  </p>
+                  <button onClick={cerrarPagarSaldo} style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                    Aceptar
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Modal detalle (suscripción o reserva única) ── */}
@@ -665,28 +962,29 @@ export default function ClientDashboard() {
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
             backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
             justifyContent: 'center', zIndex: 9000, padding: '1rem'
-          }} onClick={() => cerrarDetalle()}>
+          }} onClick={() => setDetalleSusc(null)}>
             <div style={{
-              background: '#13172e', border: '1px solid rgba(255,255,255,0.08)',
+              background: 'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)',
+              border: '1px solid #b8dece',
               borderRadius: '20px', width: '100%', maxWidth: '480px',
               maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
+              boxShadow: '0 24px 64px rgba(10,35,25,0.30)'
             }} onClick={e => e.stopPropagation()}>
 
               {/* Header */}
-              <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ padding: '1.4rem 1.8rem 1rem', borderBottom: '1px solid #b8dece', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                  <h3 style={{ color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <h3 style={{ color: '#1a2e25', margin: 0, fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {detalleSusc.clase_nombre}
                   </h3>
                   <span style={{
-                    background: esUnica ? 'rgba(34,197,94,0.12)' : 'rgba(124,58,237,0.15)',
-                    color: esUnica ? '#22c55e' : '#a78bfa',
-                    border: `1px solid ${esUnica ? 'rgba(34,197,94,0.3)' : 'rgba(124,58,237,0.3)'}`,
+                    background: esUnica ? 'rgba(5,150,105,0.10)' : 'rgba(26,157,133,0.12)',
+                    color: esUnica ? '#065f46' : '#147a68',
+                    border: `1px solid ${esUnica ? 'rgba(5,150,105,0.30)' : 'rgba(26,157,133,0.35)'}`,
                     borderRadius: '5px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0
                   }}>{esUnica ? 'Reserva única' : 'Suscripción'}</span>
                 </div>
-                <button onClick={() => cerrarDetalle()} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#868e96', borderRadius: '8px', width: 32, height: 32, minWidth: 32, cursor: 'pointer', fontSize: '0.9rem' }}>✕</button>
+                <button onClick={() => setDetalleSusc(null)} style={{ background: '#f0f7f3', border: '1px solid #b8dece', color: '#3d6b55', borderRadius: '8px', width: 32, height: 32, minWidth: 32, cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
               </div>
 
               {/* Body */}
@@ -696,9 +994,9 @@ export default function ClientDashboard() {
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {esUnica ? (
                     <span style={{
-                      background: detalleSusc.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
-                      color: detalleSusc.lista_espera ? '#f59e0b' : '#22c55e',
-                      border: `1px solid ${detalleSusc.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                      background: detalleSusc.lista_espera ? 'rgba(217,119,6,0.10)' : 'rgba(5,150,105,0.10)',
+                      color: detalleSusc.lista_espera ? '#92400e' : '#065f46',
+                      border: `1px solid ${detalleSusc.lista_espera ? 'rgba(217,119,6,0.30)' : 'rgba(5,150,105,0.30)'}`,
                       borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
                     }}>
                       {detalleSusc.lista_espera ? '📋 Lista de espera' : '✅ Confirmada'}
@@ -706,15 +1004,15 @@ export default function ClientDashboard() {
                   ) : (
                     <>
                       <span style={{
-                        background: detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
-                        color: detalleSusc.estado === 'activa' ? '#22c55e' : '#f59e0b',
-                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                        background: detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.10)' : 'rgba(217,119,6,0.10)',
+                        color: detalleSusc.estado === 'activa' ? '#065f46' : '#92400e',
+                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.30)' : 'rgba(217,119,6,0.30)'}`,
                         borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
                       }}>
                         {detalleSusc.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
                       </span>
                       {detalleSusc.en_espera && (
-                        <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>
+                        <span style={{ background: 'rgba(217,119,6,0.10)', color: '#92400e', border: '1px solid rgba(217,119,6,0.30)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>
                           📋 Lista de espera
                         </span>
                       )}
@@ -723,7 +1021,7 @@ export default function ClientDashboard() {
                 </div>
 
                 {/* Info grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 1rem', fontSize: '0.88rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 1.2rem', fontSize: '0.88rem' }}>
                   {(esUnica ? [
                     ['Fecha',     formatFecha(detalleSusc.fecha)],
                     ['Horario',   detalleSusc.horario],
@@ -740,8 +1038,8 @@ export default function ClientDashboard() {
                     ['Clases incluidas',`${detalleSusc.total_clases} clase${detalleSusc.total_clases !== 1 ? 's' : ''}`],
                   ]).map(([k, v]) => (
                     <>
-                      <span style={{ color: '#868e96' }} key={`k-${k}`}>{k}</span>
-                      <span style={{ color: '#e2e8f0' }} key={`v-${k}`}>{v}</span>
+                      <span style={{ color: '#3d6b55', fontWeight: 500 }} key={`k-${k}`}>{k}</span>
+                      <span style={{ color: '#1a2e25', fontWeight: 600 }} key={`v-${k}`}>{v}</span>
                     </>
                   ))}
                 </div>
@@ -749,7 +1047,7 @@ export default function ClientDashboard() {
                 {/* Fechas de clases (solo suscripción) */}
                 {!esUnica && detalleSusc.reservas && (
                   <div>
-                    <p style={{ color: '#868e96', fontSize: '0.82rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>
+                    <p style={{ color: '#1a9d85', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
                       Fechas de clases
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -759,11 +1057,13 @@ export default function ClientDashboard() {
                         return (
                           <div key={r.fecha} style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '6px 10px'
+                            background: 'linear-gradient(145deg, #eaf5ef, #f4faf7)',
+                            border: '1px solid #c8e6d4',
+                            borderRadius: '8px', padding: '6px 10px'
                           }}>
-                            <span style={{ color: '#c8cbdf', fontSize: '0.85rem' }}>{label}</span>
+                            <span style={{ color: '#1a2e25', fontSize: '0.85rem', fontWeight: 500 }}>{label}</span>
                             {r.estado === 'lista_espera' && (
-                              <span style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', borderRadius: '4px', padding: '2px 6px', fontSize: '0.72rem' }}>
+                              <span style={{ background: 'rgba(217,119,6,0.10)', color: '#92400e', border: '1px solid rgba(217,119,6,0.25)', borderRadius: '4px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700 }}>
                                 Lista de espera
                               </span>
                             )}
@@ -773,12 +1073,73 @@ export default function ClientDashboard() {
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
           </div>
         )
       })()}
+
+      {/* ── Modal cambiar turno ── */}
+      {cambiarTurnoSusc && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
+          onClick={cerrarCambiarTurno}>
+          <div style={{ background: '#13172e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '20px', padding: '2rem 2.2rem', width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+            onClick={e => e.stopPropagation()}>
+
+            {cambiarTurnoOk ? (
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</p>
+                <p style={{ color: 'white', fontWeight: 700, marginBottom: '1.5rem' }}>¡Turno cambiado con éxito!</p>
+                <button onClick={cerrarCambiarTurno} style={{ padding: '0.65rem 2rem', borderRadius: '12px', border: 'none', background: '#7c3aed', color: 'white', fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
+              </div>
+            ) : (
+              <>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.4rem' }}>Cambiar turno</h3>
+                <p style={{ color: '#868e96', fontSize: '0.85rem', marginBottom: '1.2rem' }}>
+                  Clase actual: <strong style={{ color: '#a78bfa' }}>{cambiarTurnoSusc.clase_nombre}</strong>
+                </p>
+
+                {clasesDispLoading ? (
+                  <p style={{ color: '#868e96', textAlign: 'center' }}>Cargando clases disponibles...</p>
+                ) : clasesDisponibles.length === 0 ? (
+                  <p style={{ color: '#868e96', textAlign: 'center' }}>No hay clases disponibles para cambiar el turno este mes.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.2rem' }}>
+                    {clasesDisponibles.map(c => (
+                      <button key={c.id}
+                        onClick={() => setNuevaClaseSel(c)}
+                        style={{
+                          padding: '0.75rem 1rem', borderRadius: '10px', textAlign: 'left',
+                          border: `1px solid ${nuevaClaseSel?.id === c.id ? '#7c3aed' : 'rgba(255,255,255,0.08)'}`,
+                          background: nuevaClaseSel?.id === c.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
+                          color: 'white', cursor: 'pointer',
+                        }}>
+                        <p style={{ fontWeight: 600, marginBottom: '0.2rem' }}>{c.nombre}</p>
+                        <p style={{ fontSize: '0.82rem', color: '#868e96' }}>{c.dias} · {c.horario} · {c.aula || 'Sin aula'}</p>
+                        <p style={{ fontSize: '0.82rem', color: '#a78bfa' }}>${parseFloat(c.valor).toLocaleString('es-AR')}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {cambiarTurnoError && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{cambiarTurnoError}</p>}
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                  <button onClick={cerrarCambiarTurno}
+                    style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#c8cbdf', fontWeight: 600, cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={handleCambiarTurno}
+                    disabled={!nuevaClaseSel || cambiarTurnoLoading}
+                    style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: nuevaClaseSel && !cambiarTurnoLoading ? '#7c3aed' : '#3d3d5c', color: 'white', fontWeight: 600, cursor: nuevaClaseSel && !cambiarTurnoLoading ? 'pointer' : 'not-allowed' }}>
+                    {cambiarTurnoLoading ? 'Cambiando...' : 'Confirmar cambio'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   )

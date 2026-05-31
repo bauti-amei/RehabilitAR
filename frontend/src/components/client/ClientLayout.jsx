@@ -94,15 +94,15 @@ export default function ClientLayout() {
   if (user && !user.is_active) {
     return (
       <div style={{ minHeight:'100vh', background:'radial-gradient(circle at top left, #1d2140, #090b16 60%)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <div style={{ background:'#13172e', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'20px', padding:'2.5rem 2.8rem', maxWidth:'420px', width:'90%', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ background:'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'20px', padding:'2.5rem 2.8rem', maxWidth:'420px', width:'90%', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
           <p style={{ fontSize:'2.5rem', marginBottom:'1rem' }}>🔒</p>
-          <h2 style={{ color:'white', fontSize:'1.4rem', fontWeight:700, marginBottom:'0.8rem' }}>Cuenta suspendida</h2>
-          <p style={{ color:'#b0b3c7', fontSize:'0.95rem', lineHeight:1.6, marginBottom:'2rem' }}>
+          <h2 style={{ color:'#0f1f17', fontSize:'1.4rem', fontWeight:700, marginBottom:'0.8rem' }}>Cuenta suspendida</h2>
+          <p style={{ color:'#3d6b55', fontSize:'0.95rem', lineHeight:1.6, marginBottom:'2rem' }}>
             Tu cuenta ha sido suspendida. No podés acceder al sitio por el momento.<br />
             Comunicate con el administrador para más información.
           </p>
           <button onClick={ejecutarLogoutDefinitivo}
-            style={{ width:'100%', padding:'0.75rem', borderRadius:'12px', border:'none', background:'#ef4444', color:'white', fontWeight:700, fontSize:'1rem', cursor:'pointer' }}>
+            style={{ width:'100%', padding:'0.75rem', borderRadius:'12px', border:'none', background:'linear-gradient(135deg,#dc2626,#b91c1c)', color:'#ffffff', fontWeight:700, fontSize:'1rem', cursor:'pointer' }}>
             Cerrar sesión
           </button>
         </div>
@@ -115,7 +115,10 @@ export default function ClientLayout() {
 
       {/* ── NAVBAR ─────────────────────────────────────────── */}
       <header className={styles.navbar}>
-        <span className={styles.brand}>RehabilitAR</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/runner.png" alt="Logo" style={{ height: '42px', objectFit: 'contain' }} />
+          <img src="/textoRehabilitar.png" alt="RehabilitAR" style={{ height: '32px', objectFit: 'contain' }} />
+        </div>
 
         <div className={styles.navActions}>
 
@@ -155,7 +158,7 @@ export default function ClientLayout() {
                 </button>
                 <button className={styles.dropItem} onClick={() => {
                   setUserMenu(false);
-                  navigate('/client/cambiar-contrasena');
+                  navigate('/cambiar-contrasena');
                 }}>
                   <span>🔒</span> Cambiar contraseña
                 </button>
@@ -178,7 +181,7 @@ export default function ClientLayout() {
         <div className={styles.overlay} onClick={() => setModal(null)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <div className={styles.modalBody} style={{ textAlign: 'center', padding: '1.5rem' }}>
-              <p style={{ fontSize: '1.05rem', fontWeight: 600, color: 'white', marginBottom: '1.5rem' }}>
+              <p style={{ fontSize: '1.05rem', fontWeight: 600, color: '#0f1f17', marginBottom: '1.5rem' }}>
                 ¿Está seguro que desea cerrar sesión?
               </p>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
@@ -226,33 +229,35 @@ export default function ClientLayout() {
       <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
         
         {/* Botón Cancelar */}
-        <button 
+        <button
           onClick={() => setModal(null)}
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            color: 'white',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)',
+            color: '#1a2e25',
+            border: '1.5px solid #b8dece',
             padding: '0.6rem 1.5rem',
-            borderRadius: '8px',
+            borderRadius: '10px',
             cursor: 'pointer',
-            fontWeight: '600'
+            fontWeight: '600',
+            fontSize: '0.95rem'
           }}
         >
           Cancelar
         </button>
 
         {/* Botón Confirmar */}
-        <button 
+        <button
           onClick={ejecutarLogoutDefinitivo}
           style={{
-            background: '#ef4444', 
-            color: 'white',
+            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+            color: '#ffffff',
             border: 'none',
             padding: '0.6rem 1.5rem',
-            borderRadius: '8px',
+            borderRadius: '10px',
             cursor: 'pointer',
             fontWeight: '600',
-            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+            fontSize: '0.95rem',
+            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.35)'
           }}
         >
           Cerrar Sesión

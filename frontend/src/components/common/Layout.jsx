@@ -1,11 +1,12 @@
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import styles from './Sidebar.module.css'
 
 export default function Layout() {
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className={styles.layoutShell}>
       <Sidebar />
-      <main style={{ flex: 1, marginLeft: '240px', padding: '32px', background: 'var(--color-dark)' }}>
+      <main className={styles.layoutMain}>
         <Outlet />
       </main>
     </div>

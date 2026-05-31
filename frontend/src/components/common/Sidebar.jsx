@@ -136,7 +136,7 @@ export default function Sidebar() {
             maxWidth: '400px',
             width: '90%'
           }}>
-            <h3 style={{ color: 'white', marginBottom: '1rem', fontSize: '1.25rem' }}>
+            <h3 style={{ color: '#0f1f17', marginBottom: '1rem', fontSize: '1.25rem' }}>
               ¿Estás seguro de que deseas cerrar sesión?
             </h3>
             <p style={{ color: '#868e96', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
@@ -149,7 +149,7 @@ export default function Sidebar() {
                 onClick={() => setMostrarConfirmacion(false)}
                 style={{
                   background: 'rgba(255, 255, 255, 0.05)',
-                  color: 'white',
+                  color: '#0f1f17',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                   padding: '0.6rem 1.5rem',
                   borderRadius: '8px',
@@ -165,7 +165,7 @@ export default function Sidebar() {
                 onClick={confirmarLogout}
                 style={{
                   background: '#ef4444', // Rojo alerta
-                  color: 'white',
+                  color: '#0f1f17',
                   border: 'none',
                   padding: '0.6rem 1.5rem',
                   borderRadius: '8px',

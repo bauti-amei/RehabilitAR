@@ -38,6 +38,9 @@ export const desasignarseClaseRequest = (id) =>
 export const asignarProfesorRequest = (claseId, profesorId) =>
   api.patch(`/clases/${claseId}/asignar-profesor/`, { profesor_id: profesorId })
 
+export const desasignarProfesorRequest = (claseId) =>
+  api.patch(`/clases/${claseId}/desasignar-profesor/`)
+
 // Suscripciones
 export const getClasesFijasRequest = () =>
   api.get('/clases/fijas/')
@@ -64,19 +67,36 @@ export const getClasesParaReservarRequest = (mes, anio) =>
 export const reservarClaseUnicaRequest = (data) =>
   api.post('/clases/reservar-unica/', data)
 
-// ── Cancelar / cambiar turno (cliente) ───────────────────
+export const pagarSaldoReservaRequest = (id, datosPago) =>
+  api.post(`/clases/pagar-saldo-reserva/${id}/`, { datos_pago: datosPago })
+
+// Lista de espera por fecha (admin)
+export const getListaEsperaFechasRequest = (claseId) =>
+  api.get(`/clases/${claseId}/lista-espera/`)
+
+export const getListaEsperaUsuariosRequest = (claseId, fecha) =>
+  api.get(`/clases/${claseId}/lista-espera/?fecha=${fecha}`)
+
+// Cancelaciones y créditos (cliente)
+export const getMisCreditosRequest = () =>
+  api.get('/clases/mis-creditos/')
+
+export const cancelarReservaUnicaRequest = (id) =>
+  api.post(`/clases/cancelar-reserva-unica/${id}/`)
+
+export const cancelarClaseSuscripcionRequest = (reservaId) =>
+  api.post(`/clases/cancelar-clase-suscripcion/${reservaId}/`)
+
 export const cancelarSuscripcionRequest = (id) =>
-  api.post(`/clases/mis-suscripciones/${id}/cancelar/`)
+  api.post(`/clases/cancelar-suscripcion/${id}/`)
 
-export const cambiarTurnoRequest = (id, claseId) =>
-  api.patch(`/clases/mis-suscripciones/${id}/cambiar-turno/`, { clase_id: claseId })
+// Cambiar turno (cliente)
+export const getClasesDisponiblesParaCambioRequest = (suscripcionId) =>
+  api.get(`/clases/mis-suscripciones/${suscripcionId}/clases-disponibles/`)
 
-export const getClasesDisponiblesParaCambioRequest = (id) =>
-  api.get(`/clases/mis-suscripciones/${id}/clases-disponibles/`)
+export const cambiarTurnoRequest = (suscripcionId, nuevaClaseId) =>
+  api.post(`/clases/mis-suscripciones/${suscripcionId}/cambiar-turno/`, { nueva_clase_id: nuevaClaseId })
 
-// ── Lista de espera y capacidad (admin) ──────────────────
-export const getListaEsperaRequest = (id) =>
-  api.get(`/clases/${id}/lista-espera/`)
-
+// Cambiar capacidad (admin)
 export const cambiarCapacidadRequest = (id, cupo) =>
   api.patch(`/clases/${id}/cambiar-capacidad/`, { cupo })

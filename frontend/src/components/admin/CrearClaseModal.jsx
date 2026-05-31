@@ -11,7 +11,7 @@ const ESPECIALIDADES = [
   { value: 'tren_medio',    label: 'Tren Medio' },
 ]
 
-const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 const DIAS_MAP = {
   'dom':0,'domingo':0,'lun':1,'lunes':1,'mar':2,'martes':2,
@@ -106,8 +106,9 @@ export default function CrearClaseModal({ onClose, onCreada }) {
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
-  const HORAS   = Array.from({ length: 13 }, (_, i) => String(i + 8).padStart(2, '0'))  // 08..20
-  const MINUTOS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))       // 00..59
+  const HORAS_INICIO = Array.from({ length: 12 }, (_, i) => String(i + 8).padStart(2, '0'))  // 08..19
+  const HORAS_FIN    = Array.from({ length: 13 }, (_, i) => String(i + 8).padStart(2, '0'))  // 08..20
+  const MINUTOS      = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))       // 00..59
 
   const getH = (val) => val ? val.split(':')[0] : ''
   const getM = (val) => val ? val.split(':')[1] : ''
@@ -243,7 +244,20 @@ export default function CrearClaseModal({ onClose, onCreada }) {
             <div className={styles.field}>
               <label className={styles.label}>Fecha *</label>
               <input className={styles.input} type="date"
-                value={form.fecha} onChange={e => set('fecha', e.target.value)} />
+                value={form.fecha}
+                onChange={e => {
+                  const val = e.target.value
+                  if (val) {
+                    const dow = new Date(val + 'T00:00:00').getDay() // 0=Dom, 6=Sáb
+                    if (dow === 0 || dow === 6) return // ignorar fin de semana
+                  }
+                  set('fecha', val)
+                }} />
+              {form.fecha === '' && (
+                <span style={{ fontSize: '0.78rem', color: '#3d6b55', marginTop: '4px' }}>
+                  Solo se pueden seleccionar días de lunes a viernes.
+                </span>
+              )}
             </div>
           )}
 
@@ -255,7 +269,7 @@ export default function CrearClaseModal({ onClose, onCreada }) {
                 <select className={styles.select} value={getH(form.horario_inicio)}
                   onChange={e => setHorario('horario_inicio', e.target.value, null)}>
                   <option value="">HH</option>
-                  {HORAS.map(h => <option key={h} value={h}>{h}</option>)}
+                  {HORAS_INICIO.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
                 <select className={styles.select} value={getM(form.horario_inicio)}
                   onChange={e => setHorario('horario_inicio', null, e.target.value)}
@@ -269,13 +283,16 @@ export default function CrearClaseModal({ onClose, onCreada }) {
               <label className={styles.label}>Horario fin *</label>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 <select className={styles.select} value={getH(form.horario_fin)}
-                  onChange={e => setHorario('horario_fin', e.target.value, null)}>
+                  onChange={e => {
+                    const h = e.target.value
+                    setHorario('horario_fin', h, h === '20' ? '00' : null)
+                  }}>
                   <option value="">HH</option>
-                  {HORAS.map(h => <option key={h} value={h}>{h}</option>)}
+                  {HORAS_FIN.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
                 <select className={styles.select} value={getM(form.horario_fin)}
                   onChange={e => setHorario('horario_fin', null, e.target.value)}
-                  disabled={!getH(form.horario_fin)}>
+                  disabled={!getH(form.horario_fin) || getH(form.horario_fin) === '20'}>
                   <option value="">MM</option>
                   {MINUTOS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>

@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('clases', '0003_reserva_tipo'),
+        ('clases', '0006_pago_parcial'),
     ]
 
     operations = [

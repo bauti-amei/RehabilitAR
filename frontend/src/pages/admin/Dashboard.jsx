@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, suspenderUserRequest, adminRegisterRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, getListaEsperaRequest, cambiarCapacidadRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest, getListaEsperaFechasRequest, getListaEsperaUsuariosRequest, cambiarCapacidadRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
+import LoadingOverlay from '../../components/common/LoadingOverlay'
 import styles from './Dashboard.module.css'
+import toast from 'react-hot-toast';
 
 /* ══════════════════════════════════════════════════════════
    MOCK DATA
@@ -203,13 +205,13 @@ function TareasImportantes() {
               <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                 <button 
                   onClick={() => handleAprobar(apto.id)}
-                  style={{ background: '#22c55e', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                  style={{ background: '#22c55e', color: '#0f1f17', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
                   Aprobar
                 </button>
                 <button 
                   onClick={() => handleRechazar(apto.id)}
-                  style={{ background: '#ef4444', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                  style={{ background: '#ef4444', color: '#0f1f17', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
                   Rechazar
                 </button>
@@ -222,55 +224,58 @@ function TareasImportantes() {
       {mostrarModalRechazo && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(15, 31, 23, 0.55)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
         }} onClick={() => setMostrarModalRechazo(false)}>
-          
+
           <div style={{
-            backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
-            padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '450px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+            backgroundColor: '#ffffff', border: '1px solid #b8dece',
+            padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '450px',
+            boxShadow: '0 10px 30px rgba(30, 100, 60, 0.15)'
           }} onClick={e => e.stopPropagation()}>
-            
-            <h3 style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '1.25rem' }}>
+
+            <h3 style={{ color: '#1a2e25', marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 700 }}>
               Rechazar Apto Físico
             </h3>
-            
+
             <form onSubmit={confirmarRechazoModerno}>
-              <label style={{ color: '#868e96', display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+              <label style={{ color: '#3d6b55', display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
                 Escribí el motivo detallado para el paciente:
               </label>
-              
+
               <textarea
                 value={motivoTexto}
                 onChange={(e) => setMotivoTexto(e.target.value)}
                 placeholder="Ej: El documento está borroso o la fecha de emisión expiró..."
                 required
                 style={{
-                  width: '100%', height: '100px', backgroundColor: '#151521',
-                  color: 'white', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '6px', padding: '0.5rem', fontSize: '0.95rem',
-                  resize: 'none', marginBottom: '1.5rem', outline: 'none'
+                  width: '100%', height: '100px', backgroundColor: '#f4faf7',
+                  color: '#1a2e25', border: '1px solid #b8dece',
+                  borderRadius: '8px', padding: '0.6rem 0.75rem', fontSize: '0.95rem',
+                  resize: 'none', marginBottom: '1.5rem', outline: 'none',
+                  boxSizing: 'border-box'
                 }}
               />
-              
+
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button 
+                <button
                   type="button"
                   onClick={() => setMostrarModalRechazo(false)}
                   style={{
-                    background: 'transparent', color: '#868e96', border: 'none',
-                    padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '600'
+                    background: 'transparent', color: '#3d6b55', border: '1px solid #b8dece',
+                    padding: '0.5rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600',
+                    fontSize: '0.9rem'
                   }}
                 >
                   Cancelar
                 </button>
-                <button 
+                <button
                   type="submit"
                   style={{
-                    background: '#ef4444', color: 'white', border: 'none',
-                    padding: '0.5rem 1.2rem', borderRadius: '6px', cursor: 'pointer',
-                    fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                    background: '#dc2626', color: '#ffffff', border: 'none',
+                    padding: '0.5rem 1.2rem', borderRadius: '8px', cursor: 'pointer',
+                    fontWeight: '600', fontSize: '0.9rem',
+                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)'
                   }}
                 >
                   Confirmar Rechazo
@@ -315,9 +320,12 @@ function ClasesEnCurso() {
             <div key={c.id} className={styles.cursoItem}>
               <div className={styles.cursoInfo}>
                 <span className={styles.cursoNombre}>{c.nombre}</span>
-                <span className={styles.cursoDato}>{c.aula} · {c.horario}</span>
+                <span className={styles.cursoDato}>{c.horario}{c.aula && c.aula !== c.nombre ? ` · ${c.aula}` : ''}</span>
               </div>
-              <button className={styles.verMasBtn} onClick={() => setDetalle(c)}>Ver más</button>
+              <div className={styles.cursoAcciones}>
+                <button className={styles.registrarAsistenciaBtn}>Registrar asistencia</button>
+                <button className={styles.verMasBtn} onClick={() => setDetalle(c)}>Ver más</button>
+              </div>
             </div>
           ))}
         </div>
@@ -345,22 +353,40 @@ function AreaClases() {
   const [cargando,        setCargando]  = useState(true)
   const [filtro,          setFiltro]    = useState('todas')
   const [filtroTipo,      setFiltroTipo] = useState('todos')
-  const [listaEsperaModal, setLista]     = useState(null)   // clase seleccionada
-  const [listaEsperaData,  setListaData] = useState(null)   // respuesta estructurada del backend
-  const [listaLoading,     setListaLoad] = useState(false)
-  const [userModal,        setUserModal] = useState(null)
+  const [listaEsperaModal, setLista]       = useState(null)   // clase seleccionada
+  const [listaFechas,      setListaFechas] = useState([])     // fechas con espera
+  const [listaFechasCarg,  setListaFCarg]  = useState(false)
+  const [fechaSelec,       setFechaSelec]  = useState(null)   // fecha seleccionada
+  const [listaUsuarios,    setListaUsers]  = useState([])     // usuarios de esa fecha
+  const [listaUsersCarg,   setListaUCarg]  = useState(false)
+  const [userModal,        setUserModal]   = useState(null)
   const [crearClase,      setCrear]    = useState(false)
   const [asignarModal,    setAsignar]  = useState(null)   // clase a la que se asigna profesor
+  const [desasignarModal, setDesasignar] = useState(null) // clase de la que se quita profesor
+  const [desasignando,    setDesasignando] = useState(false)
+  const [infoProfesorSel, setInfoProfesorSel] = useState(null)
+  const [confirmarPaso,   setConfirmarPaso] = useState(false)
   const [profesores,      setProfesores] = useState([])
   const [profesorSel,     setProfesorSel] = useState('')
   const [asignando,       setAsignando] = useState(false)
   const [asignarError,    setAsignarError] = useState('')
+  const [alerta,          setAlerta]       = useState({ mostrar: false, texto: '', tipo: 'exito' })
   const [capacidadModal,  setCapacidadModal]  = useState(null)  // { id, nombre }
   const [nuevaCap,        setNuevaCap]        = useState('')
   const [capError,        setCapError]        = useState('')
   const [capCargando,     setCapCargando]     = useState(false)
-  const [capResultModal,  setCapResultModal]  = useState(null) // { texto, cancelada: bool }
+  const [capResultModal,  setCapResultModal]  = useState(null)  // { texto, cancelada: bool }
+  const [loadingMsg,      setLoadingMsg]   = useState(null)
 
+
+  const mostrarNotificacion = (texto, tipo = 'exito') => {
+    setAlerta({ mostrar: true, texto, tipo });
+    
+    // A los 3 segundos exactos se oculta solo
+    setTimeout(() => {
+      setAlerta({ mostrar: false, texto: '', tipo: 'exito' });
+    }, 3000);
+  };
   const cargarClases = () => {
     getClasesRequest()
       .then(res => setClases(res.data))
@@ -371,7 +397,7 @@ function AreaClases() {
   useEffect(() => { cargarClases() }, [])
 
   const abrirCambiarCapacidad = (clase) => {
-    setCapacidadModal({ id: clase.id, nombre: clase.nombre })
+    setCapacidadModal({ id: clase.id, nombre: clase.nombre, cupo: clase.cupo })
     setNuevaCap(String(clase.cupo))
     setCapError('')
   }
@@ -384,14 +410,41 @@ function AreaClases() {
       const res = await cambiarCapacidadRequest(capacidadModal.id, cupo)
       setCapacidadModal(null)
       cargarClases()
-      if (res.data.cancelada) {
-        setCapResultModal({ texto: res.data.detail, cancelada: true })
-      }
+      if (res.data.cancelada) setCapResultModal({ texto: res.data.detail, cancelada: true })
     } catch (err) {
       setCapError(err.response?.data?.detail ?? 'Error al cambiar la capacidad.')
     } finally {
       setCapCargando(false)
     }
+  }
+
+  const abrirListaEspera = (clase) => {
+    setLista(clase)
+    setFechaSelec(null)
+    setListaUsers([])
+    setListaFechas([])
+    setListaFCarg(true)
+    getListaEsperaFechasRequest(clase.id)
+      .then(r => setListaFechas(r.data))
+      .catch(() => setListaFechas([]))
+      .finally(() => setListaFCarg(false))
+  }
+
+  const abrirFechaEspera = (claseId, fecha) => {
+    setFechaSelec(fecha)
+    setListaUCarg(true)
+    getListaEsperaUsuariosRequest(claseId, fecha)
+      .then(r => setListaUsers(r.data))
+      .catch(() => setListaUsers([]))
+      .finally(() => setListaUCarg(false))
+  }
+
+  const cerrarListaEspera = () => {
+    setLista(null)
+    setFechaSelec(null)
+    setListaFechas([])
+    setListaUsers([])
+    setUserModal(null)
   }
 
   const abrirAsignar = (clase) => {
@@ -419,13 +472,85 @@ function AreaClases() {
     }
   }
 
+  const handleDesasignarProfesor = async () => {
+    if (!desasignarModal) return
+    setDesasignando(true)
+    try {
+      // Reutiliza la misma petición pasándole un valor vacío o llamando a tu endpoint desasignar
+      await desasignarProfesorRequest(desasignarModal.id) 
+      setDesasignar(null)
+      cargarClases() // Refresca la lista automáticamente en pantalla
+      mostrarNotificacion("Profesor desasignado con éxito", "exito")
+
+    } catch (err) {
+      const mensajeError = err.response?.data?.detail ?? 'Error al desasignar el profesor.'
+      mostrarNotificacion(mensajeError, "error")
+    } finally {
+      setDesasignando(false)
+    }
+  }
+
   const clasesFiltradas = clases.filter(c => {
+    if (c.estado === 'cancelada') return false
     const matchHorario = filtro === 'todas' || getHorarioFiltro(c.horario) === filtro
     const matchTipo    = filtroTipo === 'todos' || c.tipo_clase === filtroTipo
     return matchHorario && matchTipo
   })
 
+  const handleCancelarClase = async (clase) => {
+    const token = localStorage.getItem("access_token")
+    if (!token) return
+
+    setLoadingMsg('Cancelando clase')
+    try {
+      const [res] = await Promise.all([
+        fetch("/api/clases/cancelar-clase/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ clase_id: clase.id }),
+        }),
+        new Promise(r => setTimeout(r, 800)),
+      ])
+      if (!res.ok) throw new Error()
+      mostrarNotificacion('Clase cancelada correctamente.', 'exito')
+      cargarClases()
+    } catch {
+      mostrarNotificacion('Hubo un error al cancelar la clase.', 'error')
+    } finally {
+      setLoadingMsg(null)
+    }
+  }
+
   return (
+    <>
+    {alerta.mostrar && (
+        <div style={{
+          position: 'fixed',                  
+          top: '25px',                        
+          left: '50%',                        
+          transform: 'translateX(-50%)',      
+          backgroundColor: alerta.tipo === 'exito' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          color: alerta.tipo === 'exito' ? '#22c55e' : '#ef4444',
+          border: alerta.tipo === 'exito' ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+          padding: '0.85rem 1.75rem', 
+          borderRadius: '8px', 
+          fontSize: '0.95rem',
+          fontWeight: '500', 
+          zIndex: 100000,                     // 👈 Pasa por encima de headers, modales y cualquier cosa
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          backdropFilter: 'blur(6px)'
+        }}>
+          <span>{alerta.tipo === 'exito' ? '✅' : '❌'}</span>
+          {alerta.texto}
+        </div>
+      )}
+  
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Clases</h2>
@@ -471,226 +596,176 @@ function AreaClases() {
           <div key={c.id} className={styles.claseRow}>
             <div className={styles.claseMain}>
               <div>
-                <p className={styles.claseNombre}>{c.nombre}</p>
+                <div style={{display:"flex", flexDirection:"row", gap:"8px", alignItems:"center", flexWrap:"wrap"}}>
+                  <p className={styles.claseNombre}>{c.nombre}</p>
+                  <span className={c.tipo_clase === 'fija' ? styles.tipoBadgeFija : styles.tipoBadgeIndividual}>
+                    {c.tipo_clase === 'fija' ? '🔁 Fija' : '📅 Individual'}
+                  </span>
+                  <span className={`${styles.estadoBadge} ${styles[c.estado]}`}>{c.estado.toUpperCase()}</span>
+                </div>
                 <p className={styles.claseMeta}>{c.especialidad_display} · {c.dias} · {c.horario} · {c.aula}</p>
               </div>
-              <div className={styles.claseProfesor}>
-                {c.profesor_nombre ? (
-                  <span className={styles.profesorNombre}>👤 {c.profesor_nombre}</span>
-                ) : (
-                  <div className={styles.sinProfesor}>
-                    <span className={styles.sinAsignar}>SIN ASIGNAR</span>
-                    <button className={styles.asignarBtn} onClick={() => abrirAsignar(c)}>Asignar profesor</button>
-                  </div>
-                )}
-              </div>
-              <div className={styles.claseCupo}>
-                <span className={`${styles.cupoTag} ${c.cantidad_inscriptos >= c.cupo ? styles.cupoLleno : ''}`}>
-                  {c.cantidad_inscriptos}/{c.cupo} inscriptos
-                </span>
-              </div>
-            </div>
-            <div className={styles.claseAcciones}>
-              <button
-                className={styles.listaEsperaBtn}
-                onClick={async () => {
-                  setLista(c)
-                  setListaData(null)
-                  setUserModal(null)
-                  setListaLoad(true)
-                  try {
-                    const res = await getListaEsperaRequest(c.id)
-                    setListaData(res.data)
-                  } catch {
-                    setListaData({ error: true })
-                  } finally {
-                    setListaLoad(false)
-                  }
-                }}
-              >
-                Ver lista de espera
-                {c.lista_espera.length > 0 && (
-                  <span className={styles.listaCount}>{c.lista_espera.length}</span>
-                )}
-              </button>
-              <button
-                className={styles.listaEsperaBtn}
-                onClick={() => abrirCambiarCapacidad(c)}
-              >
-                Cambiar capacidad
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+            {c.estado !== 'cancelada' &&
+              <>
+                <div className={styles.claseProfesor}>
+                  {c.profesor_nombre ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className={styles.verMasBtn}
+                      onClick={() => {
+                        setDesasignar(c);
+                        setInfoProfesorSel(null);
+                        setConfirmarPaso(false);
 
-      {/* Modal lista de espera */}
-      {listaEsperaModal && (
+                        getProfesoresPorEspecialidadRequest(c.especialidad)
+                          .then(res => {
+                            const profeDetalle = res.data.find(p => p.nombre === c.profesor_nombre);
+                            if (profeDetalle) setInfoProfesorSel(profeDetalle);
+                          })
+                          .catch(() => setInfoProfesorSel(null));
+                      }}
+                      title="Ver información del profesor"
+                      style={{
+                        padding: '0.3rem 0.75rem',
+                        fontSize: '0.82rem',
+                        borderRadius: '20px',
+                        letterSpacing: '0.3px',
+                        boxShadow: '0 2px 8px rgba(30, 153, 136, 0.05)'
+                      }}
+                    >
+                      Ver profesor de clase
+                    </button>
+                  </div>
+                    ) : (
+                      <div className={styles.sinProfesor}>
+                        <span className={styles.sinAsignar}>SIN ASIGNAR</span>
+                        <button className={styles.asignarBtn} onClick={() => abrirAsignar(c)}>Asignar profesor</button>
+                      </div>
+                    )}
+                  <button
+                    className={styles.cancelarClaseBtn}
+                    onClick={() => handleCancelarClase(c)}
+                  >
+                    Cancelar clase
+                  </button>
+                  </div>
+                  <div className={styles.claseCupo}>
+                    <span className={`${styles.cupoTag} ${c.cantidad_inscriptos >= c.cupo ? styles.cupoLleno : ''}`}>
+                      {c.cantidad_inscriptos}/{c.cupo} inscriptos
+                    </span>
+                  </div>
+                </>
+              }
+            </div>
+            {c.estado !== 'cancelada' &&
+              <div className={styles.claseAcciones}>
+                <button
+                  className={styles.listaEsperaBtn}
+                  onClick={() => abrirListaEspera(c)}
+                >
+                  Ver listas de espera
+                  {c.lista_espera.length > 0 && (
+                    <span className={styles.listaCount}>{c.lista_espera.length}</span>
+                  )}
+                </button>
+                <button
+                  className={styles.listaEsperaBtn}
+                  onClick={() => abrirCambiarCapacidad(c)}
+                >
+                  Cambiar capacidad
+                </button>
+              </div>
+            }
+          </div>
+          ))}
+      </div>
+     
+
+      {/* ── Modal lista de espera — Paso 1: fechas ── */}
+      {listaEsperaModal && !fechaSelec && (
         <Modal
-          title={`Lista de espera — ${listaEsperaModal.nombre}`}
-          onClose={() => { setLista(null); setListaData(null); setUserModal(null) }}
+          title={`Listas de espera — ${listaEsperaModal.nombre}`}
+          onClose={cerrarListaEspera}
           wide
         >
-          {listaLoading ? (
+          {listaFechasCarg ? (
             <p className={styles.emptyMsg}>Cargando...</p>
-          ) : !listaEsperaData || listaEsperaData.error ? (
-            <p className={styles.emptyMsg}>Error al cargar la lista de espera.</p>
-          ) : listaEsperaData.tipo_clase === 'individual' ? (
-            /* ── Clase individual: lista única ── */
-            listaEsperaData.lista_espera.length === 0 ? (
-              <p className={styles.emptyMsg}>No hay usuarios en lista de espera.</p>
-            ) : (
-              <div className={styles.listaEsperaList}>
-                {listaEsperaData.lista_espera.map(u => (
-                  <div key={u.id} className={styles.listaEsperaItem}>
-                    <div>
-                      <p className={styles.listaUserNombre}>{u.nombre}</p>
-                      <p className={styles.listaUserEmail}>{u.email}</p>
-                    </div>
-                    <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
-                  </div>
-                ))}
-              </div>
-            )
+          ) : listaFechas.length === 0 ? (
+            <p className={styles.emptyMsg}>No hay clases con lista de espera para esta clase.</p>
           ) : (
-            /* ── Clase fija: abonados / no abonados ── */
-            listaEsperaData.abonados.length === 0 && listaEsperaData.no_abonados.length === 0 ? (
-              <p className={styles.emptyMsg}>No hay usuarios en lista de espera.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
-
-                {/* Abonados */}
-                <div>
-                  <p style={{ color: '#22c55e', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.05em' }}>
-                    ✅ Abonados ({listaEsperaData.abonados.length})
-                    <span style={{ color: '#868e96', fontWeight: 400, fontSize: '0.78rem', marginLeft: '8px', textTransform: 'none' }}>
-                      — tienen suscripción activa para esta clase
-                    </span>
-                  </p>
-                  {listaEsperaData.abonados.length === 0 ? (
-                    <p style={{ color: '#868e96', fontSize: '0.85rem' }}>Ninguno.</p>
-                  ) : (
-                    <div className={styles.listaEsperaList}>
-                      {listaEsperaData.abonados.map(u => (
-                        <div key={u.id} className={styles.listaEsperaItem}
-                          style={{ borderLeft: '3px solid rgba(34,197,94,0.4)' }}>
-                          <div>
-                            <p className={styles.listaUserNombre}>{u.nombre}</p>
-                            <p className={styles.listaUserEmail}>{u.email}</p>
-                          </div>
-                          <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
-                        </div>
-                      ))}
+            <div className={styles.listaEsperaList}>
+              {listaFechas.map(f => {
+                const [y, m, d] = f.fecha.split('-')
+                const label = new Date(+y, +m - 1, +d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                return (
+                  <div key={f.fecha} className={styles.listaEsperaItem}>
+                    <div>
+                      <p className={styles.listaUserNombre}>{f.nombre}</p>
+                      <p className={styles.listaUserEmail}>{label} · {f.horario}</p>
                     </div>
-                  )}
-                </div>
-
-                {/* No abonados */}
-                <div>
-                  <p style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.05em' }}>
-                    ⚠️ No abonados ({listaEsperaData.no_abonados.length})
-                    <span style={{ color: '#868e96', fontWeight: 400, fontSize: '0.78rem', marginLeft: '8px', textTransform: 'none' }}>
-                      — sin suscripción para esta clase
-                    </span>
-                  </p>
-                  {listaEsperaData.no_abonados.length === 0 ? (
-                    <p style={{ color: '#868e96', fontSize: '0.85rem' }}>Ninguno.</p>
-                  ) : (
-                    <div className={styles.listaEsperaList}>
-                      {listaEsperaData.no_abonados.map(u => (
-                        <div key={u.id} className={styles.listaEsperaItem}
-                          style={{ borderLeft: '3px solid rgba(245,158,11,0.4)' }}>
-                          <div>
-                            <p className={styles.listaUserNombre}>{u.nombre}</p>
-                            <p className={styles.listaUserEmail}>{u.email}</p>
-                          </div>
-                          <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
-                        </div>
-                      ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className={styles.listaCount}>{f.cantidad}</span>
+                      <button
+                        className={styles.verMasBtn}
+                        onClick={() => abrirFechaEspera(listaEsperaModal.id, f.fecha)}
+                      >
+                        Ver lista de espera
+                      </button>
                     </div>
-                  )}
-                </div>
-
-              </div>
-            )
+                  </div>
+                )
+              })}
+            </div>
           )}
         </Modal>
       )}
 
-      {/* Modal detalle usuario lista de espera */}
-      {userModal && (
-        <Modal title={userModal.nombre} onClose={() => setUserModal(null)}>
-          <div className={styles.detalleGrid}>
-            <span>Email</span>    <span>{userModal.email}</span>
-            <span>Teléfono</span> <span>{userModal.telefono || '—'}</span>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal cambiar capacidad */}
-      {capacidadModal && (
+      {/* ── Modal lista de espera — Paso 2: usuarios de esa fecha ── */}
+      {listaEsperaModal && fechaSelec && (
         <Modal
-          title={`Cambiar capacidad — ${capacidadModal.nombre}`}
-          onClose={() => setCapacidadModal(null)}
+          title={`Lista de espera — ${new Date(fechaSelec + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}`}
+          onClose={() => setFechaSelec(null)}
+          wide
         >
-          <p className={styles.capInfo}>
-            Ingresá el nuevo cupo. Si es menor a los inscriptos actuales, la clase se cancelará automáticamente.
-          </p>
-          <div className={styles.capRow}>
-            <input
-              type="number"
-              min="1"
-              value={nuevaCap}
-              onChange={e => setNuevaCap(e.target.value)}
-              className={styles.capInput}
-            />
-            <button
-              className={styles.btnPrimary}
-              onClick={handleCambiarCapacidad}
-              disabled={capCargando}
-            >
-              {capCargando ? 'Guardando...' : 'Confirmar'}
-            </button>
-          </div>
-          {capError && <p className={styles.errorMsg}>{capError}</p>}
-        </Modal>
-      )}
+          <button
+            onClick={() => setFechaSelec(null)}
+            style={{ background: 'none', border: 'none', color: '#1a9d85', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', marginBottom: '1rem', padding: 0 }}
+          >
+            ← Volver a fechas
+          </button>
 
-      {/* Modal resultado cancelación de clase por capacidad */}
-      {capResultModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-        }} onClick={() => setCapResultModal(null)}>
-          <div style={{
-            background: '#13172e',
-            border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: '20px', padding: '2rem 2.4rem',
-            width: '100%', maxWidth: '440px', textAlign: 'center',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
-          }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: '2rem', marginBottom: '0.8rem' }}>🚫</p>
-            <h3 style={{ color: 'white', fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-              Clase cancelada
-            </h3>
-            <p style={{ color: '#b0b3c7', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '0.75rem' }}>
-              {capResultModal.texto}
-            </p>
-            <p style={{ color: '#868e96', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-              Se notificó a los inscriptos por mail. Los créditos y señas se gestionarán a la brevedad.
-            </p>
-            <button
-              onClick={() => setCapResultModal(null)}
-              style={{
-                padding: '0.65rem 2rem', borderRadius: '12px', border: 'none',
-                background: '#ef4444', color: 'white', fontWeight: 600,
-                fontSize: '0.95rem', cursor: 'pointer'
-              }}
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
+          {listaUsersCarg ? (
+            <p className={styles.emptyMsg}>Cargando...</p>
+          ) : listaUsuarios.length === 0 ? (
+            <p className={styles.emptyMsg}>No hay usuarios en lista de espera para esta fecha.</p>
+          ) : (
+            <div className={styles.listaEsperaList}>
+              {listaUsuarios.map((u, i) => (
+                <div key={u.id} className={styles.listaEsperaItem}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ background: '#1a9d85', color: '#fff', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                    <div>
+                      <p className={styles.listaUserNombre}>{u.nombre}</p>
+                      <p className={styles.listaUserEmail}>{u.email}</p>
+                    </div>
+                  </div>
+                  <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {userModal && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: 'linear-gradient(145deg,#eaf5ef,#f4faf7)', border: '1px solid #b8dece', borderRadius: '12px' }}>
+              <p style={{ margin: '0 0 8px', fontWeight: 700, color: '#1a2e25' }}>{userModal.nombre}</p>
+              <div className={styles.detalleGrid}>
+                <span>Email</span>    <span>{userModal.email}</span>
+                <span>Teléfono</span> <span>{userModal.telefono || '—'}</span>
+              </div>
+              <button onClick={() => setUserModal(null)} style={{ marginTop: '8px', background: 'none', border: 'none', color: '#1a9d85', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}>Cerrar detalle</button>
+            </div>
+          )}
+        </Modal>
       )}
 
       {/* Modal asignar profesor */}
@@ -733,6 +808,95 @@ function AreaClases() {
           </div>
         </Modal>
       )}
+        {/* Modal Detalle — Información y Remoción del Profesor */}
+      {desasignarModal && (
+        <Modal 
+          title={confirmarPaso ? "Confirmar acción" : (infoProfesorSel ? infoProfesorSel.nombre : desasignarModal.profesor_nombre)} 
+          onClose={() => { setDesasignar(null); setInfoProfesorSel(null); }}
+        >
+          {!confirmarPaso ? (
+           <>
+
+          <div className={styles.detalleGrid}>
+            <span>Email</span>      <span>{infoProfesorSel?.email || 'Cargando...'}</span>
+            <span>Rol</span>        <span>Profesor</span>
+            <span>Teléfono</span>   <span>{infoProfesorSel?.telefono || infoProfesorSel?.phone || '—'}</span>
+            {/* Si el backend de profesores no devuelve fecha de nacimiento, podemos poner la Especialidad */}
+            <span>Especialidad</span> <span>{desasignarModal.especialidad_display}</span>
+            <span>Estado</span>
+            {infoProfesorSel ? (
+              <span className={infoProfesorSel.is_active !== false ? styles.estadoActivo : styles.estadoSuspendido}>
+                {infoProfesorSel.is_active !== false ? 'Activo' : 'Suspendido'}
+              </span>
+            ) : (
+              <span>—</span>
+            )}
+          </div>
+
+          <div style={{ borderTop: '1px solid #e9ecef', marginTop: '20px', paddingTop: '15px' }}>
+                <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button className={styles.btnOutline} onClick={() => { setDesasignar(null); setInfoProfesorSel(null); }}>
+                    Cerrar
+                  </button>
+                  {/* Este botón avanza al paso de confirmación */}
+                  <button className={styles.btnPrimary} onClick={() => setConfirmarPaso(true)}>
+                    Quitar de la clase
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ══════════════════════════════════════════════════════════
+               PANTALLA 2: ADVERTENCIA DE SEGURIDAD ESTILIZADA
+               ══════════════════════════════════════════════════════════ */
+            <div style={{ padding: '5px', textAlign: 'center' }}>
+              <h4 style={{ color: '#ffffff', marginBottom: '10px', fontSize: '1.1rem', fontWeight: '600' }}>
+                ¿Estás seguro?
+              </h4>
+              <p style={{ fontSize: '0.9rem', color: '#6c757d', marginBottom: '25px', lineHeight: '1.4' }}>
+                Vas a desasignar a <strong>{desasignarModal.profesor_nombre}</strong> de la clase de <strong>{desasignarModal.nombre}</strong>. 
+              </p>
+
+              <div style={{ paddingTop: '18px' }}>
+                <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+                  {/* Botón para arrepentirse y volver a la ficha */}
+                  <button className={styles.btnOutline} onClick={() => setConfirmarPaso(false)}>
+                    No, volver
+                  </button>
+                  
+                  <button
+                    onClick={handleDesasignarProfesor}
+                    disabled={desasignando}
+                    style={{ 
+                      padding: '0.55rem 1.3rem',
+                      border: '1px solid rgba(220, 53, 69, 0.4)', /* Borde rojo suave */
+                      borderRadius: '10px',
+                      background: 'rgba(220, 53, 69, 0.05)',       /* Fondo blanco con un toque rojo traslúcido */
+                      color: '#dc3545',                            /* Letras rojas claras */
+                      fontSize: '0.88rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => { 
+                      e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.15)'; /* Se oscurece el fondo al pasar el mouse */
+                      e.target.style.borderColor = '#dc3545';
+                    }}
+                    onMouseLeave={(e) => { 
+                      e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.05)'; 
+                      e.target.style.borderColor = 'rgba(220, 53, 69, 0.4)';
+                    }}
+                  >
+                    {desasignando ? 'Quitando...' : 'Sí, desasignar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
 
       {/* Modal crear clase */}
       {crearClase && (
@@ -741,7 +905,64 @@ function AreaClases() {
           onCreada={cargarClases}
         />
       )}
+
+      {/* Modal cambiar capacidad */}
+      {capacidadModal && (
+        <Modal
+          title={`Cambiar capacidad — ${capacidadModal.nombre}`}
+          onClose={() => setCapacidadModal(null)}
+        >
+          <p style={{ color: '#b0b3c7', fontSize: '0.9rem', marginBottom: '1rem' }}>
+            Ingresá el nuevo cupo. Si es menor a los inscriptos actuales, la clase se cancelará automáticamente.
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <input
+              type="number"
+              min="1"
+              value={nuevaCap}
+              onChange={e => setNuevaCap(e.target.value)}
+              style={{ flex: 1, padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: '#111527', color: 'white', fontSize: '1rem', outline: 'none' }}
+            />
+            <button
+              onClick={handleCambiarCapacidad}
+              disabled={capCargando}
+              style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none', background: '#7c3aed', color: 'white', fontWeight: 600, cursor: capCargando ? 'not-allowed' : 'pointer' }}
+            >
+              {capCargando ? 'Guardando...' : 'Confirmar'}
+            </button>
+          </div>
+          {capError && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem' }}>{capError}</p>}
+        </Modal>
+      )}
+
+      {/* Modal resultado cancelación de clase por capacidad */}
+      {capResultModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setCapResultModal(null)}>
+          <div style={{
+            background: '#13172e', border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: '20px', padding: '2rem 2.4rem', width: '100%', maxWidth: '440px',
+            textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: '2rem', marginBottom: '0.8rem' }}>🚫</p>
+            <h3 style={{ color: 'white', fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.75rem' }}>Clase cancelada</h3>
+            <p style={{ color: '#b0b3c7', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '0.75rem' }}>{capResultModal.texto}</p>
+            <p style={{ color: '#868e96', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Se notificó a los inscriptos por mail. Los créditos y señas se gestionarán a la brevedad.
+            </p>
+            <button onClick={() => setCapResultModal(null)}
+              style={{ padding: '0.65rem 2rem', borderRadius: '12px', border: 'none', background: '#ef4444', color: 'white', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}>
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loadingMsg && <LoadingOverlay mensaje={loadingMsg} />}
     </section>
+    </>
   )
 }
 
@@ -808,6 +1029,7 @@ function Usuarios() {
   const [suspenderModal, setSuspenderModal]     = useState(null)  // user a suspender
   const [motivoSuspension, setMotivoSuspension] = useState('')
   const [feedbackModal, setFeedbackModal]       = useState(null)  // { texto, tipo: 'exito'|'error' }
+  const [loadingMsg, setLoadingMsg]             = useState(null)  // texto del overlay de carga
 
   // ── Modal registro ────────────────────────────────────────
   const [regModal,    setRegModal]   = useState(false)
@@ -856,7 +1078,7 @@ function Usuarios() {
         return
       }
     }
-    setRegCarg(true); setRegError('')
+    setRegCarg(true); setRegError(''); setLoadingMsg('Registrando usuario')
     try {
       await adminRegisterRequest({ ...regForm, role: regRol, especialidades: regEsp.join(',') })
       setRegOk(true)
@@ -864,7 +1086,7 @@ function Usuarios() {
     } catch (e) {
       setRegError(e.response?.data?.detail || 'Error, intente nuevamente')
     } finally {
-      setRegCarg(false)
+      setRegCarg(false); setLoadingMsg(null)
     }
   }
 
@@ -877,24 +1099,29 @@ function Usuarios() {
 
   const confirmarSuspension = async () => {
     if (!motivoSuspension.trim()) return
+    setSuspenderModal(null)
+    setLoadingMsg('Suspendiendo usuario')
     try {
-      await deleteUserRequest(suspenderModal.id, motivoSuspension)
+      await suspenderUserRequest(suspenderModal.id, motivoSuspension)
       setUsuarios(prev => prev.map(u => u.id === suspenderModal.id ? { ...u, is_active: false } : u))
       setFeedbackModal({ texto: 'Usuario suspendido con éxito.', tipo: 'exito' })
     } catch {
       setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
     } finally {
-      setSuspenderModal(null)
+      setLoadingMsg(null)
     }
   }
 
   const handleReactivar = async (user) => {
+    setLoadingMsg('Reactivando usuario')
     try {
-      await deleteUserRequest(user.id, null)
+      await suspenderUserRequest(user.id, null)
       setUsuarios(prev => prev.map(u => u.id === user.id ? { ...u, is_active: true } : u))
       setFeedbackModal({ texto: 'Usuario reactivado con éxito.', tipo: 'exito' })
     } catch {
       setFeedbackModal({ texto: 'Error al cambiar el estado del usuario.', tipo: 'error' })
+    } finally {
+      setLoadingMsg(null)
     }
   }
 
@@ -904,14 +1131,17 @@ function Usuarios() {
 
   const ejecutarBorradoFisicoReal = async () => {
     if (!usuarioAEliminar) return
+    const id = usuarioAEliminar.id
+    setUsuarioAEliminar(null)
+    setLoadingMsg('Eliminando usuario')
     try {
-      await hardDeleteUserRequest(usuarioAEliminar.id)
-      setUsuarios(prev => prev.filter(u => u.id !== usuarioAEliminar.id))
+      await hardDeleteUserRequest(id)
+      setUsuarios(prev => prev.filter(u => u.id !== id))
       setFeedbackModal({ texto: 'Usuario eliminado por completo de la base de datos.', tipo: 'exito' })
     } catch {
       setFeedbackModal({ texto: 'Error al intentar eliminar definitivamente al usuario.', tipo: 'error' })
     } finally {
-      setUsuarioAEliminar(null)
+      setLoadingMsg(null)
     }
   }
 
@@ -923,6 +1153,8 @@ function Usuarios() {
 
   return (
     <section className={styles.section}>
+      {loadingMsg && <LoadingOverlay mensaje={loadingMsg} />}
+
       <h2 className={styles.sectionTitle}>Usuarios</h2>
 
       {/* Buscador */}
@@ -969,20 +1201,22 @@ function Usuarios() {
             <button className={styles.verMasBtn} onClick={() => setUserModal(u)}>Ver más</button>
              {u.role !== "admin" && (
               <>
-                {/* 1️⃣ BOTÓN DE ESTADO LÓGICO */}
-                <button 
-                  className={u.is_active ? styles.eliminarBtn : styles.activarBtn} 
-                  onClick={() => u.is_active ? handleSuspender(u) : handleReactivar(u)}
-                  style={{ marginRight: '8px' }}
-                >
-                  {u.is_active ? 'Suspender' : 'Activar'}
-                </button>
+                {/* 1️⃣ BOTÓN DE ESTADO LÓGICO — solo para clientes */}
+                {u.role === 'client' && (
+                  <button
+                    className={u.is_active ? styles.eliminarBtn : styles.activarBtn}
+                    onClick={() => u.is_active ? handleSuspender(u) : handleReactivar(u)}
+                    style={{ marginRight: '8px' }}
+                  >
+                    {u.is_active ? 'Suspender' : 'Activar'}
+                  </button>
+                )}
 
                 {/* 2️⃣ BOTÓN DE ELIMINACIÓN FÍSICA */}
-                <button 
-                  className={styles.eliminarBtn} 
+                <button
+                  className={styles.eliminarBtn}
                   onClick={() => handleEliminarDefinitivo(u)}
-                  style={{ 
+                  style={{
                     background: 'rgba(239, 68, 68, 0.1)',
                     color: '#ef4444',
                     border: '1px solid rgba(239, 68, 68, 0.25)',
@@ -1020,31 +1254,31 @@ function Usuarios() {
 
       {/* ── MODAL SUSPENSIÓN ── */}
       {suspenderModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
+        <div style={{ position:'fixed', inset:0, background:'rgba(26,46,37,0.35)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
           onClick={() => setSuspenderModal(null)}>
-          <div style={{ background:'#13172e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'20px', padding:'2rem 2.2rem', width:'100%', maxWidth:'420px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+          <div style={{ background:'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)', border:'1px solid #b8dece', borderRadius:'20px', padding:'2rem 2.2rem', width:'100%', maxWidth:'420px', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
             onClick={e => e.stopPropagation()}>
-            <h3 style={{ color:'white', fontSize:'1.2rem', fontWeight:700, marginBottom:'0.5rem' }}>Suspender usuario</h3>
-            <p style={{ color:'#b0b3c7', fontSize:'0.9rem', marginBottom:'1.2rem' }}>
-              Ingresá el motivo de la suspensión de <strong style={{ color:'#a78bfa' }}>{suspenderModal.first_name} {suspenderModal.last_name}</strong>.
+            <h3 style={{ color:'#0f1f17', fontSize:'1.2rem', fontWeight:700, marginBottom:'0.5rem' }}>Suspender usuario</h3>
+            <p style={{ color:'#3d6b55', fontSize:'0.9rem', marginBottom:'1.2rem' }}>
+              Ingresá el motivo de la suspensión de <strong style={{ color:'#52b788' }}>{suspenderModal.first_name} {suspenderModal.last_name}</strong>.
             </p>
             <textarea
               value={motivoSuspension}
               onChange={e => setMotivoSuspension(e.target.value)}
               placeholder="Motivo de suspensión..."
               rows={3}
-              style={{ width:'100%', padding:'12px 14px', borderRadius:'12px', border:'1px solid #2c3157', background:'#111527', color:'white', fontSize:'0.95rem', resize:'vertical', boxSizing:'border-box', outline:'none', fontFamily:'inherit' }}
+              style={{ width:'100%', padding:'12px 14px', borderRadius:'12px', border:'1.5px solid #b8dece', background:'#f4faf7', color:'#1a2e25', fontSize:'0.95rem', resize:'vertical', boxSizing:'border-box', outline:'none', fontFamily:'inherit' }}
             />
             {motivoSuspension.trim() === '' && (
-              <p style={{ color:'#f87171', fontSize:'0.85rem', marginTop:'0.4rem' }}>El motivo es obligatorio.</p>
+              <p style={{ color:'#dc2626', fontSize:'0.85rem', marginTop:'0.4rem' }}>El motivo es obligatorio.</p>
             )}
             <div style={{ display:'flex', gap:'1rem', marginTop:'1.4rem' }}>
               <button onClick={() => setSuspenderModal(null)}
-                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#c8cbdf', fontWeight:600, cursor:'pointer' }}>
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'1.5px solid #b8dece', background:'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)', color:'#1a2e25', fontWeight:600, cursor:'pointer', fontSize:'0.95rem' }}>
                 Cancelar
               </button>
               <button onClick={confirmarSuspension} disabled={!motivoSuspension.trim()}
-                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'none', background: motivoSuspension.trim() ? '#f59e0b' : '#4b4b4b', color:'white', fontWeight:600, cursor: motivoSuspension.trim() ? 'pointer' : 'not-allowed' }}>
+                style={{ flex:1, padding:'0.65rem', borderRadius:'10px', border:'none', background: motivoSuspension.trim() ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : '#c8d8d0', color:'#ffffff', fontWeight:600, cursor: motivoSuspension.trim() ? 'pointer' : 'not-allowed', fontSize:'0.95rem', boxShadow: motivoSuspension.trim() ? '0 4px 14px rgba(220,38,38,0.35)' : 'none' }}>
                 Suspender
               </button>
             </div>
@@ -1056,12 +1290,12 @@ function Usuarios() {
       {feedbackModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}
           onClick={() => setFeedbackModal(null)}>
-          <div style={{ background:'#13172e', border:`1px solid ${feedbackModal.tipo === 'exito' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius:'20px', padding:'2rem 2.4rem', width:'100%', maxWidth:'380px', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
+          <div style={{ background:'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)', border:`1px solid ${feedbackModal.tipo === 'exito' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius:'20px', padding:'2rem 2.4rem', width:'100%', maxWidth:'380px', textAlign:'center', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}
             onClick={e => e.stopPropagation()}>
             <p style={{ fontSize:'2rem', marginBottom:'0.8rem' }}>{feedbackModal.tipo === 'exito' ? '✅' : '❌'}</p>
-            <p style={{ color:'white', fontSize:'1rem', fontWeight:600, marginBottom:'1.5rem', lineHeight:1.5 }}>{feedbackModal.texto}</p>
+            <p style={{ color:'#0f1f17', fontSize:'1rem', fontWeight:600, marginBottom:'1.5rem', lineHeight:1.5 }}>{feedbackModal.texto}</p>
             <button onClick={() => setFeedbackModal(null)}
-              style={{ padding:'0.65rem 2rem', borderRadius:'12px', border:'none', background: feedbackModal.tipo === 'exito' ? '#22c55e' : '#ef4444', color:'white', fontWeight:600, fontSize:'0.95rem', cursor:'pointer' }}>
+              style={{ padding:'0.65rem 2rem', borderRadius:'12px', border:'none', background: feedbackModal.tipo === 'exito' ? 'linear-gradient(135deg,#1a9d85,#147a68)' : 'linear-gradient(135deg,#dc2626,#b91c1c)', color:'#ffffff', fontWeight:600, fontSize:'0.95rem', cursor:'pointer', boxShadow: feedbackModal.tipo === 'exito' ? '0 4px 14px rgba(26,157,133,0.3)' : '0 4px 14px rgba(220,38,38,0.3)' }}>
               Aceptar
             </button>
           </div>
@@ -1076,23 +1310,26 @@ function Usuarios() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
         }} onClick={() => setUsuarioAEliminar(null)}>
           <div style={{
-            backgroundColor: '#1e1e2f', border: '1px solid rgba(239, 68, 68, 0.25)',
-            padding: '2.5rem 2rem', borderRadius: '12px', textAlign: 'center',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.6)', maxWidth: '430px', width: '90%'
+            background: 'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)',
+            border: '1.5px solid rgba(220, 38, 38, 0.3)',
+            padding: '2.5rem 2rem', borderRadius: '20px', textAlign: 'center',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.25)', maxWidth: '430px', width: '90%'
           }} onClick={e => e.stopPropagation()}>
-            <h4 style={{ color: 'white', marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: '400', lineHeight: '1.4' }}>
-              ¿Deseas eliminar definitivamente a <strong style={{ color: '#a78bfa' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⚠️</div>
+            <h4 style={{ color: '#1a2e25', marginBottom: '0.75rem', fontSize: '1.15rem', fontWeight: '700', lineHeight: '1.4' }}>
+              ¿Eliminar definitivamente a <strong style={{ color: '#dc2626' }}>{usuarioAEliminar.first_name} {usuarioAEliminar.last_name}</strong>?
             </h4>
-            <p style={{ color: '#868e96', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: '1.5' }}>
-              Esta acción es irreversible. Se borrará toda su información personal, turnos e historial de la base de datos de RehabilitAR.
+            <p style={{ color: '#3d6b55', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: '1.6' }}>
+              Esta acción es <strong style={{ color: '#dc2626' }}>irreversible</strong>. Se borrará toda su información personal, turnos e historial de la base de datos de RehabilitAR.
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
               <button
                 onClick={() => setUsuarioAEliminar(null)}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)', color: 'white',
-                  border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.65rem 1.5rem',
-                  borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
+                  background: 'linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%)',
+                  color: '#1a2e25', border: '1.5px solid #b8dece',
+                  padding: '0.65rem 1.5rem', borderRadius: '10px',
+                  cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem'
                 }}
               >
                 Cancelar
@@ -1100,9 +1337,11 @@ function Usuarios() {
               <button
                 onClick={ejecutarBorradoFisicoReal}
                 style={{
-                  background: '#ef4444', color: 'white', border: 'none',
-                  padding: '0.65rem 1.5rem', borderRadius: '8px', cursor: 'pointer',
-                  fontWeight: '600', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                  color: '#ffffff', border: 'none',
+                  padding: '0.65rem 1.5rem', borderRadius: '10px',
+                  cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem',
+                  boxShadow: '0 4px 14px rgba(220, 38, 38, 0.35)'
                 }}
               >
                 Eliminar para siempre

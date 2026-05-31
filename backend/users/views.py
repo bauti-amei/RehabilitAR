@@ -259,6 +259,12 @@ class DeleteUserView(APIView):
             # 3. Determinar acción según el estado actual
             if user.is_active:
                 # ACCIÓN: SUSPENDER (Estaba activo, pasa a inactivo)
+                if user.role != User.Role.CLIENT:
+                    return Response(
+                        {'detail': 'Solo se puede suspender a clientes.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
                 reason = request.data.get('reason')
                 if not reason:
                     return Response({'detail': 'Debe indicar un motivo.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -306,6 +312,46 @@ class DeleteUserView(APIView):
 
         except User.DoesNotExist:
             return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        
+class ChangePasswordView(APIView):
+    """
+    POST /api/auth/change-pass/
+    Body: { "oldPass": "...", "newPass": "..." }
+    Response: { "detail": "..." }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        old_pass = request.data.get('oldPass', '')
+        new_pass = request.data.get('newPass', '')
+
+        if not old_pass or not new_pass:
+            return Response(
+                {'detail': 'Faltan datos obligatorios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(new_pass) < 8:
+            return Response(
+                {'detail': 'La nueva contraseña debe tener al menos 8 caracteres.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(request, username=request.user.email, password=old_pass)
+
+        if user is None:
+            return Response(
+                {'detail': 'La contraseña actual es incorrecta.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        request.user.set_password(new_pass)
+        request.user.save()
+
+        return Response(
+            {'detail': 'Contraseña actualizada correctamente.'},
+            status=status.HTTP_200_OK
+        )
 
 
 # ══════════════════════════════════════════════════════════
@@ -333,7 +379,7 @@ class SolicitarCodigoView(APIView):
         try:
             send_mail(
                 subject='Código para restablecer tu contraseña — RehabilitAR',
-                message=f'Tu código de verificación es: {codigo}\n\nVence en 10 minutos.',
+                message=f'Tu código de verificación es: {codigo}',
                 from_email='noreply@rehabilitar.com',
                 recipient_list=[email],
                 fail_silently=False,

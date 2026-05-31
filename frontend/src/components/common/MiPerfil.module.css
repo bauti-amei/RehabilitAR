@@ -7,16 +7,17 @@
 
 .topRow {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Dos columnas iguales para Datos y Apto */
+  grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
 }
 
+/* ── Card ────────────────────────────────────────────────── */
 .card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%);
+  border: 1px solid #b8dece;
   border-radius: 20px;
   padding: 1.5rem;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(10, 35, 25, 0.18);
 }
 
 .cardTitle {
@@ -24,10 +25,11 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #5c619a;
+  color: #1a9d85;
   margin: 0 0 1.1rem;
 }
 
+/* ── Formulario de datos ─────────────────────────────────── */
 .datoGrupo {
   margin-bottom: 1.2rem;
   display: flex;
@@ -38,27 +40,42 @@
 .datoGrupo label {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #6b70a0;
+  color: #3d6b55;
 }
 
 .datoGrupo input {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #f4faf7;
+  border: 1.5px solid #b8dece;
   border-radius: 10px;
   padding: 0.75rem 1rem;
-  color: white;
+  color: #1a2e25;
   font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .datoGrupo input:focus {
-  border-color: #a78bfa; /* El violeta de tu saludo */
+  border-color: #1a9d85;
+  box-shadow: 0 0 0 3px rgba(26, 157, 133, 0.12);
 }
 
+/* Input bloqueado (no editable) */
+.datoGrupo input.inputBloqueado {
+  background: rgba(26, 157, 133, 0.06);
+  color: #3d6b55;
+  border: 1.5px solid rgba(184, 222, 206, 0.6);
+  cursor: not-allowed;
+}
+
+.datoGrupo input.inputBloqueado:focus {
+  border-color: rgba(184, 222, 206, 0.6);
+  box-shadow: none;
+}
+
+/* ── Botones ─────────────────────────────────────────────── */
 .btnPrimary {
-  background: #a78bfa;
-  color: #1a1b2f; /* Texto oscuro para contraste */
+  background: linear-gradient(135deg, #1a9d85, #147a68);
+  color: #ffffff;
   padding: 0.8rem 1.5rem;
   border: none;
   border-radius: 12px;
@@ -67,24 +84,54 @@
   cursor: pointer;
   width: 100%;
   margin-top: 0.5rem;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, transform 0.1s;
+  box-shadow: 0 4px 14px rgba(26, 157, 133, 0.25);
 }
 
-.btnPrimary:hover {
+.btnPrimary:hover:not(:disabled) {
   opacity: 0.9;
+  transform: translateY(-1px);
 }
 
-/* ── Textos Informativos ─────────────────────────────────── */
+.btnPrimary:disabled {
+  background: linear-gradient(135deg, #b8dece, #c8e8d4);
+  color: #3d6b55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btnSecondary {
+  background: linear-gradient(160deg, #e8f5ee 0%, #daeee3 100%);
+  color: #1a9d85;
+  border: 1.5px solid #b8dece;
+  padding: 0.75rem 1.2rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.btnSecondary:hover {
+  border-color: #1a9d85;
+  background: rgba(26, 157, 133, 0.08);
+  color: #147a68;
+}
+
+/* ── Textos informativos ─────────────────────────────────── */
 .descripcion {
-  color: #b0b3c7;
+  color: #3d6b55;
   font-size: 0.9rem;
   line-height: 1.5;
   margin: 0 0 1.5rem 0;
 }
 
-/* ── Estados del Apto Médico ─────────────────────────────── */
+/* ── Estados del Apto Físico ─────────────────────────────── */
 .estadoCaja {
-  padding: 1.5rem;
+  padding: 1.2rem 1.5rem;
   border-radius: 14px;
   text-align: center;
   margin-top: 1rem;
@@ -95,72 +142,40 @@
 
 .estadoCaja h4 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
 .estadoCaja p {
   margin: 0;
   font-size: 0.88rem;
-  opacity: 0.8;
 }
 
 .pendiente {
-  background: rgba(245, 158, 11, 0.1);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(217, 119, 6, 0.10);
+  color: #92400e;
+  border: 1.5px solid rgba(217, 119, 6, 0.30);
 }
 
 .aprobado {
-  background: rgba(16, 185, 129, 0.1);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(5, 150, 105, 0.10);
+  color: #065f46;
+  border: 1.5px solid rgba(5, 150, 105, 0.30);
 }
 
 .alertaRechazo {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
   padding: 1rem;
   border-radius: 10px;
   margin-bottom: 1rem;
   font-size: 0.9rem;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1.5px solid rgba(220, 38, 38, 0.25);
+  font-weight: 500;
 }
 
-/* Input file estilizado sutilmente */
+/* ── Input file ──────────────────────────────────────────── */
 .formularioApto input[type="file"] {
-  color: #b0b3c7;
+  color: #3d6b55;
   font-size: 0.88rem;
-}
-.btnPrimary:disabled {
-  background-color: #ccc;
-  color: #666;
-  cursor: not-allowed;
-  border-color: #bbb;
-}
-.datoGrupo input.inputBloqueado {
-  background: rgba(0, 0, 0, 0.25); /* Fondo más oscuro que el resto */
-  color: #6b70a0;                 /* Letra gris/azulada opaca (como tus labels) */
-  border: 1px solid rgba(255, 255, 255, 0.05); /* Borde casi invisible */
-  cursor: not-allowed;            /* Cursor de bloqueo */
-}
-/* Evita que brille en violeta si el usuario le hace click */
-.datoGrupo input.inputBloqueado:focus {
-  border-color: rgba(255, 255, 255, 0.05); 
-}
-.btnSecondary {
-  background: rgba(255, 255, 255, 0.07);
-  color: #a78bfa; /* El color violeta de tus enfoques */
-  border: 1px solid rgba(167, 139, 250, 0.3);
-  padding: 0.75rem 1.2rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-align: center;
-  transition: all 0.2s ease;
-}
-/* Efecto al pasar el mouse por encima */
-.btnSecondary:hover {
-  background: rgba(167, 139, 250, 0.1);
-  border-color: #a78bfa;
 }
