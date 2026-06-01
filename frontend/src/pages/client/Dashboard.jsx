@@ -480,6 +480,11 @@ export default function ClientDashboard() {
                           Vigente hasta {formatFecha(s.vigente_hasta)}
                         </span>
                       )}
+                      {cancelada && !s.vigente_hasta && (
+                        <span className={styles.vigenteHasta}>
+                          Cancelaste esta suscripción
+                        </span>
+                      )}
                     </div>
                     {/* Col 2 — Detalles */}
                     <div className={styles.planColDetalle}>
@@ -1004,12 +1009,12 @@ export default function ClientDashboard() {
                   ) : (
                     <>
                       <span style={{
-                        background: detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.10)' : 'rgba(217,119,6,0.10)',
-                        color: detalleSusc.estado === 'activa' ? '#065f46' : '#92400e',
-                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.30)' : 'rgba(217,119,6,0.30)'}`,
+                        background: detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.10)' : detalleSusc.estado === 'cancelada' ? 'rgba(239,68,68,0.10)' : 'rgba(217,119,6,0.10)',
+                        color: detalleSusc.estado === 'activa' ? '#065f46' : detalleSusc.estado === 'cancelada' ? '#b91c1c' : '#92400e',
+                        border: `1px solid ${detalleSusc.estado === 'activa' ? 'rgba(5,150,105,0.30)' : detalleSusc.estado === 'cancelada' ? 'rgba(185,28,28,0.30)' : 'rgba(217,119,6,0.30)'}`,
                         borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700
                       }}>
-                        {detalleSusc.estado === 'activa' ? '✅ Activa' : '⏳ Pendiente de pago'}
+                        {detalleSusc.estado === 'activa' ? '✅ Activa' : detalleSusc.estado === 'cancelada' ? '🚫 Cancelada' : '⏳ Pendiente de pago'}
                       </span>
                       {detalleSusc.en_espera && (
                         <span style={{ background: 'rgba(217,119,6,0.10)', color: '#92400e', border: '1px solid rgba(217,119,6,0.30)', borderRadius: '8px', padding: '4px 12px', fontSize: '0.82rem', fontWeight: 700 }}>

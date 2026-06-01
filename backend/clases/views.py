@@ -582,6 +582,13 @@ class PagarSuscripcionView(APIView):
         precio_info = _calcular_precio(clase, ocurrencias, descuentos_count, desc_pct)
         total_susc  = float(precio_info['total'])
 
+        # Limpiar reservas canceladas previas para esta clase/usuario/mes
+        # (evita IntegrityError por unique_together al re-suscribirse después de un cambio de turno)
+        Reserva.objects.filter(
+            usuario=request.user, clase=clase,
+            fecha__in=ocurrencias, estado='cancelada',
+        ).delete()
+
         # Las suscripciones siempre se pagan en su totalidad
         suscripcion = Suscripcion.objects.create(
             usuario=request.user,
@@ -591,6 +598,7 @@ class PagarSuscripcionView(APIView):
             monto=precio_info['total'],
             monto_pagado=total_susc,
             estado='activa',
+            valor_clase=clase.valor,  # precio unitario al momento de compra (para cambiar turno)
         )
 
         tiene_activa = False
@@ -730,9 +738,12 @@ class MisSuscripcionesView(APIView):
             proxima = reservas.filter(fecha__gte=today).first()
             pendientes = reservas.filter(fecha__gte=today)
 
-            # Suscripciones canceladas sin clases futuras → no mostrar
+            # Suscripciones canceladas sin clases futuras:
+            # mostrar si son del mes actual o futuro (para que el cliente vea el estado y espere su crédito/devolución);
+            # ocultar solo si son de meses pasados y ya no tienen clases pendientes.
             if s.estado == 'cancelada' and not pendientes.exists():
-                continue
+                if (s.anio, s.mes) < (today.year, today.month):
+                    continue
 
             # Última clase pendiente (para mostrar vigencia en canceladas)
             ultima_pendiente = pendientes.order_by('-fecha').first()
@@ -743,6 +754,7 @@ class MisSuscripcionesView(APIView):
                 'clase_id':       s.clase.id,
                 'clase_nombre':   s.clase.nombre,
                 'especialidad':   s.clase.get_especialidad_display(),
+                'tipo_clase':     s.clase.tipo_clase,
                 'dias':           s.clase.dias,
                 'horario':        s.clase.horario,
                 'aula':           s.clase.aula,
@@ -1630,7 +1642,8 @@ class ClasesDisponiblesParaCambioView(APIView):
             return Response({'detail': 'La suscripción está cancelada.'}, status=400)
 
         especialidad = suscripcion.clase.especialidad
-        precio_max   = suscripcion.valor_clase  # techo: precio al momento de la compra
+        # techo: precio al momento de la compra; si es 0 (suscripciones antiguas) usa el valor actual de la clase
+        precio_max   = suscripcion.valor_clase or suscripcion.clase.valor
 
         ya_suscripto_ids = set(
             Suscripcion.objects
@@ -1787,6 +1800,9 @@ class CambiarCapacidadView(APIView):
             return Response({'detail': 'Capacidad actualizada con éxito.', 'cancelada': False}, status=200)
 
         # Reducción por debajo de inscriptos → cancelar clase
+        from datetime import date as Date
+        hoy = Date.today()
+
         nombre_clase = clase.nombre
         inscriptos   = list(clase.inscriptos.all())
 
@@ -1798,15 +1814,41 @@ class CambiarCapacidadView(APIView):
 
         for usuario in inscriptos:
             es_abonado = usuario.id in usuarios_abonados
+
+            # Generar crédito para abonados (igual que CancelarClaseSuscripcionView)
+            credito_generado = False
+            if es_abonado:
+                total_creditos = Credito.objects.filter(
+                    usuario=usuario, mes=hoy.month, anio=hoy.year, usado=False
+                ).count()
+                if total_creditos < 3:
+                    Credito.objects.create(
+                        usuario=usuario,
+                        tipo_clase=clase.especialidad,
+                        mes=hoy.month,
+                        anio=hoy.year,
+                    )
+                    credito_generado = True
+
+            if es_abonado:
+                if credito_generado:
+                    detalle = (
+                        f'Se generó automáticamente un crédito de {clase.get_especialidad_display()} '
+                        f'válido para el mes en curso.'
+                    )
+                else:
+                    detalle = (
+                        f'Ya contás con 3 créditos activos este mes, '
+                        f'por lo que no se generó un crédito adicional.'
+                    )
+            else:
+                detalle = 'Se gestionará la devolución de tu seña a la brevedad.'
+
             cuerpo = (
                 f'Hola {usuario.first_name},\n\n'
                 f'Te informamos que la clase "{nombre_clase}" fue cancelada por el centro.\n\n'
-                + (
-                    'Como sos abonado/a, se gestionará la devolución de tu crédito a la brevedad.'
-                    if es_abonado else
-                    'Se gestionará la devolución de tu seña a la brevedad.'
-                )
-                + '\n\nSaludos,\nEquipo RehabilitAR'
+                f'{detalle}\n\n'
+                f'Saludos,\nEquipo RehabilitAR'
             )
             try:
                 mail = EmailMessage(
