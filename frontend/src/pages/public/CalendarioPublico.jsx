@@ -259,7 +259,10 @@ export default function CalendarioPublico({ onClose }) {
               </button>
               <button
                 className={styles.ctaBtnSecondary}
-                onClick={() => navigate('/login')}
+                onClick={() => {
+                  window.location.href = '/login';
+                  navigate('/login')}
+                }
               >
                 Iniciar sesión
               </button>

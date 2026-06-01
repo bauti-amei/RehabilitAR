@@ -298,7 +298,7 @@ if (rolUsuario === 'client' || rolUsuario === 'cliente') {
                 <input type="text" value={piso} onChange={(e) => setPiso(e.target.value)} />
               </div>
               <div className={styles.datoGrupo}>
-                <label>Depto.</label>
+                <label>Depto</label>
                 <input type="text" value={depto} onChange={(e) => setDepto(e.target.value)} />
               </div>
             </div>

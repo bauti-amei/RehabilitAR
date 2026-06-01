@@ -1525,8 +1525,17 @@ function CalendarioSala({ sala }) {
   const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
 
   function clasesDelDia(dia) {
+    const fechaActualStr = toDs(year, mes, dia)
     const dow = new Date(year, mes, dia).getDay()
-    return clasesConDias.filter(c => c.diasSet.has(dow))
+    return clasesConDias.filter(c => {
+      // 1. Si es una clase individual, tiene que coincidir la fecha exacta
+      if (c.tipo === 'individual' || c.es_individual || c.fecha) {
+        return c.fecha === fechaActualStr
+      }
+      
+      // 2. Si es fija, se sigue guiando por el día de la semana (Lunes, Martes, etc.)
+      return c.diasSet.has(dow)
+    })
   }
 
   const primerDia = new Date(year, mes, 1).getDay()
