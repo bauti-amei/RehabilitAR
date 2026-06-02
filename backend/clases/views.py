@@ -8,6 +8,8 @@ from rest_framework import status
 from django.core.mail import EmailMessage
 from django.conf import settings
 
+from .cancelaciones import cancelar_clase
+
 from .models import Clase, Sala, Reserva, Suscripcion, Credito
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
@@ -15,8 +17,6 @@ from .serializers import (
     SalaSerializer, SalaCreateSerializer,
 )
 from users.models import User
-from users.serializers import UserSerializer
-from django.core.mail import send_mail
 
 # ── Feriados Argentina 2025-2026 ──────────────────────────
 FERIADOS = {
@@ -1150,52 +1150,6 @@ class CancelarClaseView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    @staticmethod
-    def cancelar_clase(clase_obj, motivo):
-        clase_obj.estado = 'cancelada'
-        clase_obj.motivo_cancelacion = motivo
-        clase_obj.fecha_cancelacion = datetime.now()
-        clase_obj.save(update_fields=['estado','motivo_cancelacion','fecha_cancelacion'])
-
-
-        reservas = Reserva.objects.filter(clase=clase_obj, estado__in=['activa', 'lista_espera']).select_related('usuario')
-        count = 0
-        for r in reservas:
-            # Cancelar cada reserva
-            was_active = r.estado == Reserva.Estado.ACTIVA
-            r.estado = Reserva.Estado.CANCELADA
-            r.save(update_fields=['estado'])
-            count += 1
-
-            if was_active:
-                try:
-                    clase_obj.inscriptos.remove(r.usuario)
-                except Exception:
-                    pass
-
-            # Notificar a cada usuario
-            try:
-                send_mail(
-                    subject='Clase cancelada — RehabilitAR',
-                    message=(
-                        f'Hola {r.usuario.first_name},\n\n'
-                        f'La clase "{clase_obj.nombre}" programada para el {clase_obj.fecha} fue cancelada por el administrador.\n\n'
-                        f'Saludos,\nEquipo RehabilitAR'
-                    ),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[r.usuario.email],
-                    fail_silently=True,
-                )
-            except Exception:
-                pass
-
-            # TODO: Realizar devolución
-
-        # Eliminar la clase de la base de datos para liberar el nombre
-        clase_obj.delete()
-
-        return count
-
     def post(self, request):
         clase_id = request.data.get('clase_id')
         if clase_id:
@@ -1207,7 +1161,7 @@ class CancelarClaseView(APIView):
             except Clase.DoesNotExist:
                 return Response({'detail': 'Clase no encontrada.'}, status=404)
 
-            count = self.cancelar_clase(clase_obj, 'admin')
+            count = cancelar_clase(clase_obj,"admin")
             return Response({'detail': f'Clase cancelada. Se notificaron {count} reservas.'}, status=200)
 
         return Response({'detail': 'Parámetros inválidos. Enviar `clase_id`.'}, status=400)
