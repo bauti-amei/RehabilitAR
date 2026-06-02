@@ -1,4 +1,5 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
+from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
 
