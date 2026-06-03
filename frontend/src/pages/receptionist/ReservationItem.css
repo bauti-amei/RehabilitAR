@@ -1,0 +1,97 @@
+.reservation-item-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  padding: 14px 16px;
+  border: 1px solid #e8e8e8;
+  border-left: 4px solid #1a9d85;;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s ease, background 0.2s;
+  cursor: pointer;
+  background-color: white;
+}
+
+.reservation-item-container:hover {
+  background: linear-gradient(to right, #ddf0e8, #edf7f2);;
+  border-color: #a0d8c0;
+  border-left-color: #147a68;
+  box-shadow: 0 4px 14px rgba(26, 157, 133, 0.13);
+  transform: translateY(-2px);
+}
+
+.reservation-item-content {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reservation-item-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.reservation-item-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a4a2e;
+  margin: 0;
+}
+
+.reservation-item-type {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-transform: capitalize;
+  white-space: nowrap;
+  margin-bottom: 7px;
+}
+
+.reservation-item-type.reserva {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.reservation-item-type.suscripcion {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.reservation-item-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(251, 146, 60, 0.4);
+    border-radius: 9px;
+    background: rgba(251, 146, 60, 0.08);
+    color: #fb923c;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.reservation-item-btn:hover {
+    background: rgba(251, 146, 60, 0.18);
+}
+
+.reservation-item-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a4a2e;
+  margin: 0 0 8px 0;
+}
+
+.reservation-item-data {
+  font-size: 1rem;
+  color: #4a6355;
+  margin: 4px 0;
+}

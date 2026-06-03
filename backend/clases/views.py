@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date
+
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,13 +8,14 @@ from rest_framework import status
 
 from django.core.mail import EmailMessage
 from django.conf import settings
+from django.db.models import F
 
 from .cancelaciones import cancelar_clase
 
 from .models import Clase, Sala, Reserva, Suscripcion, Credito
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
-    ClaseProfesorSerializer,
+    ClaseProfesorSerializer, PendientesDePagoSerializer,
     SalaSerializer, SalaCreateSerializer,
 )
 from users.models import User
@@ -1827,3 +1829,98 @@ class CambiarCapacidadView(APIView):
             },
             status=200,
         )
+
+#---------------------- Registrar pago presencial -------------------------------------
+class PendientesDePagoView(APIView):
+    """
+    GET  /api/clases/pendientes-de-pago/?usuario_id=<int>
+        Devuelve reservas únicas y suscripciones pendientes de pago del usuario.
+
+    POST /api/clases/pendientes-de-pago/
+        Registra el pago presencial de una reserva única o suscripción.
+        Body (reserva única)  : { usuario_id, clase_id, fecha, type: "reserva" }
+        Body (suscripción)    : { usuario_id, clase_id, mes, anio, type: "suscripcion" }
+        Solo Admin/Recepcionista.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        usuario_id = request.query_params.get('usuario_id')
+
+        if usuario_id:
+            if request.user.role not in [User.Role.ADMIN, User.Role.RECEPTIONIST]:
+                return Response({'detail': 'No tenés permiso.'}, status=403)
+            try:
+                usuario = User.objects.get(pk=usuario_id)
+            except User.DoesNotExist:
+                return Response({'detail': 'Usuario no encontrado.'}, status=404)
+            
+            try:
+                hoy = date.today()
+                reservas = Reserva.objects.select_related('clase').filter(
+                    usuario=usuario,
+                    estado='activa',
+                    fecha__gte=hoy,
+                    estado_pago="pendiente_pago",  
+                )
+
+                suscripciones = Suscripcion.objects.select_related('clase').prefetch_related('reservas').filter(
+                    usuario=usuario,
+                    estado=Suscripcion.Estado.PENDIENTE_PAGO,
+                )
+
+                pendientes = list(reservas) + list(suscripciones)
+
+                return Response(PendientesDePagoSerializer(pendientes, many=True).data)
+            except Exception as error:
+                print(error)
+                return Response({'detail': 'Error interno al buscar reservas.'}, status=500)
+        return Response({'detail': 'Error al buscar clases.'}, status=404)
+    
+    def post(self, request):
+        usuario_id = request.data.get('usuario_id')
+        clase_id = request.data.get('clase_id')
+        fecha = request.data.get('fecha')
+        mes = request.data.get('mes')
+        anio = request.data.get('anio')
+        tipo = request.data.get('type')
+
+        if usuario_id and clase_id and tipo:
+            if request.user.role not in [User.Role.ADMIN, User.Role.RECEPTIONIST]:
+                return Response({'detail': 'No tenés permiso.'}, status=403)
+
+            if tipo == "suscripcion" and mes and anio:
+                try:
+                    suscripcion = Suscripcion.objects.get(
+                        usuario_id=usuario_id,
+                        clase_id=clase_id,
+                        mes=mes,
+                        anio=anio,
+                        estado=Suscripcion.Estado.PENDIENTE_PAGO,
+                    )
+                    suscripcion.monto_pagado = suscripcion.monto
+                    suscripcion.estado = Suscripcion.Estado.ACTIVA
+                    suscripcion.save(update_fields=['monto_pagado', 'estado'])
+
+                    return Response({'detail': 'Pago registrado exitosamente.'}, status=200)
+                except:
+                    return Response({'detail': 'Error interno al buscar suscripciones.'}, status=500)
+            
+            elif fecha:
+                try:
+                    reserva = Reserva.objects.get(
+                        usuario_id=usuario_id,
+                        clase_id=clase_id,
+                        fecha=fecha,
+                        estado_pago="pendiente_pago", 
+                    )
+
+                    reserva.monto_pagado = reserva.monto_total
+                    reserva.estado_pago = "pagado"
+
+                    reserva.save(update_fields=['monto_pagado','estado_pago'])
+
+                    return Response({'detail': 'Pago registrado exitosamente.'}, status=200)
+                except:
+                    return Response({'detail': 'Error interno al buscar reservas.'}, status=500)
+        return Response({'detail': 'Parametros invalidos'}, status=404)
