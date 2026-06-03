@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    ClaseListView, ClaseEnCursoListView, ClasePublicaListView,
+    ClaseListView, ClaseEnCursoListView, ClasePublicaListView, PendientesDePagoView,
     MisClasesView, ClasesOfertadasView, AsignarseClaseView, DesasignarseClaseView,
     AsignarProfesorView, DesasignarProfesorView,
     SalaListCreateView, ProfesoresPorEspecialidadView,
@@ -54,4 +54,6 @@ urlpatterns = [
     # Cambiar turno (cliente)
     path('mis-suscripciones/<int:pk>/cambiar-turno/',      CambiarTurnoView.as_view(),                name='suscripcion-cambiar-turno'),
     path('mis-suscripciones/<int:pk>/clases-disponibles/', ClasesDisponiblesParaCambioView.as_view(), name='suscripcion-clases-disponibles'),
+    # Registrar pago presencial
+    path('clases-pendientes-pago/', PendientesDePagoView.as_view(), name='clases-pendientes-pago'),
 ]
