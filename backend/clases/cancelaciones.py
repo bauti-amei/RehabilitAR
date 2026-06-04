@@ -69,7 +69,7 @@ def cancelar_clase(clase_obj, motivo):
                 subject='Clase cancelada — RehabilitAR',
                 message=(
                     f'Hola {r.usuario.first_name},\n\n'
-                    f'La clase "{clase_obj.nombre}" del {clase_obj.fecha} {razon}\n\n'
+                    f'La clase "{clase_obj.nombre}" {razon}\n\n'
                     f'Saludos,\nEquipo RehabilitAR'
                 ),
                 from_email=settings.DEFAULT_FROM_EMAIL,

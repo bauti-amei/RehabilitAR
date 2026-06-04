@@ -79,7 +79,7 @@ class ClaseCalendarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Clase
-        fields = ['id', 'nombre', 'horario_inicio', 'horario_fin', 'horario', 'dias', 'fecha', 'tipo_clase', 'cupo']
+        fields = ['id', 'nombre', 'horario_inicio', 'horario_fin', 'horario', 'dias', 'fecha', 'tipo_clase', 'cupo', 'estado']
 
 
 # ── Sala ──────────────────────────────────────────────────
