@@ -1522,11 +1522,24 @@ function CalendarioSala({ sala }) {
   const mes  = month.getMonth()
   const todayStr = toDs(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
 
-  const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
+  // Filtrar clases no canceladas
+  const clasesActivas = (sala.clases || []).filter(c => c.estado !== 'cancelada')
+  const clasesConDias = clasesActivas.map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
 
   function clasesDelDia(dia) {
     const dow = new Date(year, mes, dia).getDay()
-    return clasesConDias.filter(c => c.diasSet.has(dow))
+    const fechaActual = toDs(year, mes, dia)
+    return clasesConDias.filter(c => {
+      // Clases fijas: aparecen en todos los días que coincidan con su día de la semana
+      if (c.tipo_clase === 'fija') {
+        return c.diasSet.has(dow)
+      }
+      // Clases individuales: aparecen solo en su fecha específica
+      if (c.tipo_clase === 'individual') {
+        return c.fecha === fechaActual
+      }
+      return false
+    })
   }
 
   const primerDia = new Date(year, mes, 1).getDay()

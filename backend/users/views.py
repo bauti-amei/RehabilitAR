@@ -151,19 +151,6 @@ class RegisterView(APIView):
     parser_classes     = [MultiPartParser, FormParser]
 
     def post(self, request):
-        dni_photo = request.FILES.get('dni_photo')
-        if not dni_photo:
-            return Response(
-                {'detail': 'Por favor, complete todos los campos.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not validate_dni(dni_photo):
-            return Response(
-                {'detail': 'No pudimos verificar que tu DNI sea válido.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
             first_error = next(iter(serializer.errors.values()))[0]

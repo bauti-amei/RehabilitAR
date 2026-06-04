@@ -43,7 +43,7 @@ export default function Register() {
       form.address, form.address_number,
     ]
 
-    if (camposObligatorios.some(v => !v.trim()) || !dniFile) {
+    if (camposObligatorios.some(v => !v.trim())) {
       setError('Por favor, complete todos los campos.')
       return
     }
@@ -110,7 +110,6 @@ export default function Register() {
                 value={form.first_name}
                 onChange={handleChange}
                 className={styles.input}
-                required
               />
             </div>
             <div className={styles.field}>
@@ -122,7 +121,6 @@ export default function Register() {
                 value={form.last_name}
                 onChange={handleChange}
                 className={styles.input}
-                required
               />
             </div>
           </div>
@@ -130,13 +128,12 @@ export default function Register() {
           <div className={styles.field}>
             <label>Correo electrónico</label>
             <input
-              type="email"
+              type="text"
               name="email"
               placeholder="ejemplo@mail.com"
               value={form.email}
               onChange={handleChange}
               className={styles.input}
-              required
             />
           </div>
 
@@ -149,7 +146,6 @@ export default function Register() {
               value={form.password}
               onChange={handleChange}
               className={styles.input}
-              required
             />
           </div>
 
@@ -162,7 +158,6 @@ export default function Register() {
                 value={form.birth_date}
                 onChange={handleChange}
                 className={styles.input}
-                required
               />
             </div>
             <div className={styles.field}>
@@ -174,7 +169,6 @@ export default function Register() {
                 value={form.phone}
                 onChange={handleChange}
                 className={styles.input}
-                required
               />
             </div>
           </div>
@@ -191,7 +185,6 @@ export default function Register() {
                 value={form.address}
                 onChange={handleChange}
                 className={styles.input}
-                required
               />
             </div>
             <div className={styles.field}>
@@ -203,7 +196,6 @@ export default function Register() {
                 value={form.address_number}
                 onChange={handleChange}
                 className={styles.input}
-                required
               />
             </div>
           </div>
@@ -231,22 +223,6 @@ export default function Register() {
                 className={styles.input}
               />
             </div>
-          </div>
-
-          <div className={styles.field}>
-            <label>Foto del DNI</label>
-            <label className={styles.fileLabel}>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className={styles.fileInput}
-                required
-              />
-              <span className={styles.fileText}>
-                {dniFile ? dniFile.name : 'Seleccionar imagen del DNI'}
-              </span>
-            </label>
           </div>
 
           {error && <p className={styles.error}>{error}</p>}
