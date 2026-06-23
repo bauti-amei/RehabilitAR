@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, suspenderUserRequest, adminRegisterRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest, getListaEsperaFechasRequest, getListaEsperaUsuariosRequest, cambiarCapacidadRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest, getListaEsperaFechasRequest, getListaEsperaUsuariosRequest, cambiarCapacidadRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest } from '../../api/clases'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import styles from './Dashboard.module.css'
@@ -293,9 +293,16 @@ function TareasImportantes() {
    SECCIÓN: CLASES EN CURSO
    ══════════════════════════════════════════════════════════ */
 function ClasesEnCurso() {
-  const [clases,   setClases]   = useState([])
-  const [cargando, setCargando] = useState(true)
-  const [detalle,  setDetalle]  = useState(null)
+  const [clases,        setClases]       = useState([])
+  const [cargando,      setCargando]     = useState(true)
+  const [detalle,       setDetalle]      = useState(null)
+  const [asistModal,    setAsistModal]   = useState(null)   // clase seleccionada
+  const [inscriptos,    setInscriptos]   = useState([])
+  const [asistCarg,     setAsistCarg]    = useState(false)
+  const [confirmar,     setConfirmar]    = useState(null)   // usuario a confirmar
+  const [registrando,   setRegistrando]  = useState(false)
+  const [busqueda,      setBusqueda]     = useState('')
+  const [qrModal,       setQrModal]      = useState(false)
 
   useEffect(() => {
     getClasesEnCursoRequest()
@@ -303,6 +310,43 @@ function ClasesEnCurso() {
       .catch(() => setClases([]))
       .finally(() => setCargando(false))
   }, [])
+
+  const abrirAsistencia = (clase) => {
+    setAsistModal(clase)
+    setBusqueda('')
+    setConfirmar(null)
+    setAsistCarg(true)
+    getInscriptosAsistenciaRequest(clase.id)
+      .then(r => setInscriptos(r.data))
+      .catch(() => setInscriptos([]))
+      .finally(() => setAsistCarg(false))
+  }
+
+  const cerrarAsistencia = () => {
+    setAsistModal(null)
+    setInscriptos([])
+    setConfirmar(null)
+    setBusqueda('')
+  }
+
+  const handleConfirmarAsistencia = async () => {
+    if (!confirmar) return
+    setRegistrando(true)
+    try {
+      await registrarAsistenciaRequest(asistModal.id, confirmar.id)
+      setInscriptos(prev => prev.map(u => u.id === confirmar.id ? { ...u, presente: true } : u))
+      setConfirmar(null)
+    } catch {
+      setConfirmar(null)
+    } finally {
+      setRegistrando(false)
+    }
+  }
+
+  const inscriptosFiltrados = inscriptos.filter(u =>
+    u.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+    u.email.toLowerCase().includes(busqueda.toLowerCase())
+  )
 
   return (
     <div className={styles.card}>
@@ -323,7 +367,7 @@ function ClasesEnCurso() {
                 <span className={styles.cursoDato}>{c.horario}{c.aula && c.aula !== c.nombre ? ` · ${c.aula}` : ''}</span>
               </div>
               <div className={styles.cursoAcciones}>
-                <button className={styles.registrarAsistenciaBtn}>Registrar asistencia</button>
+                <button className={styles.registrarAsistenciaBtn} onClick={() => abrirAsistencia(c)}>Registrar asistencia</button>
                 <button className={styles.verMasBtn} onClick={() => setDetalle(c)}>Ver más</button>
               </div>
             </div>
@@ -340,6 +384,111 @@ function ClasesEnCurso() {
             <span>Inscriptos</span> <span>{detalle.cantidad_inscriptos}/{detalle.cupo}</span>
           </div>
         </Modal>
+      )}
+
+      {/* ── Modal de asistencia ── */}
+      {asistModal && (
+        <Modal
+          title={`Asistencia — ${asistModal.nombre}`}
+          onClose={cerrarAsistencia}
+          wide
+        >
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.25rem' }}>
+            <input
+              className={styles.buscador}
+              style={{ flex: 1, margin: 0 }}
+              type="text"
+              placeholder="Buscar por nombre o mail..."
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+            />
+            <button className={styles.qrBtn} onClick={() => setQrModal(true)}>
+              📱 Ver QR para asistencia
+            </button>
+          </div>
+
+          {asistCarg ? (
+            <p className={styles.emptyMsg}>Cargando inscriptos...</p>
+          ) : inscriptos.length === 0 ? (
+            <p className={styles.emptyMsg}>No hay inscriptos en esta clase.</p>
+          ) : (
+            <div className={styles.listaEsperaList}>
+              {inscriptosFiltrados.map(u => (
+                <div key={u.id} className={styles.listaEsperaItem}>
+                  <div>
+                    <p className={styles.listaUserNombre}>{u.nombre}</p>
+                    <p className={styles.listaUserEmail}>{u.email}</p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span className={u.presente ? styles.estadoActivo : styles.estadoSuspendido}>
+                      {u.presente ? 'Presente' : 'Ausente'}
+                    </span>
+                    {!u.presente && (
+                      <button
+                        className={styles.registrarAsistenciaBtn}
+                        onClick={() => setConfirmar(u)}
+                      >
+                        Pasar presente
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* ── Modal QR ── */}
+      {qrModal && (
+        <Modal title="QR de asistencia" onClose={() => setQrModal(false)}>
+          <div className={styles.qrPlaceholder}>
+            <div className={styles.qrBox}>QR</div>
+            <p className={styles.qrDesc}>
+              Mostrá este código a tus alumnos para que registren su asistencia.
+            </p>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal confirmación ── */}
+      {confirmar && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,31,23,0.6)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 10000
+        }} onClick={() => setConfirmar(null)}>
+          <div style={{
+            background: 'linear-gradient(160deg,#e8f5ee,#daeee3)',
+            border: '1px solid #b8dece', borderRadius: '20px',
+            padding: '2rem 2.2rem', width: '100%', maxWidth: '400px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)', textAlign: 'center'
+          }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>✅</p>
+            <h3 style={{ color: '#0f1f17', fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Registrar asistencia
+            </h3>
+            <p style={{ color: '#3d6b55', fontSize: '0.92rem', marginBottom: '1.5rem' }}>
+              ¿Confirmás que <strong style={{ color: '#1a6b55' }}>{confirmar.nombre}</strong> está presente en la clase?
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setConfirmar(null)}
+                disabled={registrando}
+                style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#1a2e25', fontWeight: 600, cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarAsistencia}
+                disabled={registrando}
+                style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 600, cursor: registrando ? 'not-allowed' : 'pointer', fontSize: '0.95rem', boxShadow: '0 4px 14px rgba(26,157,133,0.3)' }}
+              >
+                {registrando ? 'Registrando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -1525,8 +1674,16 @@ function CalendarioSala({ sala }) {
   const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
 
   function clasesDelDia(dia) {
+    const ds  = toDs(year, mes, dia)
     const dow = new Date(year, mes, dia).getDay()
-    return clasesConDias.filter(c => c.diasSet.has(dow))
+    return clasesConDias.filter(c => {
+      if (c.tipo_clase === 'individual') {
+        // clase individual: solo aparece en su fecha exacta
+        return c.fecha === ds
+      }
+      // clase fija: aparece en todos los días de la semana que correspondan
+      return c.diasSet.has(dow)
+    })
   }
 
   const primerDia = new Date(year, mes, 1).getDay()

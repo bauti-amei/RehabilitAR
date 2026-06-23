@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getMisClasesRequest, getClasesOfertadasRequest, asignarseClaseRequest, desasignarseClaseRequest } from '../../api/clases'
+import { getMisClasesRequest, getClasesOfertadasRequest, asignarseClaseRequest, desasignarseClaseRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest } from '../../api/clases'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -181,13 +181,16 @@ function TopRow({ clases, cargando }) {
    SECCIÓN: ASISTENCIA
    ══════════════════════════════════════════════════════════ */
 function AreaAsistencia({ clases }) {
-  const [busqueda,  setBusqueda]  = useState('')
-  const [qrModal,   setQrModal]   = useState(false)
-  const [userModal, setUserModal] = useState(null)
+  const [busqueda,       setBusqueda]      = useState('')
+  const [qrModal,        setQrModal]       = useState(false)
+  const [userModal,      setUserModal]     = useState(null)
+  const [inscriptos,     setInscriptos]    = useState([])
+  const [asistCarg,      setAsistCarg]     = useState(false)
+  const [confirmar,      setConfirmar]     = useState(null)
+  const [registrando,    setRegistrando]   = useState(false)
 
-  // Clase en curso = la del profesor que está pasando ahora mismo
-  const ahora   = new Date().toTimeString().slice(0, 5)
-  const hoyIdx  = (new Date().getDay() + 6) % 7
+  const ahora  = new Date().toTimeString().slice(0, 5)
+  const hoyIdx = (new Date().getDay() + 6) % 7
   const claseActiva = clases.find(c => {
     if (c.horario_inicio > ahora || c.horario_fin <= ahora) return false
     if (c.tipo_clase === 'individual') {
@@ -196,12 +199,33 @@ function AreaAsistencia({ clases }) {
     return DIAS_SEMANA.indexOf(c.dias) === hoyIdx
   }) || null
 
-  const inscriptosFiltrados = claseActiva
-    ? (claseActiva.inscriptos_detalle || []).filter(u =>
-        u.email.toLowerCase().includes(busqueda.toLowerCase()) ||
-        u.nombre.toLowerCase().includes(busqueda.toLowerCase())
-      )
-    : []
+  useEffect(() => {
+    if (!claseActiva) { setInscriptos([]); return }
+    setAsistCarg(true)
+    getInscriptosAsistenciaRequest(claseActiva.id)
+      .then(r => setInscriptos(r.data))
+      .catch(() => setInscriptos([]))
+      .finally(() => setAsistCarg(false))
+  }, [claseActiva?.id])
+
+  const handleConfirmar = async () => {
+    if (!confirmar) return
+    setRegistrando(true)
+    try {
+      await registrarAsistenciaRequest(claseActiva.id, confirmar.id)
+      setInscriptos(prev => prev.map(u => u.id === confirmar.id ? { ...u, presente: true } : u))
+      setConfirmar(null)
+    } catch {
+      setConfirmar(null)
+    } finally {
+      setRegistrando(false)
+    }
+  }
+
+  const inscriptosFiltrados = inscriptos.filter(u =>
+    u.email.toLowerCase().includes(busqueda.toLowerCase()) ||
+    u.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  )
 
   return (
     <section className={styles.section}>
@@ -229,6 +253,8 @@ function AreaAsistencia({ clases }) {
           <span className={styles.emptyIcon}>🔒</span>
           <p>No hay ninguna clase en curso en este momento</p>
         </div>
+      ) : asistCarg ? (
+        <p className={styles.noResultados}>Cargando inscriptos...</p>
       ) : (
         <>
           <div className={styles.buscarRow}>
@@ -239,9 +265,6 @@ function AreaAsistencia({ clases }) {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
             />
-            <button className={styles.btnPrimary} disabled={!busqueda.trim()}>
-              Registrar asistencia
-            </button>
           </div>
 
           <div className={styles.inscriptosList}>
@@ -255,7 +278,11 @@ function AreaAsistencia({ clases }) {
                 <span className={u.presente ? styles.badgePresente : styles.badgeAusente}>
                   {u.presente ? 'Presente' : 'Ausente'}
                 </span>
-                <button className={styles.registrarBtn}>Registrar asistencia</button>
+                {!u.presente && (
+                  <button className={styles.registrarBtn} onClick={() => setConfirmar(u)}>
+                    Pasar presente
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -280,6 +307,45 @@ function AreaAsistencia({ clases }) {
             <span>Teléfono</span> <span>{userModal.telefono || '—'}</span>
           </div>
         </Modal>
+      )}
+
+      {confirmar && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,31,23,0.6)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 10000
+        }} onClick={() => setConfirmar(null)}>
+          <div style={{
+            background: 'linear-gradient(160deg,#e8f5ee,#daeee3)',
+            border: '1px solid #b8dece', borderRadius: '20px',
+            padding: '2rem 2.2rem', width: '100%', maxWidth: '400px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)', textAlign: 'center'
+          }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>✅</p>
+            <h3 style={{ color: '#0f1f17', fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Registrar asistencia
+            </h3>
+            <p style={{ color: '#3d6b55', fontSize: '0.92rem', marginBottom: '1.5rem' }}>
+              ¿Confirmás que <strong style={{ color: '#1a6b55' }}>{confirmar.nombre}</strong> está presente en la clase?
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setConfirmar(null)}
+                disabled={registrando}
+                style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#1a2e25', fontWeight: 600, cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmar}
+                disabled={registrando}
+                style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', fontWeight: 600, cursor: registrando ? 'not-allowed' : 'pointer', fontSize: '0.95rem', boxShadow: '0 4px 14px rgba(26,157,133,0.3)' }}
+              >
+                {registrando ? 'Registrando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   )

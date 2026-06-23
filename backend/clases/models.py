@@ -121,6 +121,18 @@ class Clase(models.Model):
             return self.fecha == ahora.date()
 
 
+class Asistencia(models.Model):
+    clase   = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='asistencias')
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='asistencias')
+    fecha   = models.DateField()
+
+    class Meta:
+        unique_together = ('clase', 'usuario', 'fecha')
+
+    def __str__(self):
+        return f'{self.usuario} — {self.clase} — {self.fecha}'
+
+
 class Reserva(models.Model):
     class Estado(models.TextChoices):
         ACTIVA       = 'activa',       'Activa'

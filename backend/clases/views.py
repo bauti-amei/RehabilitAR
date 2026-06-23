@@ -12,7 +12,7 @@ from django.db.models import F
 
 from .cancelaciones import cancelar_clase
 
-from .models import Clase, Sala, Reserva, Suscripcion, Credito
+from .models import Clase, Sala, Reserva, Suscripcion, Credito, Asistencia
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
     ClaseProfesorSerializer, PendientesDePagoSerializer,
@@ -2311,3 +2311,61 @@ class CanjearCreditoView(APIView):
             'clase_nombre': clase.nombre,
             'fecha': str(fecha),
         }, status=201)
+
+
+class ClaseInscriptosAsistenciaView(APIView):
+    """GET /clases/<id>/inscriptos-asistencia/ — inscriptos con estado presente para hoy (admin)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if request.user.role not in ('admin', 'teacher'):
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+        try:
+            clase = Clase.objects.prefetch_related('inscriptos').get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        hoy = date.today()
+        presentes_ids = set(
+            Asistencia.objects.filter(clase=clase, fecha=hoy).values_list('usuario_id', flat=True)
+        )
+
+        inscriptos = [
+            {
+                'id':       u.id,
+                'nombre':   u.full_name,
+                'email':    u.email,
+                'telefono': u.phone or '',
+                'presente': u.id in presentes_ids,
+            }
+            for u in clase.inscriptos.all()
+        ]
+        return Response(inscriptos)
+
+
+class RegistrarAsistenciaView(APIView):
+    """POST /clases/<id>/registrar-asistencia/ — marcar usuario como presente hoy (admin)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role not in ('admin', 'teacher'):
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        usuario_id = request.data.get('usuario_id')
+        if not usuario_id:
+            return Response({'detail': 'Falta usuario_id.'}, status=400)
+
+        try:
+            usuario = User.objects.get(pk=usuario_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'Usuario no encontrado.'}, status=404)
+
+        hoy = date.today()
+        _, created = Asistencia.objects.get_or_create(clase=clase, usuario=usuario, fecha=hoy)
+        if created:
+            return Response({'detail': 'Asistencia registrada.'}, status=201)
+        return Response({'detail': 'La asistencia ya estaba registrada.'}, status=200)
