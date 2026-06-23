@@ -36,7 +36,7 @@ class Clase(models.Model):
         INDIVIDUAL = 'individual', 'Individual'
 
     # ── Identificación ────────────────────────────────
-    nombre          = models.CharField(max_length=100, unique=True, default='')
+    nombre          = models.CharField(max_length=100, default='')
     especialidad    = models.CharField(max_length=20, choices=Especialidad.choices, default=Especialidad.TREN_SUPERIOR)
     tipo_clase      = models.CharField(max_length=20, choices=TipoClase.choices, default=TipoClase.FIJA)
 
@@ -108,12 +108,15 @@ class Clase(models.Model):
             'Lunes': 0, 'Martes': 1, 'Miércoles': 2,
             'Jueves': 3, 'Viernes': 4, 'Sábado': 5, 'Domingo': 6,
         }
+        if self.estado == 'cancelada':
+            return False
         ahora = datetime.now()
         hora_actual = ahora.time()
         if not (self.horario_inicio <= hora_actual <= self.horario_fin):
             return False
         if self.tipo_clase == self.TipoClase.FIJA:
-            return DIAS_MAP.get(self.dias) == ahora.weekday()
+            dias_list = [d.strip() for d in self.dias.replace('/', ',').split(',')]
+            return ahora.weekday() in {DIAS_MAP[d] for d in dias_list if d in DIAS_MAP}
         else:  # individual
             return self.fecha == ahora.date()
 
