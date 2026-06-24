@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 
@@ -133,6 +135,18 @@ class Asistencia(models.Model):
         return f'{self.usuario} — {self.clase} — {self.fecha}'
 
 
+class QrAsistencia(models.Model):
+    clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='qr_tokens')
+    fecha = models.DateField()
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+
+    class Meta:
+        unique_together = ('clase', 'fecha')
+
+    def __str__(self):
+        return f'QR {self.clase} — {self.fecha}'
+
+
 class Reserva(models.Model):
     class Estado(models.TextChoices):
         ACTIVA       = 'activa',       'Activa'
@@ -157,6 +171,11 @@ class Reserva(models.Model):
     estado_pago  = models.CharField(
         max_length=20,
         choices=[('pagado', 'Pagado'), ('pendiente_pago', 'Pendiente de pago')],
+        null=True, blank=True,
+    )
+    motivo_cancelacion = models.CharField(
+        max_length=30,
+        choices=[('falta_de_pago', 'Falta de pago')],
         null=True, blank=True,
     )
     created_at   = models.DateTimeField(auto_now_add=True)

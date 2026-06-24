@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, suspenderUserRequest, adminRegisterRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest, getListaEsperaFechasRequest, getListaEsperaUsuariosRequest, cambiarCapacidadRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest, getListaEsperaFechasRequest, getListaEsperaUsuariosRequest, cambiarCapacidadRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest, getQrAsistenciaRequest } from '../../api/clases'
+import QRCode from 'qrcode'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
 import styles from './Dashboard.module.css'
@@ -303,6 +304,8 @@ function ClasesEnCurso() {
   const [registrando,   setRegistrando]  = useState(false)
   const [busqueda,      setBusqueda]     = useState('')
   const [qrModal,       setQrModal]      = useState(false)
+  const [qrImgUrl,      setQrImgUrl]     = useState(null)
+  const [qrCargando,    setQrCargando]   = useState(false)
 
   useEffect(() => {
     getClasesEnCursoRequest()
@@ -315,11 +318,27 @@ function ClasesEnCurso() {
     setAsistModal(clase)
     setBusqueda('')
     setConfirmar(null)
+    setQrImgUrl(null)
     setAsistCarg(true)
     getInscriptosAsistenciaRequest(clase.id)
       .then(r => setInscriptos(r.data))
       .catch(() => setInscriptos([]))
       .finally(() => setAsistCarg(false))
+  }
+
+  const abrirQrModal = async () => {
+    setQrModal(true)
+    if (qrImgUrl) return
+    setQrCargando(true)
+    try {
+      const res = await getQrAsistenciaRequest(asistModal.id)
+      const url = await QRCode.toDataURL(res.data.token, { width: 240, margin: 2 })
+      setQrImgUrl(url)
+    } catch {
+      setQrImgUrl(null)
+    } finally {
+      setQrCargando(false)
+    }
   }
 
   const cerrarAsistencia = () => {
@@ -402,7 +421,7 @@ function ClasesEnCurso() {
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
             />
-            <button className={styles.qrBtn} onClick={() => setQrModal(true)}>
+            <button className={styles.qrBtn} onClick={abrirQrModal}>
               📱 Ver QR para asistencia
             </button>
           </div>
@@ -443,9 +462,15 @@ function ClasesEnCurso() {
       {qrModal && (
         <Modal title="QR de asistencia" onClose={() => setQrModal(false)}>
           <div className={styles.qrPlaceholder}>
-            <div className={styles.qrBox}>QR</div>
+            {qrCargando ? (
+              <p style={{ color: '#3d6b55', padding: '2rem 0' }}>Generando QR...</p>
+            ) : qrImgUrl ? (
+              <img src={qrImgUrl} alt="QR asistencia" style={{ width: 240, height: 240, display: 'block', margin: '0 auto', borderRadius: '8px' }} />
+            ) : (
+              <p style={{ color: '#dc2626', padding: '1rem 0' }}>No se pudo generar el QR.</p>
+            )}
             <p className={styles.qrDesc}>
-              Mostrá este código a tus alumnos para que registren su asistencia.
+              Mostrá este código a los alumnos para que registren su asistencia.
             </p>
           </div>
         </Modal>

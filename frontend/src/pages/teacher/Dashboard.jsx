@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { getMisClasesRequest, getClasesOfertadasRequest, asignarseClaseRequest, desasignarseClaseRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest } from '../../api/clases'
+import { getMisClasesRequest, getClasesOfertadasRequest, asignarseClaseRequest, desasignarseClaseRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest, getQrAsistenciaRequest } from '../../api/clases'
+import QRCode from 'qrcode'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -183,6 +184,8 @@ function TopRow({ clases, cargando }) {
 function AreaAsistencia({ clases }) {
   const [busqueda,       setBusqueda]      = useState('')
   const [qrModal,        setQrModal]       = useState(false)
+  const [qrImgUrl,       setQrImgUrl]      = useState(null)
+  const [qrCargando,     setQrCargando]    = useState(false)
   const [userModal,      setUserModal]     = useState(null)
   const [inscriptos,     setInscriptos]    = useState([])
   const [asistCarg,      setAsistCarg]     = useState(false)
@@ -242,7 +245,20 @@ function AreaAsistencia({ clases }) {
           )}
         </div>
         {claseActiva && (
-          <button className={styles.qrBtn} onClick={() => setQrModal(true)}>
+          <button className={styles.qrBtn} onClick={async () => {
+            setQrModal(true)
+            if (qrImgUrl) return
+            setQrCargando(true)
+            try {
+              const res = await getQrAsistenciaRequest(claseActiva.id)
+              const url = await QRCode.toDataURL(res.data.token, { width: 240, margin: 2 })
+              setQrImgUrl(url)
+            } catch {
+              setQrImgUrl(null)
+            } finally {
+              setQrCargando(false)
+            }
+          }}>
             📱 Ver QR para asistencia
           </button>
         )}
@@ -292,7 +308,13 @@ function AreaAsistencia({ clases }) {
       {qrModal && (
         <Modal title="QR de asistencia" onClose={() => setQrModal(false)}>
           <div className={styles.qrPlaceholder}>
-            <div className={styles.qrBox}>QR</div>
+            {qrCargando ? (
+              <p style={{ color: '#3d6b55', padding: '2rem 0' }}>Generando QR...</p>
+            ) : qrImgUrl ? (
+              <img src={qrImgUrl} alt="QR asistencia" style={{ width: 240, height: 240, display: 'block', margin: '0 auto', borderRadius: '8px' }} />
+            ) : (
+              <p style={{ color: '#dc2626', padding: '1rem 0' }}>No se pudo generar el QR.</p>
+            )}
             <p className={styles.qrDesc}>
               Mostrá este código a tus alumnos para que registren su asistencia.
             </p>

@@ -12,7 +12,7 @@ from django.db.models import F
 
 from .cancelaciones import cancelar_clase
 
-from .models import Clase, Sala, Reserva, Suscripcion, Credito, Asistencia
+from .models import Clase, Sala, Reserva, Suscripcion, Credito, Asistencia, QrAsistencia
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
     ClaseProfesorSerializer, PendientesDePagoSerializer,
@@ -141,6 +141,41 @@ class ClasePublicaListView(APIView):
         return Response(ClaseSerializer(clases, many=True).data)
 
 
+def _cancelar_reservas_por_falta_pago(clase):
+    """Cancela reservas activas con pago pendiente para la ocurrencia de hoy y notifica por mail."""
+    hoy = date.today()
+    reservas_morosas = Reserva.objects.filter(
+        clase=clase,
+        fecha=hoy,
+        estado=Reserva.Estado.ACTIVA,
+        estado_pago='pendiente_pago',
+    ).select_related('usuario')
+
+    for reserva in reservas_morosas:
+        reserva.estado             = Reserva.Estado.CANCELADA
+        reserva.motivo_cancelacion = 'falta_de_pago'
+        reserva.save(update_fields=['estado', 'motivo_cancelacion'])
+        clase.inscriptos.remove(reserva.usuario)
+
+        monto_pagado = float(reserva.monto_pagado) if reserva.monto_pagado else 0
+        try:
+            EmailMessage(
+                subject='Tu reserva fue cancelada por falta de pago — RehabilitAR',
+                body=(
+                    f'Hola {reserva.usuario.first_name},\n\n'
+                    f'Tu reserva para la clase "{clase.nombre}" del {hoy.strftime("%d/%m/%Y")} '
+                    f'fue cancelada automáticamente porque no se abonó el saldo restante antes del inicio de la clase.\n\n'
+                    f'Se te reintegrará la seña abonada de ${monto_pagado:,.2f}.\n\n'
+                    f'Si tenés alguna consulta, comunicate con el centro.\n\n'
+                    f'— Equipo RehabilitAR'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[reserva.usuario.email],
+            ).send(fail_silently=True)
+        except Exception:
+            pass
+
+
 class ClaseEnCursoListView(APIView):
     """GET /api/clases/en-curso/ — clases en curso ahora (admin)."""
     permission_classes = [IsAuthenticated]
@@ -150,6 +185,8 @@ class ClaseEnCursoListView(APIView):
             return Response({'detail': 'No tenés permiso.'}, status=403)
         clases = Clase.objects.select_related('profesor', 'sala').prefetch_related('inscriptos', 'lista_espera').exclude(estado='cancelada')
         en_curso = [c for c in clases if c.en_curso]
+        for c in en_curso:
+            _cancelar_reservas_por_falta_pago(c)
         return Response(ClaseSerializer(en_curso, many=True).data)
 
 
@@ -756,6 +793,16 @@ class MisReservasView(APIView):
         if anio:
             qs = qs.filter(fecha__year=int(anio))
 
+        from datetime import datetime as dt
+        ahora = dt.now()
+        hoy = ahora.date()
+        hora_actual = ahora.time()
+
+        asistencias_hoy = set(
+            Asistencia.objects.filter(usuario=request.user, fecha=hoy)
+            .values_list('clase_id', flat=True)
+        )
+
         data = []
         for r in qs.order_by('fecha'):
             # Pendiente de pago: suscripción con estado 'pendiente_pago' O reserva única con estado_pago='pendiente_pago'
@@ -763,6 +810,12 @@ class MisReservasView(APIView):
                 pendiente_pago = r.suscripcion_set.filter(estado='pendiente_pago').exists()
             else:
                 pendiente_pago = r.estado_pago == 'pendiente_pago'
+            en_curso = (
+                r.fecha == hoy and
+                r.clase.horario_inicio <= hora_actual <= r.clase.horario_fin and
+                r.estado == 'activa'
+            )
+            ya_presente = r.clase.id in asistencias_hoy and r.fecha == hoy
             data.append({
                 'id': r.id,
                 'fecha': str(r.fecha),
@@ -777,9 +830,12 @@ class MisReservasView(APIView):
                 'tipo': r.tipo,
                 'lista_espera': r.estado == 'lista_espera',
                 'pendiente_pago': pendiente_pago,
-                'monto_total':  float(r.monto_total)  if r.monto_total  is not None else None,
-                'monto_pagado': float(r.monto_pagado) if r.monto_pagado is not None else None,
-                'estado_pago':  r.estado_pago,
+                'monto_total':        float(r.monto_total)  if r.monto_total  is not None else None,
+                'monto_pagado':       float(r.monto_pagado) if r.monto_pagado is not None else None,
+                'estado_pago':        r.estado_pago,
+                'motivo_cancelacion': r.motivo_cancelacion,
+                'en_curso':           en_curso,
+                'ya_presente':        ya_presente,
             })
         return Response(data)
 
@@ -791,6 +847,11 @@ class MisSuscripcionesView(APIView):
     def get(self, request):
         from datetime import date
         today = date.today()
+
+        asistencias_hoy = set(
+            Asistencia.objects.filter(usuario=request.user, fecha=today)
+            .values_list('clase_id', flat=True)
+        )
 
         suscripciones = (Suscripcion.objects
                          .filter(usuario=request.user)
@@ -817,6 +878,7 @@ class MisSuscripcionesView(APIView):
             ultima_pendiente = pendientes.order_by('-fecha').first()
             vigente_hasta = str(ultima_pendiente.fecha) if ultima_pendiente and s.estado == 'cancelada' else None
 
+            clase_en_curso = s.clase.en_curso
             data.append({
                 'id':             s.id,
                 'clase_id':       s.clase.id,
@@ -837,6 +899,8 @@ class MisSuscripcionesView(APIView):
                 'proxima_fecha':  str(proxima.fecha) if proxima else None,
                 'vigente_hasta':  vigente_hasta,
                 'total_clases':   reservas.count(),
+                'en_curso':       clase_en_curso,
+                'ya_presente':    s.clase.id in asistencias_hoy,
                 'reservas': [
                     {
                         'id':     r.id,
@@ -2369,3 +2433,97 @@ class RegistrarAsistenciaView(APIView):
         if created:
             return Response({'detail': 'Asistencia registrada.'}, status=201)
         return Response({'detail': 'La asistencia ya estaba registrada.'}, status=200)
+
+
+class GenerarQrView(APIView):
+    """GET /clases/<id>/qr/ — genera o recupera el token QR para hoy (profesor/admin)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if request.user.role not in ('admin', 'teacher'):
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+        if not clase.en_curso:
+            return Response({'detail': 'La clase no está en curso.'}, status=400)
+        hoy = date.today()
+        qr, _ = QrAsistencia.objects.get_or_create(clase=clase, fecha=hoy)
+        return Response({'token': str(qr.token)})
+
+
+class ValidarQrAsistenciaView(APIView):
+    """POST /clases/validar-qr/ — cliente registra asistencia escaneando el QR."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import uuid as uuid_module
+        token_str = request.data.get('token', '').strip()
+        if not token_str:
+            return Response({'detail': 'Token requerido.'}, status=400)
+        try:
+            token = uuid_module.UUID(token_str)
+            qr = QrAsistencia.objects.select_related('clase').get(token=token)
+        except (ValueError, QrAsistencia.DoesNotExist):
+            return Response({'detail': 'QR inválido.'}, status=404)
+        if not qr.clase.en_curso:
+            return Response({
+                'detail': 'No se puede registrar asistencia, la clase ha finalizado.',
+                'codigo': 'clase_finalizada',
+            }, status=400)
+        _, created = Asistencia.objects.get_or_create(
+            clase=qr.clase, usuario=request.user, fecha=qr.fecha,
+        )
+        if not created:
+            return Response({
+                'detail': 'La asistencia ya fue registrada.',
+                'codigo': 'ya_registrada',
+            }, status=200)
+        return Response({
+            'detail': 'Asistencia registrada con éxito.',
+            'codigo': 'ok',
+            'clase_nombre': qr.clase.nombre,
+        }, status=201)
+
+
+class MiAsistenciaClaseView(APIView):
+    """GET /clases/<id>/mi-asistencia/ — historial de asistencia del cliente a una clase."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+        hoy = date.today()
+
+        if clase.tipo_clase == 'fija':
+            fechas_reservadas = set(
+                Reserva.objects.filter(
+                    usuario=request.user, clase=clase,
+                    estado='activa', fecha__lte=hoy,
+                ).values_list('fecha', flat=True)
+            )
+        else:
+            suscripcion_ids = Suscripcion.objects.filter(
+                usuario=request.user, clase=clase,
+            ).values_list('id', flat=True)
+            from django.db.models import Q
+            fechas_reservadas = set(
+                Reserva.objects.filter(
+                    Q(usuario=request.user, clase=clase, estado='activa', fecha__lte=hoy)
+                ).values_list('fecha', flat=True)
+            )
+
+        fechas_asistio = set(
+            Asistencia.objects.filter(
+                usuario=request.user, clase=clase,
+                fecha__in=fechas_reservadas,
+            ).values_list('fecha', flat=True)
+        )
+        resultado = [
+            {'fecha': str(f), 'asistio': f in fechas_asistio}
+            for f in sorted(fechas_reservadas)
+        ]
+        return Response(resultado)

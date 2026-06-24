@@ -114,3 +114,13 @@ export const getInscriptosAsistenciaRequest = (claseId) =>
 
 export const registrarAsistenciaRequest = (claseId, usuarioId) =>
   api.post(`/clases/${claseId}/registrar-asistencia/`, { usuario_id: usuarioId })
+
+// QR asistencia
+export const getQrAsistenciaRequest = (claseId) =>
+  api.get(`/clases/${claseId}/qr/`)
+
+export const validarQrRequest = (token) =>
+  api.post('/clases/validar-qr/', { token })
+
+export const getMiAsistenciaRequest = (claseId) =>
+  api.get(`/clases/${claseId}/mi-asistencia/`)

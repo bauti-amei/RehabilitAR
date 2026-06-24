@@ -11,6 +11,8 @@ import {
 import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
 import ReservarClaseModal from '../../components/client/ReservarClaseModal'
 import CanjearCreditoModal from '../../components/client/CanjearCreditoModal'
+import QRScannerModal from '../../components/client/QRScannerModal'
+import AsistenciasModal from '../../components/client/AsistenciasModal'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -249,6 +251,10 @@ export default function ClientDashboard() {
   const [pagarSaldoOk,     setPagarSaldoOk]     = useState(false)
   const [pagarSaldoError,  setPagarSaldoError]  = useState('')
 
+  // QR asistencia
+  const [qrScannerClase,      setQrScannerClase]      = useState(null)   // reserva/suscripcion being scanned
+  const [asistenciasClase,    setAsistenciasClase]    = useState(null)   // {clase_id, clase_nombre}
+
   // Cambiar turno
   const [cambiarTurnoSusc,    setCambiarTurnoSusc]    = useState(null)   // suscripción object
   const [clasesDisponibles,   setClasesDisponibles]   = useState([])
@@ -282,9 +288,11 @@ export default function ClientDashboard() {
       setSuscripciones(rSusc.data)
 
       // Reservas únicas (tipo='unica') para "Mi plan"
+      // Incluye las canceladas por falta de pago para mostrar la leyenda
       const hoyStr = getTodayStr()
       const unicas = todas
-        .filter(r => r.tipo === 'unica' && r.estado !== 'cancelada' && r.fecha >= hoyStr)
+        .filter(r => r.tipo === 'unica' && r.fecha >= hoyStr &&
+          (r.estado !== 'cancelada' || r.motivo_cancelacion === 'falta_de_pago'))
         .sort((a, b) => a.fecha.localeCompare(b.fecha))
       setReservasUnicas(unicas)
 
@@ -532,6 +540,24 @@ export default function ClientDashboard() {
                         }}>📋 En espera</span>
                       )}
                       <button className={styles.verMasBtn} onClick={() => setDetalleSusc(s)}>Ver más</button>
+                      {s.en_curso && !s.ya_presente && (
+                        <button
+                          className={styles.verMasBtn}
+                          style={{ background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', borderColor: '#147a68' }}
+                          onClick={() => setQrScannerClase({ clase_id: s.clase_id, clase_nombre: s.clase_nombre })}
+                        >
+                          📷 Registrar asistencia
+                        </button>
+                      )}
+                      {s.en_curso && s.ya_presente && (
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(34,197,94,0.12)', color: '#16a34a',
+                          border: '1px solid rgba(34,197,94,0.3)', fontWeight: 700,
+                        }}>✅ Presente hoy</span>
+                      )}
+                      <button className={styles.verMasBtn} onClick={() => setAsistenciasClase({ clase_id: s.clase_id, clase_nombre: s.clase_nombre })}>
+                        📊 Ver asistencias
+                      </button>
                       {!cancelada && (
                         <>
                           <button className={styles.cancelarBtn} onClick={() => { setCancelSusc(s); setCancelSuscFecha(null); setCancelSuscResult(null) }}>Cancelar clase</button>
@@ -547,11 +573,13 @@ export default function ClientDashboard() {
               })}
 
               {/* Reservas únicas */}
-              {reservasUnicas.map(r => (
-                <div key={`r-${r.id}`} className={styles.planItem}>
+              {reservasUnicas.map(r => {
+                const canceladaPorPago = r.estado === 'cancelada' && r.motivo_cancelacion === 'falta_de_pago'
+                return (
+                <div key={`r-${r.id}`} className={styles.planItem} style={canceladaPorPago ? { opacity: 0.9, border: '1.5px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.03)' } : {}}>
                   {/* Col 1 — Nombre + tipo */}
                   <div className={styles.planColNombre}>
-                    <p className={styles.planNombre}>{r.clase_nombre}</p>
+                    <p className={styles.planNombre} style={canceladaPorPago ? { textDecoration: 'line-through', color: '#9ca3af' } : {}}>{r.clase_nombre}</p>
                     <span className={`${styles.planBadge} ${styles.planBadgeUnica}`}>Reserva única</span>
                   </div>
                   {/* Col 2 — Detalles */}
@@ -562,36 +590,77 @@ export default function ClientDashboard() {
                   </div>
                   {/* Col 3 — Estado + botón */}
                   <div className={styles.planColAccion}>
-                    <span className={styles.planEstadoBadge} style={{
-                      background: r.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
-                      color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
-                      border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
-                    }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
-                    {r.pendiente_pago && (
-                      <span className={styles.planEstadoBadge} style={{
-                        background: 'rgba(245,158,11,0.12)', color: '#d97706',
-                        border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
-                      }}>
-                        💳 Pendiente de pago
-                        {r.monto_pagado != null && r.monto_total != null && (
-                          <> · ${r.monto_pagado.toLocaleString('es-AR')} / ${r.monto_total.toLocaleString('es-AR')}</>
+                    {canceladaPorPago ? (
+                      <>
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(239,68,68,0.10)', color: '#ef4444',
+                          border: '1px solid rgba(239,68,68,0.3)', fontWeight: 700,
+                        }}>🚫 Cancelada</span>
+                        <span style={{
+                          fontSize: '0.78rem', color: '#dc2626', fontWeight: 600,
+                          background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+                          borderRadius: '8px', padding: '0.35rem 0.6rem', lineHeight: 1.4,
+                        }}>
+                          Esta clase fue cancelada por falta de pago.
+                          {r.monto_pagado != null && <> Se reintegrará la seña de ${r.monto_pagado.toLocaleString('es-AR')}.</>}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.planEstadoBadge} style={{
+                          background: r.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
+                          color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
+                          border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                        }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
+                        {r.pendiente_pago && (
+                          <span className={styles.planEstadoBadge} style={{
+                            background: 'rgba(245,158,11,0.12)', color: '#d97706',
+                            border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
+                          }}>
+                            💳 Pendiente de pago
+                            {r.monto_pagado != null && r.monto_total != null && (
+                              <> · ${r.monto_pagado.toLocaleString('es-AR')} / ${r.monto_total.toLocaleString('es-AR')}</>
+                            )}
+                          </span>
                         )}
-                      </span>
+                        {r.en_curso && !r.ya_presente && (
+                          <button
+                            className={styles.verMasBtn}
+                            style={{ background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', borderColor: '#147a68' }}
+                            onClick={() => setQrScannerClase({ clase_id: r.clase_id, clase_nombre: r.clase_nombre })}
+                          >
+                            📷 Registrar asistencia
+                          </button>
+                        )}
+                        {r.ya_presente && (
+                          <span className={styles.planEstadoBadge} style={{
+                            background: 'rgba(34,197,94,0.12)', color: '#16a34a',
+                            border: '1px solid rgba(34,197,94,0.3)', fontWeight: 700,
+                          }}>✅ Presente</span>
+                        )}
+                        {!r.en_curso && !r.ya_presente && r.fecha === todayStr && new Date().toTimeString().slice(0,8) > r.horario_fin && (
+                          <span className={styles.planEstadoBadge} style={{
+                            background: 'rgba(239,68,68,0.10)', color: '#dc2626',
+                            border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700,
+                          }}>❌ Ausente</span>
+                        )}
+                        {r.pendiente_pago && (
+                          <button
+                            className={styles.verMasBtn}
+                            style={{ background: '#2d6a4f', color: '#fff', borderColor: '#2d6a4f' }}
+                            onClick={() => { setPagarSaldo(r); setPagarSaldoOk(false); setPagarSaldoError(''); setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' }) }}
+                          >
+                            💳 Pagar saldo
+                          </button>
+                        )}
+                        <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
+                        <button className={styles.cancelarBtn} onClick={() => { setCancelUnica(r); setCancelUnicaResult(null) }}>Cancelar</button>
+                      </>
                     )}
-                    {r.pendiente_pago && (
-                      <button
-                        className={styles.verMasBtn}
-                        style={{ background: '#2d6a4f', color: '#fff', borderColor: '#2d6a4f' }}
-                        onClick={() => { setPagarSaldo(r); setPagarSaldoOk(false); setPagarSaldoError(''); setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' }) }}
-                      >
-                        💳 Pagar saldo
-                      </button>
-                    )}
-                    <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
-                    <button className={styles.cancelarBtn} onClick={() => { setCancelUnica(r); setCancelUnicaResult(null) }}>Cancelar</button>
                   </div>
                 </div>
-              ))}
+                )
+              })}
 
             </div>
           )}
@@ -641,6 +710,23 @@ export default function ClientDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── QR Scanner ── */}
+      {qrScannerClase && (
+        <QRScannerModal
+          onClose={() => setQrScannerClase(null)}
+          onSuccess={() => { setQrScannerClase(null); cargarReservas() }}
+        />
+      )}
+
+      {/* ── Asistencias modal ── */}
+      {asistenciasClase && (
+        <AsistenciasModal
+          claseId={asistenciasClase.clase_id}
+          claseNombre={asistenciasClase.clase_nombre}
+          onClose={() => setAsistenciasClase(null)}
+        />
+      )}
 
       {/* ── Modal canjear crédito ── */}
       {canjearCredito && (
