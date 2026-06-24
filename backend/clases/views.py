@@ -137,7 +137,7 @@ class ClasePublicaListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        clases = Clase.objects.select_related('profesor', 'sala').all()
+        clases = Clase.objects.select_related('profesor', 'sala').exclude(estado='cancelada')
         return Response(ClaseSerializer(clases, many=True).data)
 
 
@@ -472,7 +472,10 @@ class SalaListCreateView(APIView):
     def get(self, request):
         if request.user.role != User.Role.ADMIN:
             return Response({'detail': 'No tenés permiso.'}, status=403)
-        salas = Sala.objects.prefetch_related('clases').all().order_by('nombre')
+        from django.db.models import Prefetch
+        clases_activas = Clase.objects.filter(estado='activa')
+        prefetch = Prefetch('clases', queryset=clases_activas)
+        salas = Sala.objects.prefetch_related(prefetch).all().order_by('nombre')
         return Response(SalaSerializer(salas, many=True).data)
 
     def post(self, request):

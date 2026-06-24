@@ -1696,18 +1696,21 @@ function CalendarioSala({ sala }) {
   const mes  = month.getMonth()
   const todayStr = toDs(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
 
-  const clasesConDias = (sala.clases || []).map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
+  // Filtrar clases no canceladas
+  const clasesActivas = (sala.clases || []).filter(c => c.estado !== 'cancelada')
+  const clasesConDias = clasesActivas.map(c => ({ ...c, diasSet: parseDiasSala(c.dias) }))
 
   function clasesDelDia(dia) {
     const ds  = toDs(year, mes, dia)
     const dow = new Date(year, mes, dia).getDay()
     return clasesConDias.filter(c => {
+      if (c.tipo_clase === 'fija') {
+        return c.diasSet.has(dow)
+      }
       if (c.tipo_clase === 'individual') {
-        // clase individual: solo aparece en su fecha exacta
         return c.fecha === ds
       }
-      // clase fija: aparece en todos los días de la semana que correspondan
-      return c.diasSet.has(dow)
+      return false
     })
   }
 
