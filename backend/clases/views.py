@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date
+
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -7,16 +8,17 @@ from rest_framework import status
 
 from django.core.mail import EmailMessage
 from django.conf import settings
+from django.db.models import F
 
-from .models import Clase, Sala, Reserva, Suscripcion, Credito
+from .cancelaciones import cancelar_clase
+
+from .models import Clase, Sala, Reserva, Suscripcion, Credito, Asistencia, QrAsistencia
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
-    ClaseProfesorSerializer,
+    ClaseProfesorSerializer, PendientesDePagoSerializer,
     SalaSerializer, SalaCreateSerializer,
 )
 from users.models import User
-from users.serializers import UserSerializer
-from django.core.mail import send_mail
 
 # ── Feriados Argentina 2025-2026 ──────────────────────────
 FERIADOS = {
@@ -135,8 +137,43 @@ class ClasePublicaListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        clases = Clase.objects.select_related('profesor', 'sala').all()
+        clases = Clase.objects.select_related('profesor', 'sala').exclude(estado='cancelada')
         return Response(ClaseSerializer(clases, many=True).data)
+
+
+def _cancelar_reservas_por_falta_pago(clase):
+    """Cancela reservas activas con pago pendiente para la ocurrencia de hoy y notifica por mail."""
+    hoy = date.today()
+    reservas_morosas = Reserva.objects.filter(
+        clase=clase,
+        fecha=hoy,
+        estado=Reserva.Estado.ACTIVA,
+        estado_pago='pendiente_pago',
+    ).select_related('usuario')
+
+    for reserva in reservas_morosas:
+        reserva.estado             = Reserva.Estado.CANCELADA
+        reserva.motivo_cancelacion = 'falta_de_pago'
+        reserva.save(update_fields=['estado', 'motivo_cancelacion'])
+        clase.inscriptos.remove(reserva.usuario)
+
+        monto_pagado = float(reserva.monto_pagado) if reserva.monto_pagado else 0
+        try:
+            EmailMessage(
+                subject='Tu reserva fue cancelada por falta de pago — RehabilitAR',
+                body=(
+                    f'Hola {reserva.usuario.first_name},\n\n'
+                    f'Tu reserva para la clase "{clase.nombre}" del {hoy.strftime("%d/%m/%Y")} '
+                    f'fue cancelada automáticamente porque no se abonó el saldo restante antes del inicio de la clase.\n\n'
+                    f'Se te reintegrará la seña abonada de ${monto_pagado:,.2f}.\n\n'
+                    f'Si tenés alguna consulta, comunicate con el centro.\n\n'
+                    f'— Equipo RehabilitAR'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[reserva.usuario.email],
+            ).send(fail_silently=True)
+        except Exception:
+            pass
 
 
 class ClaseEnCursoListView(APIView):
@@ -146,8 +183,10 @@ class ClaseEnCursoListView(APIView):
     def get(self, request):
         if request.user.role != User.Role.ADMIN:
             return Response({'detail': 'No tenés permiso.'}, status=403)
-        clases = Clase.objects.select_related('profesor', 'sala').prefetch_related('inscriptos', 'lista_espera').all()
+        clases = Clase.objects.select_related('profesor', 'sala').prefetch_related('inscriptos', 'lista_espera').exclude(estado='cancelada')
         en_curso = [c for c in clases if c.en_curso]
+        for c in en_curso:
+            _cancelar_reservas_por_falta_pago(c)
         return Response(ClaseSerializer(en_curso, many=True).data)
 
 
@@ -433,7 +472,10 @@ class SalaListCreateView(APIView):
     def get(self, request):
         if request.user.role != User.Role.ADMIN:
             return Response({'detail': 'No tenés permiso.'}, status=403)
-        salas = Sala.objects.prefetch_related('clases').all().order_by('nombre')
+        from django.db.models import Prefetch
+        clases_activas = Clase.objects.filter(estado='activa')
+        prefetch = Prefetch('clases', queryset=clases_activas)
+        salas = Sala.objects.prefetch_related(prefetch).all().order_by('nombre')
         return Response(SalaSerializer(salas, many=True).data)
 
     def post(self, request):
@@ -456,6 +498,16 @@ class ClasesFijasView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from datetime import date
+        import calendar as cal_mod
+        from collections import defaultdict
+
+        try:
+            mes  = int(request.query_params.get('mes',  date.today().month))
+            anio = int(request.query_params.get('anio', date.today().year))
+        except (ValueError, TypeError):
+            mes, anio = date.today().month, date.today().year
+
         clases = (Clase.objects.filter(tipo_clase='fija')
                   .select_related('profesor', 'sala')
                   .prefetch_related('inscriptos', 'lista_espera'))
@@ -469,10 +521,8 @@ class ClasesFijasView(APIView):
         ids_suscriptos = {s.clase_id for s in suscripciones}
 
         def tiene_conflicto(clase):
-            # Ya suscripto a esta clase
             if clase.id in ids_suscriptos:
                 return True
-            # Superposición de día + horario con alguna suscripción activa
             wd_nueva = DIAS_A_WEEKDAY.get(clase.dias)
             if wd_nueva is None:
                 return False
@@ -485,10 +535,48 @@ class ClasesFijasView(APIView):
             return False
 
         disponibles = [c for c in clases if not tiene_conflicto(c)]
+
+        # Calcular disponibilidad por fecha para el mes/año solicitado
+        _, last_day = cal_mod.monthrange(anio, mes)
+        today = date.today()
+
+        # Reservas activas en ese mes para todas las clases disponibles
+        ids_disponibles = [c.id for c in disponibles]
+        reservas_mes = Reserva.objects.filter(
+            clase_id__in=ids_disponibles,
+            fecha__month=mes, fecha__year=anio,
+            estado='activa',
+        ).values('clase_id', 'fecha')
+
+        activas_por_clase_fecha = defaultdict(int)
+        for r in reservas_mes:
+            activas_por_clase_fecha[(r['clase_id'], str(r['fecha']))] += 1
+
+        # Construir disponibilidad_por_fecha para cada clase
+        clases_data = []
+        for c in disponibles:
+            serialized = ClaseSerializer(c).data
+            disp = {}
+            wd_clase = DIAS_A_WEEKDAY.get(c.dias)
+            if wd_clase is not None:
+                for d in range(1, last_day + 1):
+                    fecha = date(anio, mes, d)
+                    if fecha < today:
+                        continue
+                    if fecha.weekday() == wd_clase:
+                        ds = str(fecha)
+                        activas = activas_por_clase_fecha[(c.id, ds)]
+                        disp[ds] = {
+                            'lista_espera': activas >= c.cupo,
+                            'cupo_disponible': max(c.cupo - activas, 0),
+                        }
+            serialized['disponibilidad_por_fecha'] = disp
+            clases_data.append(serialized)
+
         from users.models import AptoFisico
         apto_aprobado = AptoFisico.objects.filter(usuario=request.user, estado='APROBADO').exists()
         return Response({
-            'clases': ClaseSerializer(disponibles, many=True).data,
+            'clases': clases_data,
             'apto_aprobado': apto_aprobado,
         })
 
@@ -530,9 +618,29 @@ class CalcularSuscripcionView(APIView):
         desc_pct    = _descuento_cancelacion_pct(request.user, clase, mes, anio)
         precio_info = _calcular_precio(clase, ocurrencias, descuento_cancelacion_pct=desc_pct)
 
+        # Disponibilidad por fecha (para mostrar lista de espera en cada ocurrencia)
+        from collections import defaultdict
+        activas_por_fecha = defaultdict(int)
+        for r in Reserva.objects.filter(
+            clase=clase, fecha__in=ocurrencias, estado='activa'
+        ).values('fecha'):
+            activas_por_fecha[str(r['fecha'])] += 1
+
+        ocurrencias_con_disp = []
+        for d in ocurrencias:
+            ds = str(d)
+            activas = activas_por_fecha[ds]
+            spots = max(clase.cupo - activas, 0)
+            ocurrencias_con_disp.append({
+                'fecha':            ds,
+                'lista_espera':     spots == 0,
+                'cupo_disponible':  spots,
+            })
+
         return Response({
             'clase': ClaseSerializer(clase).data,
             'ocurrencias': [str(d) for d in ocurrencias],
+            'ocurrencias_con_disponibilidad': ocurrencias_con_disp,
             'feriados_en_ocurrencias': feriados_en,
             'apto_aprobado': apto_aprobado,
             'ya_suscripto': ya_suscripto,
@@ -688,6 +796,16 @@ class MisReservasView(APIView):
         if anio:
             qs = qs.filter(fecha__year=int(anio))
 
+        from datetime import datetime as dt
+        ahora = dt.now()
+        hoy = ahora.date()
+        hora_actual = ahora.time()
+
+        asistencias_hoy = set(
+            Asistencia.objects.filter(usuario=request.user, fecha=hoy)
+            .values_list('clase_id', flat=True)
+        )
+
         data = []
         for r in qs.order_by('fecha'):
             # Pendiente de pago: suscripción con estado 'pendiente_pago' O reserva única con estado_pago='pendiente_pago'
@@ -695,6 +813,12 @@ class MisReservasView(APIView):
                 pendiente_pago = r.suscripcion_set.filter(estado='pendiente_pago').exists()
             else:
                 pendiente_pago = r.estado_pago == 'pendiente_pago'
+            en_curso = (
+                r.fecha == hoy and
+                r.clase.horario_inicio <= hora_actual <= r.clase.horario_fin and
+                r.estado == 'activa'
+            )
+            ya_presente = r.clase.id in asistencias_hoy and r.fecha == hoy
             data.append({
                 'id': r.id,
                 'fecha': str(r.fecha),
@@ -709,9 +833,12 @@ class MisReservasView(APIView):
                 'tipo': r.tipo,
                 'lista_espera': r.estado == 'lista_espera',
                 'pendiente_pago': pendiente_pago,
-                'monto_total':  float(r.monto_total)  if r.monto_total  is not None else None,
-                'monto_pagado': float(r.monto_pagado) if r.monto_pagado is not None else None,
-                'estado_pago':  r.estado_pago,
+                'monto_total':        float(r.monto_total)  if r.monto_total  is not None else None,
+                'monto_pagado':       float(r.monto_pagado) if r.monto_pagado is not None else None,
+                'estado_pago':        r.estado_pago,
+                'motivo_cancelacion': r.motivo_cancelacion,
+                'en_curso':           en_curso,
+                'ya_presente':        ya_presente,
             })
         return Response(data)
 
@@ -723,6 +850,11 @@ class MisSuscripcionesView(APIView):
     def get(self, request):
         from datetime import date
         today = date.today()
+
+        asistencias_hoy = set(
+            Asistencia.objects.filter(usuario=request.user, fecha=today)
+            .values_list('clase_id', flat=True)
+        )
 
         suscripciones = (Suscripcion.objects
                          .filter(usuario=request.user)
@@ -749,6 +881,7 @@ class MisSuscripcionesView(APIView):
             ultima_pendiente = pendientes.order_by('-fecha').first()
             vigente_hasta = str(ultima_pendiente.fecha) if ultima_pendiente and s.estado == 'cancelada' else None
 
+            clase_en_curso = s.clase.en_curso
             data.append({
                 'id':             s.id,
                 'clase_id':       s.clase.id,
@@ -769,6 +902,8 @@ class MisSuscripcionesView(APIView):
                 'proxima_fecha':  str(proxima.fecha) if proxima else None,
                 'vigente_hasta':  vigente_hasta,
                 'total_clases':   reservas.count(),
+                'en_curso':       clase_en_curso,
+                'ya_presente':    s.clase.id in asistencias_hoy,
                 'reservas': [
                     {
                         'id':     r.id,
@@ -925,6 +1060,20 @@ class ClasesParaReservarView(APIView):
         )
 
         _, last_day = cal_mod.monthrange(anio, mes)
+
+        # Pre-cargar reservas activas del mes para evitar N+1 queries
+        reservas_mes = Reserva.objects.filter(
+            clase__in=clases,
+            fecha__month=mes,
+            fecha__year=anio,
+            estado='activa',
+        ).values('clase_id', 'fecha')
+        # reservas_por_fecha[(clase_id, fecha)] = count
+        from collections import defaultdict
+        reservas_por_fecha = defaultdict(int)
+        for r in reservas_mes:
+            reservas_por_fecha[(r['clase_id'], r['fecha'])] += 1
+
         opciones = []
 
         for dia in range(1, last_day + 1):
@@ -957,23 +1106,28 @@ class ClasesParaReservarView(APIView):
                        for inicio, fin in conflictos_dia):
                     continue
 
-                inscriptos_count = clase.inscriptos.count()
-                cupo_disponible  = max(clase.cupo - inscriptos_count, 0)
+                # Para clases fijas: contar reservas activas solo de ESA fecha
+                # Para clases individuales: contar inscriptos global (tienen una sola fecha)
+                if clase.tipo_clase == 'fija':
+                    inscriptos_count = reservas_por_fecha[(clase.id, fecha)]
+                else:
+                    inscriptos_count = clase.inscriptos.count()
+                cupo_disponible = max(clase.cupo - inscriptos_count, 0)
 
                 opciones.append({
-                    'clase_id':       clase.id,
-                    'clase_nombre':   clase.nombre,
-                    'tipo_clase':     clase.tipo_clase,
-                    'especialidad':   clase.get_especialidad_display(),
-                    'fecha':          str(fecha),
-                    'horario':        clase.horario,
-                    'horario_inicio': str(clase.horario_inicio),
-                    'horario_fin':    str(clase.horario_fin),
-                    'valor':          float(clase.valor),
-                    'cupo':           clase.cupo,
-                    'inscriptos':     inscriptos_count,
+                    'clase_id':        clase.id,
+                    'clase_nombre':    clase.nombre,
+                    'tipo_clase':      clase.tipo_clase,
+                    'especialidad':    clase.get_especialidad_display(),
+                    'fecha':           str(fecha),
+                    'horario':         clase.horario,
+                    'horario_inicio':  str(clase.horario_inicio),
+                    'horario_fin':     str(clase.horario_fin),
+                    'valor':           float(clase.valor),
+                    'cupo':            clase.cupo,
+                    'inscriptos':      inscriptos_count,
                     'cupo_disponible': cupo_disponible,
-                    'aula':           clase.aula,
+                    'aula':            clase.aula,
                     'profesor_nombre': clase.profesor.full_name if clase.profesor else None,
                 })
 
@@ -1064,7 +1218,14 @@ class ReservarClaseUnicaView(APIView):
         ).exists():
             return Response({'detail': 'Ya tenés una reserva para esta clase en esta fecha.'}, status=400)
 
-        cupo_libre = clase.cupo - clase.inscriptos.count()
+        # Para clases fijas el cupo se evalúa por fecha específica
+        if clase.tipo_clase == Clase.TipoClase.FIJA:
+            activas_en_fecha = Reserva.objects.filter(
+                clase=clase, fecha=fecha, estado='activa'
+            ).count()
+            cupo_libre = clase.cupo - activas_en_fecha
+        else:
+            cupo_libre = clase.cupo - clase.inscriptos.count()
 
         # Reutilizar reserva cancelada si existe (evita IntegrityError por unique_together)
         reserva_existente = Reserva.objects.filter(
@@ -1150,52 +1311,6 @@ class CancelarClaseView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    @staticmethod
-    def cancelar_clase(clase_obj, motivo):
-        clase_obj.estado = 'cancelada'
-        clase_obj.motivo_cancelacion = motivo
-        clase_obj.fecha_cancelacion = datetime.now()
-        clase_obj.save(update_fields=['estado','motivo_cancelacion','fecha_cancelacion'])
-
-
-        reservas = Reserva.objects.filter(clase=clase_obj, estado__in=['activa', 'lista_espera']).select_related('usuario')
-        count = 0
-        for r in reservas:
-            # Cancelar cada reserva
-            was_active = r.estado == Reserva.Estado.ACTIVA
-            r.estado = Reserva.Estado.CANCELADA
-            r.save(update_fields=['estado'])
-            count += 1
-
-            if was_active:
-                try:
-                    clase_obj.inscriptos.remove(r.usuario)
-                except Exception:
-                    pass
-
-            # Notificar a cada usuario
-            try:
-                send_mail(
-                    subject='Clase cancelada — RehabilitAR',
-                    message=(
-                        f'Hola {r.usuario.first_name},\n\n'
-                        f'La clase "{clase_obj.nombre}" programada para el {clase_obj.fecha} fue cancelada por el administrador.\n\n'
-                        f'Saludos,\nEquipo RehabilitAR'
-                    ),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[r.usuario.email],
-                    fail_silently=True,
-                )
-            except Exception:
-                pass
-
-            # TODO: Realizar devolución
-
-        # Eliminar la clase de la base de datos para liberar el nombre
-        clase_obj.delete()
-
-        return count
-
     def post(self, request):
         clase_id = request.data.get('clase_id')
         if clase_id:
@@ -1207,7 +1322,7 @@ class CancelarClaseView(APIView):
             except Clase.DoesNotExist:
                 return Response({'detail': 'Clase no encontrada.'}, status=404)
 
-            count = self.cancelar_clase(clase_obj, 'admin')
+            count = cancelar_clase(clase_obj,"admin")
             return Response({'detail': f'Clase cancelada. Se notificaron {count} reservas.'}, status=200)
 
         return Response({'detail': 'Parámetros inválidos. Enviar `clase_id`.'}, status=400)
@@ -1538,6 +1653,115 @@ class ListaEsperaFechasView(APIView):
 # CAMBIAR TURNO — vistas propias (no en main)
 # ══════════════════════════════════════════════════════════════════
 
+def _acomodar_lista_espera_fija(clase):
+    """
+    Para clases FIJAS: reasigna la lista de espera trabajando fecha por fecha.
+    Por cada fecha futura con reservas en lista de espera:
+      1. Calcula los cupos libres en esa fecha (nuevo_cupo - activas_en_fecha).
+      2. Asigna con prioridad: suscriptores primero (FIFO), luego reservas únicas (FIFO).
+      3. Actualiza los M2M inscriptos / lista_espera de la clase según el estado real.
+    Envía mail a cada usuario asignado.
+    """
+    from datetime import date as Date
+    hoy = Date.today()
+
+    # Fechas futuras con reservas en lista de espera para esta clase
+    fechas = (
+        Reserva.objects
+        .filter(clase=clase, estado='lista_espera', fecha__gte=hoy)
+        .values_list('fecha', flat=True)
+        .distinct()
+        .order_by('fecha')
+    )
+
+    for fecha in fechas:
+        activas_en_fecha = Reserva.objects.filter(
+            clase=clase, fecha=fecha, estado='activa'
+        ).count()
+        spots_libres = max(clase.cupo - activas_en_fecha, 0)
+        if spots_libres == 0:
+            continue
+
+        # Suscriptores primero (FIFO), luego reservas únicas (FIFO)
+        suscriptores = list(
+            Reserva.objects
+            .filter(clase=clase, fecha=fecha, estado='lista_espera', tipo='suscripcion')
+            .select_related('usuario')
+            .order_by('created_at')
+        )
+        individuales = list(
+            Reserva.objects
+            .filter(clase=clase, fecha=fecha, estado='lista_espera', tipo='unica')
+            .select_related('usuario')
+            .order_by('created_at')
+        )
+
+        asignados = 0
+        for reserva in suscriptores + individuales:
+            if asignados >= spots_libres:
+                break
+            reserva.estado = 'activa'
+            reserva.save(update_fields=['estado'])
+
+            # Notificar al usuario
+            try:
+                es_suscriptor = reserva.tipo == 'suscripcion'
+                asunto = '¡Tenés lugar! — RehabilitAR'
+                if es_suscriptor:
+                    cuerpo = (
+                        f'Hola {reserva.usuario.first_name},\n\n'
+                        f'Se liberó un cupo en la clase "{clase.nombre}" ({clase.dias} {clase.horario}) '
+                        f'para el {fecha.strftime("%d/%m/%Y")} y quedaste asignado/a.\n\n'
+                        f'Saludos,\nEquipo RehabilitAR'
+                    )
+                else:
+                    cuerpo = (
+                        f'Hola {reserva.usuario.first_name},\n\n'
+                        f'¡Buenas noticias! Se liberó un cupo en la clase "{clase.nombre}" '
+                        f'para el {fecha.strftime("%d/%m/%Y")} y quedaste asignado/a.\n\n'
+                        f'Saludos,\nEquipo RehabilitAR'
+                    )
+                from django.core.mail import EmailMessage as DjEmailMessage
+                mail = DjEmailMessage(
+                    subject=asunto, body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[reserva.usuario.email],
+                )
+                mail.encoding = 'utf-8'
+                mail.send(fail_silently=True)
+            except Exception:
+                pass
+
+            asignados += 1
+
+    # Recalcular M2M inscriptos y lista_espera en base al estado real de las reservas
+    usuarios_con_activa = set(
+        Reserva.objects
+        .filter(clase=clase, estado='activa', fecha__gte=hoy)
+        .values_list('usuario_id', flat=True)
+    )
+    usuarios_solo_espera = set(
+        Reserva.objects
+        .filter(clase=clase, estado='lista_espera', fecha__gte=hoy)
+        .values_list('usuario_id', flat=True)
+    ) - usuarios_con_activa
+
+    for uid in usuarios_con_activa:
+        try:
+            u = User.objects.get(pk=uid)
+            clase.inscriptos.add(u)
+            clase.lista_espera.remove(u)
+        except Exception:
+            pass
+
+    for uid in usuarios_solo_espera:
+        try:
+            u = User.objects.get(pk=uid)
+            clase.lista_espera.add(u)
+        except Exception:
+            pass
+
+
 def _asignar_cupo_lista_espera(clase):
     """
     Si hay cupo libre en `clase`, asigna el lugar al próximo en lista de espera
@@ -1795,8 +2019,11 @@ class CambiarCapacidadView(APIView):
         if nuevo_cupo >= cantidad_inscriptos:
             clase.cupo = nuevo_cupo
             clase.save(update_fields=['cupo'])
-            while _asignar_cupo_lista_espera(clase):
-                pass
+            if clase.tipo_clase == Clase.TipoClase.FIJA:
+                _acomodar_lista_espera_fija(clase)
+            else:
+                while _asignar_cupo_lista_espera(clase):
+                    pass
             return Response({'detail': 'Capacidad actualizada con éxito.', 'cancelada': False}, status=200)
 
         # Reducción por debajo de inscriptos → cancelar clase
@@ -1873,3 +2100,433 @@ class CambiarCapacidadView(APIView):
             },
             status=200,
         )
+
+#---------------------- Registrar pago presencial -------------------------------------
+class PendientesDePagoView(APIView):
+    """
+    GET  /api/clases/pendientes-de-pago/?usuario_id=<int>
+        Devuelve reservas únicas y suscripciones pendientes de pago del usuario.
+
+    POST /api/clases/pendientes-de-pago/
+        Registra el pago presencial de una reserva única o suscripción.
+        Body (reserva única)  : { usuario_id, clase_id, fecha, type: "reserva" }
+        Body (suscripción)    : { usuario_id, clase_id, mes, anio, type: "suscripcion" }
+        Solo Admin/Recepcionista.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        usuario_id = request.query_params.get('usuario_id')
+
+        if usuario_id:
+            if request.user.role not in [User.Role.ADMIN, User.Role.RECEPTIONIST]:
+                return Response({'detail': 'No tenés permiso.'}, status=403)
+            try:
+                usuario = User.objects.get(pk=usuario_id)
+            except User.DoesNotExist:
+                return Response({'detail': 'Usuario no encontrado.'}, status=404)
+            
+            try:
+                hoy = date.today()
+                reservas = Reserva.objects.select_related('clase').filter(
+                    usuario=usuario,
+                    estado='activa',
+                    fecha__gte=hoy,
+                    estado_pago="pendiente_pago",  
+                )
+
+                suscripciones = Suscripcion.objects.select_related('clase').prefetch_related('reservas').filter(
+                    usuario=usuario,
+                    estado=Suscripcion.Estado.PENDIENTE_PAGO,
+                )
+
+                pendientes = list(reservas) + list(suscripciones)
+
+                return Response(PendientesDePagoSerializer(pendientes, many=True).data)
+            except Exception as error:
+                print(error)
+                return Response({'detail': 'Error interno al buscar reservas.'}, status=500)
+        return Response({'detail': 'Error al buscar clases.'}, status=404)
+    
+    def post(self, request):
+        usuario_id = request.data.get('usuario_id')
+        clase_id = request.data.get('clase_id')
+        fecha = request.data.get('fecha')
+        mes = request.data.get('mes')
+        anio = request.data.get('anio')
+        tipo = request.data.get('type')
+
+        if usuario_id and clase_id and tipo:
+            if request.user.role not in [User.Role.ADMIN, User.Role.RECEPTIONIST]:
+                return Response({'detail': 'No tenés permiso.'}, status=403)
+
+            if tipo == "suscripcion" and mes and anio:
+                try:
+                    suscripcion = Suscripcion.objects.get(
+                        usuario_id=usuario_id,
+                        clase_id=clase_id,
+                        mes=mes,
+                        anio=anio,
+                        estado=Suscripcion.Estado.PENDIENTE_PAGO,
+                    )
+                    suscripcion.monto_pagado = suscripcion.monto
+                    suscripcion.estado = Suscripcion.Estado.ACTIVA
+                    suscripcion.save(update_fields=['monto_pagado', 'estado'])
+
+                    return Response({'detail': 'Pago registrado exitosamente.'}, status=200)
+                except:
+                    return Response({'detail': 'Error interno al buscar suscripciones.'}, status=500)
+            
+            elif fecha:
+                try:
+                    reserva = Reserva.objects.get(
+                        usuario_id=usuario_id,
+                        clase_id=clase_id,
+                        fecha=fecha,
+                        estado_pago="pendiente_pago", 
+                    )
+
+                    reserva.monto_pagado = reserva.monto_total
+                    reserva.estado_pago = "pagado"
+
+                    reserva.save(update_fields=['monto_pagado','estado_pago'])
+
+                    return Response({'detail': 'Pago registrado exitosamente.'}, status=200)
+                except:
+                    return Response({'detail': 'Error interno al buscar reservas.'}, status=500)
+        return Response({'detail': 'Parametros invalidos'}, status=404)
+
+class ClasesParaCanjearView(APIView):
+    """
+    GET /api/clases/clases-para-canjear/?especialidad=tren_superior&mes=6&anio=2026
+    Devuelve todas las clases activas (fijas e individuales) de la especialidad dada
+    para el mes/año solicitado, con disponibilidad por fecha.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import date
+        import calendar as cal_mod
+        from collections import defaultdict
+
+        especialidad = request.query_params.get('especialidad', '')
+        try:
+            mes  = int(request.query_params.get('mes',  date.today().month))
+            anio = int(request.query_params.get('anio', date.today().year))
+        except (ValueError, TypeError):
+            return Response({'detail': 'Parámetros inválidos.'}, status=400)
+
+        if not especialidad:
+            return Response({'detail': 'Especialidad requerida.'}, status=400)
+
+        today = date.today()
+        _, last_day = cal_mod.monthrange(anio, mes)
+
+        clases = (Clase.objects
+                  .filter(especialidad=especialidad, estado='activa')
+                  .select_related('profesor', 'sala')
+                  .prefetch_related('inscriptos'))
+
+        # Pre-cargar reservas activas del mes
+        reservas_activas = Reserva.objects.filter(
+            clase__in=clases,
+            fecha__month=mes, fecha__year=anio,
+            estado='activa',
+        ).values('clase_id', 'fecha')
+
+        reservas_por_fecha = defaultdict(int)
+        for r in reservas_activas:
+            reservas_por_fecha[(r['clase_id'], str(r['fecha']))] += 1
+
+        # Reservas ya existentes del usuario (para excluir)
+        mis_reservas = set(
+            Reserva.objects
+            .filter(usuario=request.user, fecha__month=mes, fecha__year=anio,
+                    estado__in=['activa', 'lista_espera'])
+            .values_list('clase_id', 'fecha')
+        )
+
+        opciones = []
+        for dia in range(1, last_day + 1):
+            fecha = date(anio, mes, dia)
+            if fecha < today:
+                continue
+
+            for clase in clases:
+                if clase.tipo_clase == 'fija':
+                    wd = DIAS_A_WEEKDAY.get(clase.dias)
+                    if wd is None or fecha.weekday() != wd:
+                        continue
+                elif clase.tipo_clase == 'individual':
+                    if clase.fecha != fecha:
+                        continue
+                else:
+                    continue
+
+                if (clase.id, fecha) in mis_reservas:
+                    continue
+
+                if clase.tipo_clase == 'fija':
+                    activas = reservas_por_fecha[(clase.id, str(fecha))]
+                else:
+                    activas = clase.inscriptos.count()
+
+                cupo_disponible = max(clase.cupo - activas, 0)
+
+                opciones.append({
+                    'clase_id':        clase.id,
+                    'clase_nombre':    clase.nombre,
+                    'tipo_clase':      clase.tipo_clase,
+                    'especialidad':    clase.get_especialidad_display(),
+                    'fecha':           str(fecha),
+                    'horario':         clase.horario,
+                    'horario_inicio':  str(clase.horario_inicio),
+                    'horario_fin':     str(clase.horario_fin),
+                    'cupo':            clase.cupo,
+                    'inscriptos':      activas,
+                    'cupo_disponible': cupo_disponible,
+                    'aula':            clase.aula,
+                    'profesor_nombre': clase.profesor.full_name if clase.profesor else None,
+                })
+
+        return Response({'opciones': opciones})
+
+
+class CanjearCreditoView(APIView):
+    """
+    POST /api/clases/canjear-credito/
+    Body: { credito_id, clase_id, fecha }
+    Marca el crédito como usado y crea una reserva (sin costo) para la clase/fecha.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from datetime import date
+
+        credito_id = request.data.get('credito_id')
+        clase_id   = request.data.get('clase_id')
+        fecha_str  = request.data.get('fecha')
+
+        if not all([credito_id, clase_id, fecha_str]):
+            return Response({'detail': 'Datos incompletos.'}, status=400)
+
+        try:
+            credito = Credito.objects.get(pk=credito_id, usuario=request.user, usado=False)
+        except Credito.DoesNotExist:
+            return Response({'detail': 'Crédito no encontrado o ya utilizado.'}, status=404)
+
+        try:
+            clase = Clase.objects.select_related('profesor', 'sala').prefetch_related('inscriptos').get(
+                pk=clase_id, estado='activa'
+            )
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        if clase.especialidad != credito.tipo_clase:
+            return Response({'detail': 'El crédito no corresponde a la especialidad de esta clase.'}, status=400)
+
+        try:
+            fecha = date.fromisoformat(fecha_str)
+        except ValueError:
+            return Response({'detail': 'Fecha inválida.'}, status=400)
+
+        if fecha < date.today():
+            return Response({'detail': 'No podés canjear un crédito para una fecha pasada.'}, status=400)
+
+        if Reserva.objects.filter(
+            usuario=request.user, clase=clase, fecha=fecha, estado__in=['activa', 'lista_espera']
+        ).exists():
+            return Response({'detail': 'Ya tenés una reserva para esta clase en esta fecha.'}, status=400)
+
+        # Calcular cupo por fecha
+        if clase.tipo_clase == 'fija':
+            activas = Reserva.objects.filter(clase=clase, fecha=fecha, estado='activa').count()
+        else:
+            activas = clase.inscriptos.count()
+
+        hay_cupo = activas < clase.cupo
+        estado_reserva = 'activa' if hay_cupo else 'lista_espera'
+
+        # Reutilizar reserva cancelada si existe
+        reserva_existente = Reserva.objects.filter(usuario=request.user, clase=clase, fecha=fecha).first()
+        if reserva_existente:
+            reserva_existente.estado      = estado_reserva
+            reserva_existente.tipo        = 'unica'
+            reserva_existente.monto_total  = 0
+            reserva_existente.monto_pagado = 0
+            reserva_existente.estado_pago  = 'pagado'
+            reserva_existente.save()
+        else:
+            Reserva.objects.create(
+                usuario=request.user, clase=clase, fecha=fecha,
+                estado=estado_reserva, tipo='unica',
+                monto_total=0, monto_pagado=0, estado_pago='pagado',
+            )
+
+        if hay_cupo:
+            clase.inscriptos.add(request.user)
+        else:
+            clase.lista_espera.add(request.user)
+
+        # Marcar crédito como usado
+        credito.usado = True
+        credito.save(update_fields=['usado'])
+
+        return Response({
+            'detail': 'Crédito canjeado con éxito.' if hay_cupo else 'Crédito canjeado. Quedaste en lista de espera.',
+            'estado': estado_reserva,
+            'clase_nombre': clase.nombre,
+            'fecha': str(fecha),
+        }, status=201)
+
+
+class ClaseInscriptosAsistenciaView(APIView):
+    """GET /clases/<id>/inscriptos-asistencia/ — inscriptos con estado presente para hoy (admin)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if request.user.role not in ('admin', 'teacher'):
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+        try:
+            clase = Clase.objects.prefetch_related('inscriptos').get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        hoy = date.today()
+        presentes_ids = set(
+            Asistencia.objects.filter(clase=clase, fecha=hoy).values_list('usuario_id', flat=True)
+        )
+
+        inscriptos = [
+            {
+                'id':       u.id,
+                'nombre':   u.full_name,
+                'email':    u.email,
+                'telefono': u.phone or '',
+                'presente': u.id in presentes_ids,
+            }
+            for u in clase.inscriptos.all()
+        ]
+        return Response(inscriptos)
+
+
+class RegistrarAsistenciaView(APIView):
+    """POST /clases/<id>/registrar-asistencia/ — marcar usuario como presente hoy (admin)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role not in ('admin', 'teacher'):
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+
+        usuario_id = request.data.get('usuario_id')
+        if not usuario_id:
+            return Response({'detail': 'Falta usuario_id.'}, status=400)
+
+        try:
+            usuario = User.objects.get(pk=usuario_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'Usuario no encontrado.'}, status=404)
+
+        hoy = date.today()
+        _, created = Asistencia.objects.get_or_create(clase=clase, usuario=usuario, fecha=hoy)
+        if created:
+            return Response({'detail': 'Asistencia registrada.'}, status=201)
+        return Response({'detail': 'La asistencia ya estaba registrada.'}, status=200)
+
+
+class GenerarQrView(APIView):
+    """GET /clases/<id>/qr/ — genera o recupera el token QR para hoy (profesor/admin)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if request.user.role not in ('admin', 'teacher'):
+            return Response({'detail': 'No tenés permiso.'}, status=403)
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+        if not clase.en_curso:
+            return Response({'detail': 'La clase no está en curso.'}, status=400)
+        hoy = date.today()
+        qr, _ = QrAsistencia.objects.get_or_create(clase=clase, fecha=hoy)
+        return Response({'token': str(qr.token)})
+
+
+class ValidarQrAsistenciaView(APIView):
+    """POST /clases/validar-qr/ — cliente registra asistencia escaneando el QR."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import uuid as uuid_module
+        token_str = request.data.get('token', '').strip()
+        if not token_str:
+            return Response({'detail': 'Token requerido.'}, status=400)
+        try:
+            token = uuid_module.UUID(token_str)
+            qr = QrAsistencia.objects.select_related('clase').get(token=token)
+        except (ValueError, QrAsistencia.DoesNotExist):
+            return Response({'detail': 'QR inválido.'}, status=404)
+        if not qr.clase.en_curso:
+            return Response({
+                'detail': 'No se puede registrar asistencia, la clase ha finalizado.',
+                'codigo': 'clase_finalizada',
+            }, status=400)
+        _, created = Asistencia.objects.get_or_create(
+            clase=qr.clase, usuario=request.user, fecha=qr.fecha,
+        )
+        if not created:
+            return Response({
+                'detail': 'La asistencia ya fue registrada.',
+                'codigo': 'ya_registrada',
+            }, status=200)
+        return Response({
+            'detail': 'Asistencia registrada con éxito.',
+            'codigo': 'ok',
+            'clase_nombre': qr.clase.nombre,
+        }, status=201)
+
+
+class MiAsistenciaClaseView(APIView):
+    """GET /clases/<id>/mi-asistencia/ — historial de asistencia del cliente a una clase."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            clase = Clase.objects.get(pk=pk)
+        except Clase.DoesNotExist:
+            return Response({'detail': 'Clase no encontrada.'}, status=404)
+        hoy = date.today()
+
+        if clase.tipo_clase == 'fija':
+            fechas_reservadas = set(
+                Reserva.objects.filter(
+                    usuario=request.user, clase=clase,
+                    estado='activa', fecha__lte=hoy,
+                ).values_list('fecha', flat=True)
+            )
+        else:
+            suscripcion_ids = Suscripcion.objects.filter(
+                usuario=request.user, clase=clase,
+            ).values_list('id', flat=True)
+            from django.db.models import Q
+            fechas_reservadas = set(
+                Reserva.objects.filter(
+                    Q(usuario=request.user, clase=clase, estado='activa', fecha__lte=hoy)
+                ).values_list('fecha', flat=True)
+            )
+
+        fechas_asistio = set(
+            Asistencia.objects.filter(
+                usuario=request.user, clase=clase,
+                fecha__in=fechas_reservadas,
+            ).values_list('fecha', flat=True)
+        )
+        resultado = [
+            {'fecha': str(f), 'asistio': f in fechas_asistio}
+            for f in sorted(fechas_reservadas)
+        ]
+        return Response(resultado)

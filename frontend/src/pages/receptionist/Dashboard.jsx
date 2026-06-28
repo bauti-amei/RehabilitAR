@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, adminRegisterRequest } from '../../api/auth'
 import styles from './Dashboard.module.css'
+import RegisterPaymentModal from './RegisterPaymentModal'
 
 const FORM_VACIO = {
   first_name: '', last_name: '', email: '', password: '',
@@ -43,6 +44,8 @@ export default function ReceptionistDashboard() {
   const [regError,    setRegError]   = useState('')
   const [regOk,       setRegOk]      = useState(false)
   const [regCargando, setRegCarg]    = useState(false)
+  //--- Modal registrar pago presencial---------------------------
+  const [registerPayment, setRegisterPayment] = useState(null);
 
   const cargarClientes = () => {
     setCargando(true)
@@ -96,7 +99,8 @@ export default function ReceptionistDashboard() {
       u.first_name.toLowerCase().includes(texto) ||
       u.last_name.toLowerCase().includes(texto)
     )
-  })
+  });
+
 
   return (
     <div className={styles.container}>
@@ -165,7 +169,7 @@ export default function ReceptionistDashboard() {
 
               {/* Acciones */}
               <div className={styles.clienteAcciones}>
-                <button className={styles.btnRegistrarPago}>
+                <button className={styles.btnRegistrarPago} onClick={() => setRegisterPayment(u)}>
                   Registrar pago
                 </button>
                 <button className={styles.btnVerMas} onClick={() => setUserModal(u)}>
@@ -290,11 +294,19 @@ export default function ReceptionistDashboard() {
               {userModal.is_active ? 'Activo' : 'Suspendido'}
             </span>
           </div>
-          <button className={`${styles.btnRegistrarPago} ${styles.btnRegistrarPagoModal}`}>
+          <button 
+            className={`${styles.btnRegistrarPago} ${styles.btnRegistrarPagoModal}`}
+            onClick={() => setRegisterPayment(userModal)}  
+          >
             Registrar pago
           </button>
         </Modal>
       )}
+
+      <RegisterPaymentModal 
+        usuario={registerPayment}
+        onClose={() => setRegisterPayment(null)}
+      />
 
     </div>
   )

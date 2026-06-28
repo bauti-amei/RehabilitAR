@@ -42,8 +42,8 @@ export const desasignarProfesorRequest = (claseId) =>
   api.patch(`/clases/${claseId}/desasignar-profesor/`)
 
 // Suscripciones
-export const getClasesFijasRequest = () =>
-  api.get('/clases/fijas/')
+export const getClasesFijasRequest = (mes, anio) =>
+  api.get(`/clases/fijas/${mes && anio ? `?mes=${mes}&anio=${anio}` : ''}`)
 
 export const calcularSuscripcionRequest = (clase_id, mes, anio) =>
   api.get(`/clases/suscripciones/calcular/?clase_id=${clase_id}&mes=${mes}&anio=${anio}`)
@@ -69,6 +69,13 @@ export const reservarClaseUnicaRequest = (data) =>
 
 export const pagarSaldoReservaRequest = (id, datosPago) =>
   api.post(`/clases/pagar-saldo-reserva/${id}/`, { datos_pago: datosPago })
+
+// Canje de créditos
+export const getClasesParaCanjearRequest = (especialidad, mes, anio) =>
+  api.get(`/clases/clases-para-canjear/?especialidad=${especialidad}&mes=${mes}&anio=${anio}`)
+
+export const canjearCreditoRequest = (data) =>
+  api.post('/clases/canjear-credito/', data)
 
 // Lista de espera por fecha (admin)
 export const getListaEsperaFechasRequest = (claseId) =>
@@ -100,3 +107,20 @@ export const cambiarTurnoRequest = (suscripcionId, nuevaClaseId) =>
 // Cambiar capacidad (admin)
 export const cambiarCapacidadRequest = (id, cupo) =>
   api.patch(`/clases/${id}/cambiar-capacidad/`, { cupo })
+
+// Asistencia (admin)
+export const getInscriptosAsistenciaRequest = (claseId) =>
+  api.get(`/clases/${claseId}/inscriptos-asistencia/`)
+
+export const registrarAsistenciaRequest = (claseId, usuarioId) =>
+  api.post(`/clases/${claseId}/registrar-asistencia/`, { usuario_id: usuarioId })
+
+// QR asistencia
+export const getQrAsistenciaRequest = (claseId) =>
+  api.get(`/clases/${claseId}/qr/`)
+
+export const validarQrRequest = (token) =>
+  api.post('/clases/validar-qr/', { token })
+
+export const getMiAsistenciaRequest = (claseId) =>
+  api.get(`/clases/${claseId}/mi-asistencia/`)

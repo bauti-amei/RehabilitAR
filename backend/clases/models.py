@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 
@@ -36,7 +38,7 @@ class Clase(models.Model):
         INDIVIDUAL = 'individual', 'Individual'
 
     # ── Identificación ────────────────────────────────
-    nombre          = models.CharField(max_length=100, unique=True, default='')
+    nombre          = models.CharField(max_length=100, default='')
     especialidad    = models.CharField(max_length=20, choices=Especialidad.choices, default=Especialidad.TREN_SUPERIOR)
     tipo_clase      = models.CharField(max_length=20, choices=TipoClase.choices, default=TipoClase.FIJA)
 
@@ -108,14 +110,41 @@ class Clase(models.Model):
             'Lunes': 0, 'Martes': 1, 'Miércoles': 2,
             'Jueves': 3, 'Viernes': 4, 'Sábado': 5, 'Domingo': 6,
         }
+        if self.estado == 'cancelada':
+            return False
         ahora = datetime.now()
         hora_actual = ahora.time()
         if not (self.horario_inicio <= hora_actual <= self.horario_fin):
             return False
         if self.tipo_clase == self.TipoClase.FIJA:
-            return DIAS_MAP.get(self.dias) == ahora.weekday()
+            dias_list = [d.strip() for d in self.dias.replace('/', ',').split(',')]
+            return ahora.weekday() in {DIAS_MAP[d] for d in dias_list if d in DIAS_MAP}
         else:  # individual
             return self.fecha == ahora.date()
+
+
+class Asistencia(models.Model):
+    clase   = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='asistencias')
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='asistencias')
+    fecha   = models.DateField()
+
+    class Meta:
+        unique_together = ('clase', 'usuario', 'fecha')
+
+    def __str__(self):
+        return f'{self.usuario} — {self.clase} — {self.fecha}'
+
+
+class QrAsistencia(models.Model):
+    clase = models.ForeignKey(Clase, on_delete=models.CASCADE, related_name='qr_tokens')
+    fecha = models.DateField()
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+
+    class Meta:
+        unique_together = ('clase', 'fecha')
+
+    def __str__(self):
+        return f'QR {self.clase} — {self.fecha}'
 
 
 class Reserva(models.Model):
@@ -142,6 +171,11 @@ class Reserva(models.Model):
     estado_pago  = models.CharField(
         max_length=20,
         choices=[('pagado', 'Pagado'), ('pendiente_pago', 'Pendiente de pago')],
+        null=True, blank=True,
+    )
+    motivo_cancelacion = models.CharField(
+        max_length=30,
+        choices=[('falta_de_pago', 'Falta de pago')],
         null=True, blank=True,
     )
     created_at   = models.DateTimeField(auto_now_add=True)

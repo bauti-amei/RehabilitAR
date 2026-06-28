@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    ClaseListView, ClaseEnCursoListView, ClasePublicaListView,
+    ClaseListView, ClaseEnCursoListView, ClasePublicaListView, PendientesDePagoView,
     MisClasesView, ClasesOfertadasView, AsignarseClaseView, DesasignarseClaseView,
     AsignarProfesorView, DesasignarProfesorView,
     SalaListCreateView, ProfesoresPorEspecialidadView,
@@ -14,6 +14,11 @@ from .views import (
     CancelarClaseView,
     # Nuestras vistas: cambiar turno y cambiar capacidad
     CambiarCapacidadView, CambiarTurnoView, ClasesDisponiblesParaCambioView,
+    # Canje de créditos
+    ClasesParaCanjearView, CanjearCreditoView,
+    # Asistencia
+    ClaseInscriptosAsistenciaView, RegistrarAsistenciaView,
+    GenerarQrView, ValidarQrAsistenciaView, MiAsistenciaClaseView,
 )
 
 
@@ -54,4 +59,15 @@ urlpatterns = [
     # Cambiar turno (cliente)
     path('mis-suscripciones/<int:pk>/cambiar-turno/',      CambiarTurnoView.as_view(),                name='suscripcion-cambiar-turno'),
     path('mis-suscripciones/<int:pk>/clases-disponibles/', ClasesDisponiblesParaCambioView.as_view(), name='suscripcion-clases-disponibles'),
+    # Registrar pago presencial
+    path('clases-pendientes-pago/', PendientesDePagoView.as_view(), name='clases-pendientes-pago'),
+    # Canje de créditos
+    path('clases-para-canjear/',    ClasesParaCanjearView.as_view(),  name='clases-para-canjear'),
+    path('canjear-credito/',        CanjearCreditoView.as_view(),     name='canjear-credito'),
+    # Asistencia
+    path('<int:pk>/inscriptos-asistencia/',  ClaseInscriptosAsistenciaView.as_view(), name='inscriptos-asistencia'),
+    path('<int:pk>/registrar-asistencia/',   RegistrarAsistenciaView.as_view(),       name='registrar-asistencia'),
+    path('<int:pk>/qr/',                     GenerarQrView.as_view(),                 name='generar-qr'),
+    path('<int:pk>/mi-asistencia/',          MiAsistenciaClaseView.as_view(),         name='mi-asistencia'),
+    path('validar-qr/',                      ValidarQrAsistenciaView.as_view(),       name='validar-qr'),
 ]

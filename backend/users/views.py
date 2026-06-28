@@ -151,19 +151,6 @@ class RegisterView(APIView):
     parser_classes     = [MultiPartParser, FormParser]
 
     def post(self, request):
-        dni_photo = request.FILES.get('dni_photo')
-        if not dni_photo:
-            return Response(
-                {'detail': 'Por favor, complete todos los campos.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not validate_dni(dni_photo):
-            return Response(
-                {'detail': 'No pudimos verificar que tu DNI sea válido.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
             first_error = next(iter(serializer.errors.values()))[0]
@@ -477,6 +464,17 @@ class ValidarAptoFisicoView(APIView):
             apto.estado = 'APROBADO'
             apto.motivo_rechazo = None
             apto.save()
+            EmailMessage(
+                subject='Tu apto físico fue aprobado — RehabilitAR',
+                body=(
+                    f'Hola {apto.usuario.first_name},\n\n'
+                    f'Tu apto físico fue aprobado por el equipo de RehabilitAR.\n\n'
+                    f'Ya podés inscribirte en las clases disponibles.\n\n'
+                    f'— Equipo RehabilitAR'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[apto.usuario.email],
+            ).send(fail_silently=True)
             return Response({'message': 'Apto físico aprobado con éxito y usuario notificado.'}, status=status.HTTP_200_OK)
 
         elif accion == 'RECHAZAR':
@@ -485,6 +483,18 @@ class ValidarAptoFisicoView(APIView):
             apto.estado = 'RECHAZADO'
             apto.motivo_rechazo = motivo
             apto.save()
+            EmailMessage(
+                subject='Tu apto físico fue rechazado — RehabilitAR',
+                body=(
+                    f'Hola {apto.usuario.first_name},\n\n'
+                    f'Tu apto físico fue rechazado por el siguiente motivo:\n\n'
+                    f'{motivo}\n\n'
+                    f'Por favor, corregí la documentación y volvé a enviarlo.\n\n'
+                    f'— Equipo RehabilitAR'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[apto.usuario.email],
+            ).send(fail_silently=True)
             return Response({'message': 'Apto físico rechazado y usuario notificado.'}, status=status.HTTP_200_OK)
 
         return Response({'error': 'Acción no válida'}, status=status.HTTP_400_BAD_REQUEST)

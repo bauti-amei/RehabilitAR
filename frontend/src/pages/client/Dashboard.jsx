@@ -10,6 +10,9 @@ import {
 } from '../../api/clases'
 import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
 import ReservarClaseModal from '../../components/client/ReservarClaseModal'
+import CanjearCreditoModal from '../../components/client/CanjearCreditoModal'
+import QRScannerModal from '../../components/client/QRScannerModal'
+import AsistenciasModal from '../../components/client/AsistenciasModal'
 import styles from './Dashboard.module.css'
 
 /* ══════════════════════════════════════════════════════════
@@ -124,12 +127,13 @@ function Calendario({ misClases = {} }) {
         {celdas.map((dia, i) => {
           if (!dia) return <div key={`empty-${i}`} />
 
-          const ds        = toDateStr(year, mes, dia)
-          const esFeriado  = !!FERIADOS[ds]
-          const tieneClase = !!misClases[ds]
-          const pendientePago = misClases[ds]?.pendiente_pago
-          const esHoy     = ds === todayStr
-          const clickable = esFeriado || tieneClase
+          const ds            = toDateStr(year, mes, dia)
+          const esFeriado      = !!FERIADOS[ds]
+          const tieneClase     = !!misClases[ds]
+          const pendientePago  = misClases[ds]?.pendiente_pago
+          const listaEspera    = misClases[ds]?.lista_espera
+          const esHoy          = ds === todayStr
+          const clickable      = esFeriado || tieneClase
 
           return (
             <div
@@ -137,15 +141,22 @@ function Calendario({ misClases = {} }) {
               onClick={() => clickable && setDayModal(ds)}
               className={[
                 styles.calDay,
-                esFeriado     ? styles.feriado        : '',
-                tieneClase && !pendientePago ? styles.conClase  : '',
-                tieneClase && pendientePago  ? styles.conClasePendiente : '',
+                esFeriado                                    ? styles.feriado            : '',
+                tieneClase && !pendientePago && !listaEspera ? styles.conClase           : '',
+                tieneClase && pendientePago                  ? styles.conClasePendiente  : '',
+                tieneClase && listaEspera && !pendientePago  ? styles.conClaseEspera     : '',
                 esHoy        ? styles.hoy       : '',
                 clickable    ? styles.clickable : '',
               ].filter(Boolean).join(' ')}
             >
               <span className={styles.calDayNum}>{dia}</span>
-              {tieneClase && !esFeriado && <span className={`${styles.claseDot} ${pendientePago ? styles.claseDotPendiente : ''}`} />}
+              {tieneClase && !esFeriado && (
+                <span className={[
+                  styles.claseDot,
+                  pendientePago ? styles.claseDotPendiente : '',
+                  listaEspera && !pendientePago ? styles.claseDotEspera : '',
+                ].filter(Boolean).join(' ')} />
+              )}
             </div>
           )
         })}
@@ -158,6 +169,9 @@ function Calendario({ misClases = {} }) {
         </span>
         <span className={styles.leyendaItem}>
           <span className={styles.leyendaDot} style={{ background: '#22c55e' }} />Clase activa
+        </span>
+        <span className={styles.leyendaItem}>
+          <span className={styles.leyendaDot} style={{ background: '#f59e0b' }} />Lista de espera
         </span>
         <span className={styles.leyendaItem}>
           <span className={styles.leyendaDot} style={{ background: '#6b7280' }} />Pendiente de pago
@@ -212,6 +226,7 @@ export default function ClientDashboard() {
   const [reservasUnicas,   setReservasUnicas]   = useState([])
   const [detalleSusc,      setDetalleSusc]      = useState(null)
   const [creditos,         setCreditos]         = useState([])
+  const [canjearCredito,   setCanjearCredito]   = useState(null)  // credito object
 
   // Cancelación — reserva única
   const [cancelUnica,      setCancelUnica]      = useState(null)   // reserva object
@@ -235,6 +250,10 @@ export default function ClientDashboard() {
   const [pagarSaldoLoading,setPagarSaldoLoading]= useState(false)
   const [pagarSaldoOk,     setPagarSaldoOk]     = useState(false)
   const [pagarSaldoError,  setPagarSaldoError]  = useState('')
+
+  // QR asistencia
+  const [qrScannerClase,      setQrScannerClase]      = useState(null)   // reserva/suscripcion being scanned
+  const [asistenciasClase,    setAsistenciasClase]    = useState(null)   // {clase_id, clase_nombre}
 
   // Cambiar turno
   const [cambiarTurnoSusc,    setCambiarTurnoSusc]    = useState(null)   // suscripción object
@@ -269,9 +288,11 @@ export default function ClientDashboard() {
       setSuscripciones(rSusc.data)
 
       // Reservas únicas (tipo='unica') para "Mi plan"
+      // Incluye las canceladas por falta de pago para mostrar la leyenda
       const hoyStr = getTodayStr()
       const unicas = todas
-        .filter(r => r.tipo === 'unica' && r.estado !== 'cancelada' && r.fecha >= hoyStr)
+        .filter(r => r.tipo === 'unica' && r.fecha >= hoyStr &&
+          (r.estado !== 'cancelada' || r.motivo_cancelacion === 'falta_de_pago'))
         .sort((a, b) => a.fecha.localeCompare(b.fecha))
       setReservasUnicas(unicas)
 
@@ -519,6 +540,24 @@ export default function ClientDashboard() {
                         }}>📋 En espera</span>
                       )}
                       <button className={styles.verMasBtn} onClick={() => setDetalleSusc(s)}>Ver más</button>
+                      {s.en_curso && !s.ya_presente && (
+                        <button
+                          className={styles.verMasBtn}
+                          style={{ background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', borderColor: '#147a68' }}
+                          onClick={() => setQrScannerClase({ clase_id: s.clase_id, clase_nombre: s.clase_nombre })}
+                        >
+                          📷 Registrar asistencia
+                        </button>
+                      )}
+                      {s.en_curso && s.ya_presente && (
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(34,197,94,0.12)', color: '#16a34a',
+                          border: '1px solid rgba(34,197,94,0.3)', fontWeight: 700,
+                        }}>✅ Presente hoy</span>
+                      )}
+                      <button className={styles.verMasBtn} onClick={() => setAsistenciasClase({ clase_id: s.clase_id, clase_nombre: s.clase_nombre })}>
+                        📊 Ver asistencias
+                      </button>
                       {!cancelada && (
                         <>
                           <button className={styles.cancelarBtn} onClick={() => { setCancelSusc(s); setCancelSuscFecha(null); setCancelSuscResult(null) }}>Cancelar clase</button>
@@ -534,11 +573,13 @@ export default function ClientDashboard() {
               })}
 
               {/* Reservas únicas */}
-              {reservasUnicas.map(r => (
-                <div key={`r-${r.id}`} className={styles.planItem}>
+              {reservasUnicas.map(r => {
+                const canceladaPorPago = r.estado === 'cancelada' && r.motivo_cancelacion === 'falta_de_pago'
+                return (
+                <div key={`r-${r.id}`} className={styles.planItem} style={canceladaPorPago ? { opacity: 0.9, border: '1.5px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.03)' } : {}}>
                   {/* Col 1 — Nombre + tipo */}
                   <div className={styles.planColNombre}>
-                    <p className={styles.planNombre}>{r.clase_nombre}</p>
+                    <p className={styles.planNombre} style={canceladaPorPago ? { textDecoration: 'line-through', color: '#9ca3af' } : {}}>{r.clase_nombre}</p>
                     <span className={`${styles.planBadge} ${styles.planBadgeUnica}`}>Reserva única</span>
                   </div>
                   {/* Col 2 — Detalles */}
@@ -549,36 +590,77 @@ export default function ClientDashboard() {
                   </div>
                   {/* Col 3 — Estado + botón */}
                   <div className={styles.planColAccion}>
-                    <span className={styles.planEstadoBadge} style={{
-                      background: r.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
-                      color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
-                      border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
-                    }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
-                    {r.pendiente_pago && (
-                      <span className={styles.planEstadoBadge} style={{
-                        background: 'rgba(245,158,11,0.12)', color: '#d97706',
-                        border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
-                      }}>
-                        💳 Pendiente de pago
-                        {r.monto_pagado != null && r.monto_total != null && (
-                          <> · ${r.monto_pagado.toLocaleString('es-AR')} / ${r.monto_total.toLocaleString('es-AR')}</>
+                    {canceladaPorPago ? (
+                      <>
+                        <span className={styles.planEstadoBadge} style={{
+                          background: 'rgba(239,68,68,0.10)', color: '#ef4444',
+                          border: '1px solid rgba(239,68,68,0.3)', fontWeight: 700,
+                        }}>🚫 Cancelada</span>
+                        <span style={{
+                          fontSize: '0.78rem', color: '#dc2626', fontWeight: 600,
+                          background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+                          borderRadius: '8px', padding: '0.35rem 0.6rem', lineHeight: 1.4,
+                        }}>
+                          Esta clase fue cancelada por falta de pago.
+                          {r.monto_pagado != null && <> Se reintegrará la seña de ${r.monto_pagado.toLocaleString('es-AR')}.</>}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.planEstadoBadge} style={{
+                          background: r.lista_espera ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
+                          color:      r.lista_espera ? '#f59e0b'               : '#22c55e',
+                          border: `1px solid ${r.lista_espera ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                        }}>{r.lista_espera ? '📋 En espera' : '✅ Confirmada'}</span>
+                        {r.pendiente_pago && (
+                          <span className={styles.planEstadoBadge} style={{
+                            background: 'rgba(245,158,11,0.12)', color: '#d97706',
+                            border: '1px solid rgba(217,119,6,0.3)', fontSize: '0.75rem'
+                          }}>
+                            💳 Pendiente de pago
+                            {r.monto_pagado != null && r.monto_total != null && (
+                              <> · ${r.monto_pagado.toLocaleString('es-AR')} / ${r.monto_total.toLocaleString('es-AR')}</>
+                            )}
+                          </span>
                         )}
-                      </span>
+                        {r.en_curso && !r.ya_presente && (
+                          <button
+                            className={styles.verMasBtn}
+                            style={{ background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: '#fff', borderColor: '#147a68' }}
+                            onClick={() => setQrScannerClase({ clase_id: r.clase_id, clase_nombre: r.clase_nombre })}
+                          >
+                            📷 Registrar asistencia
+                          </button>
+                        )}
+                        {r.ya_presente && (
+                          <span className={styles.planEstadoBadge} style={{
+                            background: 'rgba(34,197,94,0.12)', color: '#16a34a',
+                            border: '1px solid rgba(34,197,94,0.3)', fontWeight: 700,
+                          }}>✅ Presente</span>
+                        )}
+                        {!r.en_curso && !r.ya_presente && r.fecha === todayStr && new Date().toTimeString().slice(0,8) > r.horario_fin && (
+                          <span className={styles.planEstadoBadge} style={{
+                            background: 'rgba(239,68,68,0.10)', color: '#dc2626',
+                            border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700,
+                          }}>❌ Ausente</span>
+                        )}
+                        {r.pendiente_pago && (
+                          <button
+                            className={styles.verMasBtn}
+                            style={{ background: '#2d6a4f', color: '#fff', borderColor: '#2d6a4f' }}
+                            onClick={() => { setPagarSaldo(r); setPagarSaldoOk(false); setPagarSaldoError(''); setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' }) }}
+                          >
+                            💳 Pagar saldo
+                          </button>
+                        )}
+                        <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
+                        <button className={styles.cancelarBtn} onClick={() => { setCancelUnica(r); setCancelUnicaResult(null) }}>Cancelar</button>
+                      </>
                     )}
-                    {r.pendiente_pago && (
-                      <button
-                        className={styles.verMasBtn}
-                        style={{ background: '#2d6a4f', color: '#fff', borderColor: '#2d6a4f' }}
-                        onClick={() => { setPagarSaldo(r); setPagarSaldoOk(false); setPagarSaldoError(''); setPagarSaldoPago({ numero: '', nombre: '', apellido: '', dni: '', cvv: '' }) }}
-                      >
-                        💳 Pagar saldo
-                      </button>
-                    )}
-                    <button className={styles.verMasBtn} onClick={() => setDetalleSusc({ ...r, _tipo: 'unica' })}>Ver más</button>
-                    <button className={styles.cancelarBtn} onClick={() => { setCancelUnica(r); setCancelUnicaResult(null) }}>Cancelar</button>
                   </div>
                 </div>
-              ))}
+                )
+              })}
 
             </div>
           )}
@@ -620,7 +702,7 @@ export default function ClientDashboard() {
                   </span>
                   <span className={styles.creditoLabel}>{c.tipo_clase_display}</span>
                   <span className={styles.creditoBadge}>Crédito</span>
-                  <button className={styles.canjearBtn} disabled>Canjear</button>
+                  <button className={styles.canjearBtn} onClick={() => setCanjearCredito(c)}>Canjear</button>
                 </div>
               ))}
             </div>
@@ -628,6 +710,32 @@ export default function ClientDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── QR Scanner ── */}
+      {qrScannerClase && (
+        <QRScannerModal
+          onClose={() => setQrScannerClase(null)}
+          onSuccess={() => { setQrScannerClase(null); cargarReservas() }}
+        />
+      )}
+
+      {/* ── Asistencias modal ── */}
+      {asistenciasClase && (
+        <AsistenciasModal
+          claseId={asistenciasClase.clase_id}
+          claseNombre={asistenciasClase.clase_nombre}
+          onClose={() => setAsistenciasClase(null)}
+        />
+      )}
+
+      {/* ── Modal canjear crédito ── */}
+      {canjearCredito && (
+        <CanjearCreditoModal
+          credito={canjearCredito}
+          onClose={() => setCanjearCredito(null)}
+          onCanjeOk={() => { cargarReservas(); setCanjearCredito(null) }}
+        />
+      )}
 
       {/* ── Modal comprar suscripción ── */}
       {modalSusc && (
@@ -1086,28 +1194,28 @@ export default function ClientDashboard() {
 
       {/* ── Modal cambiar turno ── */}
       {cambiarTurnoSusc && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,31,23,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
           onClick={cerrarCambiarTurno}>
-          <div style={{ background: '#13172e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '20px', padding: '2rem 2.2rem', width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+          <div style={{ background: 'linear-gradient(160deg,#e8f5ee,#daeee3)', border: '1px solid #b8dece', borderRadius: '20px', padding: '2rem 2.2rem', width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
             onClick={e => e.stopPropagation()}>
 
             {cambiarTurnoOk ? (
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</p>
-                <p style={{ color: 'white', fontWeight: 700, marginBottom: '1.5rem' }}>¡Turno cambiado con éxito!</p>
-                <button onClick={cerrarCambiarTurno} style={{ padding: '0.65rem 2rem', borderRadius: '12px', border: 'none', background: '#7c3aed', color: 'white', fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
+                <p style={{ color: '#0f1f17', fontWeight: 700, marginBottom: '1.5rem' }}>¡Turno cambiado con éxito!</p>
+                <button onClick={cerrarCambiarTurno} style={{ padding: '0.65rem 2rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg,#1a9d85,#147a68)', color: 'white', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 14px rgba(26,157,133,0.3)' }}>Cerrar</button>
               </div>
             ) : (
               <>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.4rem' }}>Cambiar turno</h3>
-                <p style={{ color: '#868e96', fontSize: '0.85rem', marginBottom: '1.2rem' }}>
-                  Clase actual: <strong style={{ color: '#a78bfa' }}>{cambiarTurnoSusc.clase_nombre}</strong>
+                <h3 style={{ color: '#0f1f17', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.4rem' }}>Cambiar turno</h3>
+                <p style={{ color: '#3d6b55', fontSize: '0.85rem', marginBottom: '1.2rem' }}>
+                  Clase actual: <strong style={{ color: '#1a9d85' }}>{cambiarTurnoSusc.clase_nombre}</strong>
                 </p>
 
                 {clasesDispLoading ? (
-                  <p style={{ color: '#868e96', textAlign: 'center' }}>Cargando clases disponibles...</p>
+                  <p style={{ color: '#3d6b55', textAlign: 'center' }}>Cargando clases disponibles...</p>
                 ) : clasesDisponibles.length === 0 ? (
-                  <p style={{ color: '#868e96', textAlign: 'center' }}>No hay clases disponibles para cambiar el turno este mes.</p>
+                  <p style={{ color: '#3d6b55', textAlign: 'center' }}>No hay clases disponibles para cambiar el turno este mes.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.2rem' }}>
                     {clasesDisponibles.map(c => (
@@ -1115,28 +1223,28 @@ export default function ClientDashboard() {
                         onClick={() => setNuevaClaseSel(c)}
                         style={{
                           padding: '0.75rem 1rem', borderRadius: '10px', textAlign: 'left',
-                          border: `1px solid ${nuevaClaseSel?.id === c.id ? '#7c3aed' : 'rgba(255,255,255,0.08)'}`,
-                          background: nuevaClaseSel?.id === c.id ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.03)',
-                          color: 'white', cursor: 'pointer',
+                          border: `1.5px solid ${nuevaClaseSel?.id === c.id ? '#1a9d85' : '#b8dece'}`,
+                          background: nuevaClaseSel?.id === c.id ? 'rgba(26,157,133,0.12)' : 'rgba(255,255,255,0.5)',
+                          color: '#0f1f17', cursor: 'pointer',
                         }}>
-                        <p style={{ fontWeight: 600, marginBottom: '0.2rem' }}>{c.nombre}</p>
-                        <p style={{ fontSize: '0.82rem', color: '#868e96' }}>{c.dias} · {c.horario} · {c.aula || 'Sin aula'}</p>
-                        <p style={{ fontSize: '0.82rem', color: '#a78bfa' }}>${parseFloat(c.valor).toLocaleString('es-AR')}</p>
+                        <p style={{ fontWeight: 600, marginBottom: '0.2rem', color: '#0f1f17' }}>{c.nombre}</p>
+                        <p style={{ fontSize: '0.82rem', color: '#3d6b55' }}>{c.dias} · {c.horario} · {c.aula || 'Sin aula'}</p>
+                        <p style={{ fontSize: '0.82rem', color: '#1a9d85', fontWeight: 600 }}>${parseFloat(c.valor).toLocaleString('es-AR')}</p>
                       </button>
                     ))}
                   </div>
                 )}
 
-                {cambiarTurnoError && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{cambiarTurnoError}</p>}
+                {cambiarTurnoError && <p style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{cambiarTurnoError}</p>}
 
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                   <button onClick={cerrarCambiarTurno}
-                    style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#c8cbdf', fontWeight: 600, cursor: 'pointer' }}>
+                    style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: '1.5px solid #b8dece', background: 'transparent', color: '#1a2e25', fontWeight: 600, cursor: 'pointer' }}>
                     Cancelar
                   </button>
                   <button onClick={handleCambiarTurno}
                     disabled={!nuevaClaseSel || cambiarTurnoLoading}
-                    style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: nuevaClaseSel && !cambiarTurnoLoading ? '#7c3aed' : '#3d3d5c', color: 'white', fontWeight: 600, cursor: nuevaClaseSel && !cambiarTurnoLoading ? 'pointer' : 'not-allowed' }}>
+                    style={{ flex: 1, padding: '0.65rem', borderRadius: '10px', border: 'none', background: nuevaClaseSel && !cambiarTurnoLoading ? 'linear-gradient(135deg,#1a9d85,#147a68)' : '#c8d8d0', color: 'white', fontWeight: 600, cursor: nuevaClaseSel && !cambiarTurnoLoading ? 'pointer' : 'not-allowed', boxShadow: nuevaClaseSel ? '0 4px 14px rgba(26,157,133,0.3)' : 'none' }}>
                     {cambiarTurnoLoading ? 'Cambiando...' : 'Confirmar cambio'}
                   </button>
                 </div>

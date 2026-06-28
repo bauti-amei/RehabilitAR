@@ -98,16 +98,24 @@ export default function CalendarioPublico({ onClose }) {
   const diasEnMes = new Date(year, mes + 1, 0).getDate()
   const todayStr  = getTodayStr()
 
-  // Para cada clase, precomputar el Set de días de la semana
+  // Para cada clase, precomputar el Set de días de la semana solo para clases fijas.
+  // Las clases individuales se muestran únicamente en su fecha exacta.
   const clasesConDias = clases.map(c => ({
     ...c,
-    diasSet: parseDias(c.dias || ''),
+    diasSet: c.tipo_clase === 'fija' ? parseDias(c.dias || '') : new Set(),
   }))
 
-  // Dado un día del mes, retorna las clases que se dictan ese día de semana
+  // Dado un día del mes, retorna las clases que se dictan ese día.
   function clasesDelDia(dia) {
+    const fechaDia = toDateStr(year, mes, dia)
     const dowDia = new Date(year, mes, dia).getDay()
-    return clasesConDias.filter(c => c.diasSet.has(dowDia))
+
+    return clasesConDias.filter(c => {
+      if (c.tipo_clase === 'individual') {
+        return c.fecha === fechaDia
+      }
+      return c.diasSet.has(dowDia)
+    })
   }
 
   const celdas = [

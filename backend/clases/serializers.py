@@ -1,6 +1,7 @@
 from datetime import datetime
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Clase, Sala, Suscripcion, DIAS_SEMANA
+from .models import Clase, Sala, Suscripcion, Reserva, DIAS_SEMANA
 
 
 class InscriptoSerializer(serializers.Serializer):
@@ -78,7 +79,7 @@ class ClaseCalendarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Clase
-        fields = ['id', 'nombre', 'horario_inicio', 'horario_fin', 'horario', 'dias', 'fecha', 'tipo_clase', 'cupo']
+        fields = ['id', 'nombre', 'horario_inicio', 'horario_fin', 'horario', 'dias', 'fecha', 'tipo_clase', 'cupo', 'estado']
 
 
 # ── Sala ──────────────────────────────────────────────────
@@ -259,4 +260,82 @@ class SuscripcionSerializer(serializers.ModelSerializer):
     def get_profesor(self, obj):
         if obj.clase and obj.clase.profesor:
             return obj.clase.profesor.full_name
+        return None
+
+
+# ── Reservas y Suscripciones pendientes de pago ─────────────────────────────────────────────────
+class PendientesDePagoSerializer(serializers.Serializer):
+    """
+    Serializer polimórfico que maneja tanto Reserva como Suscripcion pendientes de pago.
+    """
+    id = serializers.SerializerMethodField()
+    usuario_id = serializers.SerializerMethodField()
+    clase = serializers.SerializerMethodField()
+    fecha = serializers.SerializerMethodField()
+    mes = serializers.SerializerMethodField()
+    anio = serializers.SerializerMethodField()
+    estado = serializers.SerializerMethodField()
+    tipo = serializers.SerializerMethodField()  # 'reserva' o 'suscripcion'
+    monto_total = serializers.SerializerMethodField()
+    monto_pagado = serializers.SerializerMethodField()
+    estado_pago = serializers.SerializerMethodField()
+    monto = serializers.SerializerMethodField()
+    valor_clase = serializers.SerializerMethodField()
+
+    def get_id(self, obj):
+        return obj.id
+
+    def get_usuario_id(self, obj):
+        return obj.usuario_id if hasattr(obj, 'usuario_id') else obj.usuario.id
+
+    def get_tipo(self, obj):
+        if isinstance(obj, Reserva):
+            return 'reserva'
+        elif isinstance(obj, Suscripcion):
+            return 'suscripcion'
+        return None
+
+    def get_clase(self, obj):
+        clase = obj.clase if hasattr(obj, 'clase') else None
+        if clase:
+            return ClaseSerializer(clase).data
+        return None
+
+    def get_fecha(self, obj):
+        return str(obj.fecha) if isinstance(obj, Reserva) else None
+
+    def get_mes(self, obj):
+        return obj.mes if isinstance(obj, Suscripcion) else None
+
+    def get_anio(self, obj):
+        return obj.anio if isinstance(obj, Suscripcion) else None
+
+    def get_estado(self, obj):
+        return obj.estado
+
+    def get_monto_total(self, obj):
+        if isinstance(obj, Reserva):
+            return float(obj.monto_total) if obj.monto_total else None
+        return None
+
+    def get_monto_pagado(self, obj):
+        if isinstance(obj, Reserva):
+            return float(obj.monto_pagado) if obj.monto_pagado else None
+        elif isinstance(obj, Suscripcion):
+            return float(obj.monto_pagado) if obj.monto_pagado else None
+        return None
+
+    def get_estado_pago(self, obj):
+        if isinstance(obj, Reserva):
+            return obj.estado_pago
+        return None
+
+    def get_monto(self, obj):
+        if isinstance(obj, Suscripcion):
+            return float(obj.monto)
+        return None
+
+    def get_valor_clase(self, obj):
+        if isinstance(obj, Suscripcion):
+            return float(obj.valor_clase)
         return None
