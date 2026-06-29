@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import styles from './ClientLayout.module.css'
+import { marcarNotificacionLeida } from '../../api/clases'
+import axios from 'axios';
 
 /* ── Íconos SVG ──────────────────────────────────────────── */
 const BellIcon = () => (
@@ -49,20 +51,61 @@ function Modal({ title, onClose, children, small }) {
   )
 }
 
-// Cuando exista la API, reemplazar [] por la respuesta del backend
-const NOTIFICACIONES = []
-
 /* ── ClientLayout ────────────────────────────────────────── */
 export default function ClientLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [modal, setModal]           = useState(null) // 'notifications' | 'settings'
   const [userMenuOpen, setUserMenu] = useState(false)
 
   const userMenuRef = useRef(null)
+  const fetchNotificaciones = async () => {
+      const token = localStorage.getItem('access_token');
 
+      if (!token) {
+        console.warn("No hay token, no se pueden pedir notificaciones");
+        return;
+      }
+      try {
+        const response = await fetch('/api/clases/notificaciones/', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+        
+        // Asignamos los datos al estado
+        setNotificaciones(data);
+      } catch (error) {
+        console.error("Error al traer las notificaciones:", error.message, error);
+      }
+  };
+
+  const marcarLeida = async (id) => {
+    try {
+      // Usamos la función que YA tienes definida
+      await marcarNotificacionLeida(id);
+      
+      // Luego actualizas el estado para que la UI se refresque
+      setNotificaciones(prev => 
+        prev.map(n => n.id === id ? { ...n, leida: true } : n)
+      );
+    } catch (error) {
+      console.error("Error al marcar como leída:", error);
+    }
+  };
   // Cerrar menú usuario al hacer click afuera
+  useEffect(() => {
+    fetchNotificaciones(); // Carga inicial apenas entra el usuario
+    const intervalo = setInterval(fetchNotificaciones, 15000);
+    return () => clearInterval(intervalo);
+  }, []);
+
   useEffect(() => {
     const handler = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -84,7 +127,7 @@ export default function ClientLayout() {
     ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
     : '?'
 
-  const noLeidas = NOTIFICACIONES.filter(n => !n.leida).length
+  const noLeidas = notificaciones.filter(n => !n.leida).length;
 
   const openModal = (name) => {
     setModal(name)
@@ -122,12 +165,61 @@ export default function ClientLayout() {
 
         <div className={styles.navActions}>
 
-          {/* Notificaciones */}
-          <button className={styles.iconBtn} onClick={() => openModal('notifications')}>
-            <BellIcon />
-            <span className={styles.iconLabel}>Notificación</span>
-            {noLeidas > 0 && <span className={styles.badge}>{noLeidas}</span>}
+         {/* NOTIFICACIONES */}
+
+         <button className={styles.iconBtn} onClick={() => setModal('notifications')}>
+            Notificaciones 
+            {notificaciones && notificaciones.length > 0 && (
+              <span>({notificaciones.filter(n => !n.leida).length})</span>
+            )}
           </button>
+
+         {modal === 'notifications' && (
+          <div className={styles.overlay}>
+            <div className={styles.modal}>
+              <div className={styles.modalHeader}>
+                <h3 className={styles.modalTitle}>Notificaciones</h3>
+                <button className={styles.closeBtn} onClick={() => setModal(null)}>X</button>
+              </div>
+              
+              <div className={styles.modalBody}>
+                {!notificaciones || notificaciones.length === 0 ? (
+                  <p className={styles.emptyMsg}>No tenés notificaciones nuevas.</p>
+                ) : (
+                  <ul className={styles.notifList}>
+                    {notificaciones.map(n => (
+                      <li key={n.id} className={`${styles.notifItem} ${!n.leida ? styles.notifUnread : styles.notifLeida}`}>
+                        {!n.leida && <span className={styles.notifDot} />}
+                        <div>
+                          <p className={styles.notifTexto}>{n.titulo || n.texto}</p>
+                          <p className={styles.notifHora}>{n.mensaje || n.hora}</p>
+                          {n.created_at ? (
+                            <p className={styles.notifFecha}>
+                              {new Date(n.created_at).toLocaleDateString('es-AR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          ) : (
+                            <p className={styles.notifFecha}>Sin fecha</p>
+                          )}
+                          {!n.leida && (
+                            <button className={styles.readBtn} onClick={() => marcarLeida(n.id)}>
+                              Marcar como leída
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
           {/* Configuración */}
           <button className={styles.iconBtn} onClick={() => openModal('settings')}>
@@ -193,25 +285,6 @@ export default function ClientLayout() {
         </div>
       )}
 
-      {modal === 'notifications' && (
-        <Modal title="Notificaciones" onClose={() => setModal(null)}>
-          {NOTIFICACIONES.length === 0 ? (
-            <p className={styles.emptyMsg}>No tenés notificaciones nuevas.</p>
-          ) : (
-            <ul className={styles.notifList}>
-              {NOTIFICACIONES.map(n => (
-                <li key={n.id} className={`${styles.notifItem} ${!n.leida ? styles.notifUnread : ''}`}>
-                  {!n.leida && <span className={styles.notifDot} />}
-                  <div>
-                    <p className={styles.notifTexto}>{n.texto}</p>
-                    <p className={styles.notifHora}>{n.hora}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Modal>
-      )}
 
       {modal === 'settings' && (
         <Modal title="Configuración" onClose={() => setModal(null)}>

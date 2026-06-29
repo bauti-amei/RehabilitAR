@@ -56,7 +56,6 @@ const NOTIFICACIONES = []
 export default function AdminLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-
   const [modal, setModal]           = useState(null) // 'notifications' | 'settings' | 'cambiarRol'
   const [userMenuOpen, setUserMenu] = useState(false)
   const userMenuRef = useRef(null)
@@ -73,7 +72,6 @@ export default function AdminLayout() {
 
   const openModal = (name) => { setModal(name); setUserMenu(false) }
   const pedirLogout = () => { setUserMenu(false); setModal('logout') }
-
   const initials = user
     ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
     : '?'

@@ -124,3 +124,10 @@ export const validarQrRequest = (token) =>
 
 export const getMiAsistenciaRequest = (claseId) =>
   api.get(`/clases/${claseId}/mi-asistencia/`)
+
+// --- NOTIFICACIONES ---
+export const getNotificaciones = () => 
+  api.get('/clases/notificaciones/');
+
+export const marcarNotificacionLeida = (id) => 
+  api.patch(`/clases/notificaciones/${id}/leer/`);

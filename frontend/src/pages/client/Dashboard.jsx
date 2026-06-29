@@ -10,7 +10,7 @@ import {
 } from '../../api/clases'
 import ComprarSuscripcionModal from '../../components/client/ComprarSuscripcionModal'
 import ReservarClaseModal from '../../components/client/ReservarClaseModal'
-import CanjearCreditoModal from '../../components/client/CanjearCreditoModal'
+// import CanjearCreditoModal from '../../components/client/CanjearCreditoModal'
 import QRScannerModal from '../../components/client/QRScannerModal'
 import AsistenciasModal from '../../components/client/AsistenciasModal'
 import styles from './Dashboard.module.css'
