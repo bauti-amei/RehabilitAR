@@ -38,8 +38,8 @@ export default function App() {
         <Toaster />
         <Routes>
 
-          {/* Rutas públicas */}
-          <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
+          {/* Rutas públicas */} 
+          <Route path="/login" element={<Login />} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/sin-permiso" element={<Unauthorized />} />
 
