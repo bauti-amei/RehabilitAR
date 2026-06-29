@@ -19,6 +19,8 @@ from .views import (
     # Asistencia
     ClaseInscriptosAsistenciaView, RegistrarAsistenciaView,
     GenerarQrView, ValidarQrAsistenciaView, MiAsistenciaClaseView,
+    # Notificaciones
+    NotificacionListView, MarcarNotificacionLeidaView,
 )
 
 
@@ -70,4 +72,6 @@ urlpatterns = [
     path('<int:pk>/qr/',                     GenerarQrView.as_view(),                 name='generar-qr'),
     path('<int:pk>/mi-asistencia/',          MiAsistenciaClaseView.as_view(),         name='mi-asistencia'),
     path('validar-qr/',                      ValidarQrAsistenciaView.as_view(),       name='validar-qr'),
+    path('notificaciones/',                  NotificacionListView.as_view(),          name='notificacion-list'),
+    path('notificaciones/<int:pk>/leer/', MarcarNotificacionLeidaView.as_view(), name='marcar-leida'),
 ]

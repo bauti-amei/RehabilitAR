@@ -8,15 +8,16 @@ from rest_framework import status
 
 from django.core.mail import EmailMessage
 from django.conf import settings
-from django.db.models import F
+from django.db.models import F, Q
 
 from .cancelaciones import cancelar_clase
 
-from .models import Clase, Sala, Reserva, Suscripcion, Credito, Asistencia, QrAsistencia
+from .models import Clase, Sala, Reserva, Suscripcion, Credito, Asistencia, QrAsistencia, Notificacion
 from .serializers import (
     ClaseSerializer, ClaseCreateSerializer,
     ClaseProfesorSerializer, PendientesDePagoSerializer,
     SalaSerializer, SalaCreateSerializer,
+    NotificacionSerializer,
 )
 from users.models import User
 
@@ -2530,3 +2531,27 @@ class MiAsistenciaClaseView(APIView):
             for f in sorted(fechas_reservadas)
         ]
         return Response(resultado)
+
+class NotificacionListView(APIView):
+    permission_classes = [IsAuthenticated] # Solo usuarios logueados pueden ver sus alertas
+
+    def get(self, request):
+        # Filtramos: que sean del usuario logueado O generales, y que no estén leídas
+        notificaciones = Notificacion.objects.filter(Q(usuario=request.user) | Q(usuario__isnull=True)
+        ).order_by('-created_at')
+        
+        serializer = NotificacionSerializer(notificaciones, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class MarcarNotificacionLeidaView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            # Buscamos la notificación del usuario actual
+            notificacion = Notificacion.objects.get(pk=pk, usuario=request.user)
+            notificacion.leida = True
+            notificacion.save()
+            return Response({"mensaje": "Notificación marcada como leída"}, status=status.HTTP_200_OK)
+        except Notificacion.DoesNotExist:
+            return Response({"error": "No encontrada"}, status=status.HTTP_404_NOT_FOUND)

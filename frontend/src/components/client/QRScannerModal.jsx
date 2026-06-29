@@ -80,8 +80,15 @@ export default function QRScannerModal({ onClose, onSuccess }) {
       }
     } catch (e) {
       setEstado('error')
-      const detail = e?.response?.data?.detail || 'Error al registrar asistencia.'
-      setMensaje(detail)
+      const codigo = e?.response?.data?.codigo
+      const status = e?.response?.status
+      if (status === 404) {
+        setMensaje('Error en el QR')
+      } else if (codigo === 'clase_finalizada') {
+        setMensaje('Error QR vencido')
+      } else {
+        setMensaje(e?.response?.data?.detail || 'Error al registrar asistencia.')
+      }
     } finally {
       setEnviando(false)
     }
