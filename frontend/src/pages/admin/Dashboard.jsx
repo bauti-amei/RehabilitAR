@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { useAuth } from '../../hooks/useAuth'
 import { getUsersRequest, suspenderUserRequest, adminRegisterRequest, hardDeleteUserRequest, getAptosPendientesRequest, validarAptoFisicoRequest } from '../../api/auth'
-import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest, getListaEsperaFechasRequest, getListaEsperaUsuariosRequest, cambiarCapacidadRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest, getQrAsistenciaRequest } from '../../api/clases'
+import { getClasesRequest, getClasesEnCursoRequest, getSalasRequest, createSalaRequest, getProfesoresPorEspecialidadRequest, asignarProfesorRequest, desasignarProfesorRequest, getListaEsperaFechasRequest, getListaEsperaUsuariosRequest, cambiarCapacidadRequest, getInscriptosAsistenciaRequest, registrarAsistenciaRequest, getQrAsistenciaRequest, getEstadisticasRequest } from '../../api/clases'
 import QRCode from 'qrcode'
 import CrearClaseModal from '../../components/admin/CrearClaseModal'
 import LoadingOverlay from '../../components/common/LoadingOverlay'
@@ -42,8 +43,16 @@ const FILTROS_ROL = [
 ]
 
 const STATS_BTNS = [
-  'Ingresos', 'Clase más elegida', 'Usuarios suspendidos', 'Horario más elegido', 'Exportar estadísticas',
+  { key: 'ingresos',     label: 'Ingresos' },
+  { key: 'clases',       label: 'Clase más elegida' },
+  { key: 'suspendidos',  label: 'Usuarios suspendidos' },
+  { key: 'horarios',     label: 'Horario más elegido' },
+  { key: 'registros',    label: 'Nuevos registros' },
 ]
+
+function formatARS(n) {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+}
 
 /* ══════════════════════════════════════════════════════════
    HELPERS
@@ -1144,28 +1153,315 @@ function AreaClases() {
    SECCIÓN: ESTADÍSTICAS
    ══════════════════════════════════════════════════════════ */
 function Estadisticas() {
-  const [activeStat, setActiveStat] = useState(null)
+  const [activeStat, setActiveStat]       = useState(null)
+  const [datos, setDatos]                 = useState(null)
+  const [cargando, setCargando]           = useState(false)
+  const [error, setError]                 = useState(false)
+  const [exportando, setExportando]       = useState(false)
+
+  useEffect(() => {
+    if (!activeStat) return
+    if (datos) return
+    setCargando(true)
+    setError(false)
+    getEstadisticasRequest()
+      .then(r => setDatos(r.data))
+      .catch(() => setError(true))
+      .finally(() => setCargando(false))
+  }, [activeStat])
+
+  const seleccionar = (key) => setActiveStat(prev => prev === key ? null : key)
+
+  const exportarExcel = async () => {
+    setExportando(true)
+    try {
+      const res = datos ? { data: datos } : await getEstadisticasRequest()
+      const d = res.data ?? datos
+
+      const wb = XLSX.utils.book_new()
+
+      // ── Hoja 1: Ingresos ──────────────────────────────────
+      const wsIngresos = XLSX.utils.aoa_to_sheet([
+        ['Concepto', 'Monto (ARS)'],
+        ['Total ingresado',        d.ingresos.total],
+        ['Por suscripciones',      d.ingresos.suscripciones],
+        ['Por reservas de clase',  d.ingresos.reservas],
+      ])
+      wsIngresos['!cols'] = [{ wch: 28 }, { wch: 18 }]
+      XLSX.utils.book_append_sheet(wb, wsIngresos, 'Ingresos')
+
+      // ── Hoja 2: Clase mas elegida ─────────────────────────
+      const filasClases = [['#', 'Clase', 'Especialidad', 'Horario', 'Días', 'Inscriptos', 'Cupo']]
+      d.clases.forEach((c, i) => filasClases.push([i + 1, c.nombre, c.especialidad_display, c.horario, c.dias, c.num_inscriptos, c.cupo]))
+      const wsClases = XLSX.utils.aoa_to_sheet(filasClases)
+      wsClases['!cols'] = [{ wch: 4 }, { wch: 32 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 8 }]
+      XLSX.utils.book_append_sheet(wb, wsClases, 'Clase mas elegida')
+
+      // ── Hoja 3: Usuarios suspendidos ──────────────────────
+      const filasSusp = [['Nombre', 'Apellido', 'Email']]
+      d.usuarios_suspendidos_lista.forEach(u => filasSusp.push([u.first_name, u.last_name, u.email]))
+      if (filasSusp.length === 1) filasSusp.push(['—', '—', 'Sin usuarios suspendidos'])
+      const wsSusp = XLSX.utils.aoa_to_sheet(filasSusp)
+      wsSusp['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 32 }]
+      XLSX.utils.book_append_sheet(wb, wsSusp, 'Usuarios suspendidos')
+
+      // ── Hoja 4: Horario mas elegido ───────────────────────
+      const filasHor = [['Franja horaria', 'Inscriptos']]
+      d.horarios.forEach(h => filasHor.push([h.franja, h.cantidad]))
+      const wsHor = XLSX.utils.aoa_to_sheet(filasHor)
+      wsHor['!cols'] = [{ wch: 22 }, { wch: 12 }]
+      XLSX.utils.book_append_sheet(wb, wsHor, 'Horario mas elegido')
+
+      // ── Hoja 5: Nuevos registros ──────────────────────────
+      const wsReg = XLSX.utils.aoa_to_sheet([
+        ['Período', 'Cantidad de usuarios'],
+        ['Total de usuarios',        d.registros.total],
+        ['Registros última semana',  d.registros.ultima_semana],
+        ['Registros último mes',     d.registros.ultimo_mes],
+        ['Registros último año',     d.registros.ultimo_anio],
+      ])
+      wsReg['!cols'] = [{ wch: 28 }, { wch: 22 }]
+      XLSX.utils.book_append_sheet(wb, wsReg, 'Nuevos registros')
+
+      const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g, '-')
+      XLSX.writeFile(wb, `estadisticas_rehabilitar_${fecha}.xlsx`)
+    } catch {
+      // silencioso — el usuario verá que no se descargó
+    } finally {
+      setExportando(false)
+    }
+  }
+
+  // ── sub-panel: Ingresos ──────────────────────────────────
+  const PanelIngresos = () => {
+    if (!datos) return null
+    const { total, suscripciones, reservas } = datos.ingresos
+    const cards = [
+      { label: 'Total ingresado',        valor: total,         color: '#1a9d85', bg: 'rgba(26,157,133,0.1)',  border: 'rgba(26,157,133,0.3)' },
+      { label: 'Por suscripciones',      valor: suscripciones, color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.3)' },
+      { label: 'Por reservas de clase',  valor: reservas,      color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  border: 'rgba(139,92,246,0.3)' },
+    ]
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          {cards.map(c => (
+            <div key={c.label} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: '14px', padding: '1.25rem 1rem', textAlign: 'center' }}>
+              <p style={{ color: c.color, fontWeight: 800, fontSize: '1.6rem', margin: '0 0 4px' }}>{formatARS(c.valor)}</p>
+              <p style={{ color: '#3d6b55', fontSize: '0.82rem', margin: 0 }}>{c.label}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: 'rgba(26,157,133,0.06)', border: '1px solid rgba(26,157,133,0.2)', borderRadius: '12px', padding: '1rem 1.25rem' }}>
+          <p style={{ color: '#3d6b55', fontSize: '0.85rem', margin: 0 }}>
+            Los ingresos incluyen todos los pagos registrados: suscripciones mensuales y reservas de clase únicas.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── sub-panel: Clase más elegida ─────────────────────────
+  const PanelClases = () => {
+    if (!datos) return null
+    if (datos.clases.length === 0) return <p className={styles.emptyMsg}>El centro no dispone de clases</p>
+    const totalInscriptos = datos.clases.reduce((acc, c) => acc + c.num_inscriptos, 0)
+    if (totalInscriptos === 0) return <p className={styles.emptyMsg}>Nadie se ha inscripto a ninguna clase aún</p>
+    const maxInscriptos = datos.clases[0].num_inscriptos
+    const tops = datos.clases.filter(c => c.num_inscriptos === maxInscriptos)
+    return (
+      <div>
+        {/* Destacado: todas las que comparten el máximo */}
+        {tops.map(top => (
+          <div key={top.id} style={{ background: 'linear-gradient(135deg,rgba(26,157,133,0.15),rgba(26,157,133,0.05))', border: '1.5px solid rgba(26,157,133,0.35)', borderRadius: '16px', padding: '1.25rem 1.5rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '2rem' }}>🏆</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ color: '#0f1f17', fontWeight: 700, fontSize: '1.05rem', margin: '0 0 2px' }}>{top.nombre}</p>
+              <p style={{ color: '#3d6b55', fontSize: '0.83rem', margin: 0 }}>{top.especialidad_display} · {top.dias} · {top.horario}</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ color: '#1a9d85', fontWeight: 800, fontSize: '1.5rem', margin: '0 0 2px' }}>{top.num_inscriptos}</p>
+              <p style={{ color: '#3d6b55', fontSize: '0.78rem', margin: 0 }}>inscriptos</p>
+            </div>
+          </div>
+        ))}
+
+        {/* Listado ordenado */}
+        {datos.clases.length > 1 && (
+          <div style={{ marginTop: tops.length > 1 ? '0.5rem' : 0 }}>
+            <p style={{ color: '#3d6b55', fontSize: '0.82rem', fontWeight: 600, margin: '0 0 0.6rem' }}>Ranking de clases</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {datos.clases.map((c, i) => {
+                const esTop = c.num_inscriptos === maxInscriptos
+                const pct = maxInscriptos > 0 ? (c.num_inscriptos / c.cupo) * 100 : 0
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(26,157,133,0.04)', border: '1px solid rgba(26,157,133,0.15)', borderRadius: '10px', padding: '0.55rem 0.9rem' }}>
+                    <span style={{ color: esTop ? '#1a9d85' : '#6b7280', fontWeight: 700, fontSize: '0.85rem', width: '22px', flexShrink: 0 }}>#{i + 1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ color: '#1a2e25', fontSize: '0.88rem', fontWeight: 600, margin: '0 0 3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre}</p>
+                      <div style={{ height: '4px', background: 'rgba(26,157,133,0.15)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: esTop ? '#1a9d85' : '#52b788', borderRadius: '2px', transition: 'width 0.4s ease' }} />
+                      </div>
+                    </div>
+                    <span style={{ color: '#1a2e25', fontWeight: 700, fontSize: '0.9rem', flexShrink: 0 }}>{c.num_inscriptos}<span style={{ color: '#6b7280', fontWeight: 400, fontSize: '0.78rem' }}>/{c.cupo}</span></span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── sub-panel: Usuarios suspendidos ──────────────────────
+  const PanelSuspendidos = () => {
+    if (!datos) return null
+    const { usuarios_suspendidos, usuarios_suspendidos_lista } = datos
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '2rem' }}>🚫</div>
+          <div>
+            <p style={{ color: '#dc2626', fontWeight: 800, fontSize: '1.8rem', margin: '0 0 2px' }}>{usuarios_suspendidos}</p>
+            <p style={{ color: '#3d6b55', fontSize: '0.82rem', margin: 0 }}>usuario{usuarios_suspendidos !== 1 ? 's' : ''} suspendido{usuarios_suspendidos !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+        {usuarios_suspendidos_lista.length === 0 ? (
+          <p className={styles.emptyMsg}>No hay clientes suspendidos actualmente.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {usuarios_suspendidos_lista.map(u => (
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '10px', padding: '0.55rem 0.9rem' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626', fontWeight: 700, fontSize: '0.8rem', flexShrink: 0 }}>
+                  {u.first_name[0]}{u.last_name[0]}
+                </div>
+                <div>
+                  <p style={{ color: '#1a2e25', fontSize: '0.88rem', fontWeight: 600, margin: 0 }}>{u.first_name} {u.last_name}</p>
+                  <p style={{ color: '#6b7280', fontSize: '0.78rem', margin: 0 }}>{u.email}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── sub-panel: Horario más elegido ───────────────────────
+  const PanelHorarios = () => {
+    if (!datos) return null
+    if (datos.clases.length === 0) return <p className={styles.emptyMsg}>El centro no dispone de clases</p>
+    const totalInscriptos = datos.horarios.reduce((acc, h) => acc + h.cantidad, 0)
+    if (totalInscriptos === 0) return <p className={styles.emptyMsg}>Nadie se ha inscripto a ningún horario aún</p>
+    const maxVal = datos.horarios[0]?.cantidad || 1
+    const colores = { 'Mañana (8-12h)': '#f59e0b', 'Tarde (12-18h)': '#3b82f6', 'Noche (18-22h)': '#8b5cf6' }
+    return (
+      <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {datos.horarios.map((h, i) => {
+            const color = colores[h.franja] || '#1a9d85'
+            const pct   = (h.cantidad / maxVal) * 100
+            return (
+              <div key={h.franja}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ color: '#1a2e25', fontSize: '0.9rem', fontWeight: 600 }}>
+                    {i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : '🥉 '}{h.franja}
+                  </span>
+                  <span style={{ color, fontWeight: 700, fontSize: '1rem' }}>{h.cantidad} inscriptos</span>
+                </div>
+                <div style={{ height: '10px', background: 'rgba(0,0,0,0.06)', borderRadius: '5px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '5px', transition: 'width 0.5s ease' }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '1.25rem' }}>
+          La cantidad refleja el total de inscriptos en clases activas por franja horaria.
+        </p>
+      </div>
+    )
+  }
+
+  // ── sub-panel: Nuevos registros ─────────────────────────
+  const PanelRegistros = () => {
+    if (!datos) return null
+    const { total, ultima_semana, ultimo_mes, ultimo_anio } = datos.registros
+    const cards = [
+      { label: 'Total de usuarios',         valor: total,         icon: '👥', color: '#1a9d85', bg: 'rgba(26,157,133,0.1)',  border: 'rgba(26,157,133,0.3)' },
+      { label: 'Registros última semana',   valor: ultima_semana, icon: '📅', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.3)' },
+      { label: 'Registros último mes',      valor: ultimo_mes,    icon: '🗓️', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  border: 'rgba(139,92,246,0.3)' },
+      { label: 'Registros último año',      valor: ultimo_anio,   icon: '📆', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)' },
+    ]
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+          {cards.map(c => (
+            <div key={c.label} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: '14px', padding: '1.25rem 1rem', textAlign: 'center' }}>
+              <p style={{ fontSize: '1.8rem', margin: '0 0 6px' }}>{c.icon}</p>
+              <p style={{ color: c.color, fontWeight: 800, fontSize: '2rem', margin: '0 0 4px' }}>{c.valor}</p>
+              <p style={{ color: '#3d6b55', fontSize: '0.82rem', margin: 0 }}>{c.label}</p>
+            </div>
+          ))}
+        </div>
+        {total === 0 && (
+          <p style={{ color: '#6b7280', fontSize: '0.85rem', textAlign: 'center', marginTop: '1.25rem' }}>
+            Aún no hay clientes registrados en el sistema.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  const PANEL_MAP = {
+    ingresos:    <PanelIngresos />,
+    clases:      <PanelClases />,
+    suspendidos: <PanelSuspendidos />,
+    horarios:    <PanelHorarios />,
+    registros:   <PanelRegistros />,
+  }
 
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>Estadísticas</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <h2 className={styles.sectionTitle} style={{ margin: 0 }}>Estadísticas</h2>
+        <button
+          onClick={exportarExcel}
+          disabled={exportando}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            padding: '0.55rem 1.1rem', borderRadius: '10px', border: '1.5px solid rgba(34,197,94,0.4)',
+            background: 'rgba(34,197,94,0.08)', color: '#16a34a',
+            fontWeight: 600, fontSize: '0.88rem', cursor: exportando ? 'not-allowed' : 'pointer',
+            opacity: exportando ? 0.7 : 1, transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => { if (!exportando) e.currentTarget.style.background = 'rgba(34,197,94,0.15)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.08)' }}
+        >
+          {exportando ? '⏳ Exportando...' : '📥 Exportar a Excel'}
+        </button>
+      </div>
       <div className={styles.statsBtns}>
         {STATS_BTNS.map(s => (
           <button
-            key={s}
-            className={`${styles.statBtn} ${activeStat === s ? styles.statBtnActive : ''}`}
-            onClick={() => setActiveStat(s === activeStat ? null : s)}
+            key={s.key}
+            className={`${styles.statBtn} ${activeStat === s.key ? styles.statBtnActive : ''}`}
+            onClick={() => seleccionar(s.key)}
           >
-            {s}
+            {s.label}
           </button>
         ))}
       </div>
       <div className={styles.statsPanel}>
-        <p className={styles.emptyMsg}>
-          {activeStat
-            ? `Estadística "${activeStat}" — próximamente disponible`
-            : 'Seleccioná una estadística para visualizar'}
-        </p>
+        {!activeStat ? (
+          <p className={styles.emptyMsg}>Seleccioná una estadística para visualizar</p>
+        ) : cargando ? (
+          <p className={styles.emptyMsg}>Cargando estadísticas...</p>
+        ) : error ? (
+          <p className={styles.emptyMsg} style={{ color: '#dc2626' }}>Error al cargar las estadísticas.</p>
+        ) : (
+          PANEL_MAP[activeStat]
+        )}
       </div>
     </section>
   )

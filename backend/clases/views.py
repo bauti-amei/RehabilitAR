@@ -2530,3 +2530,100 @@ class MiAsistenciaClaseView(APIView):
             for f in sorted(fechas_reservadas)
         ]
         return Response(resultado)
+
+
+class EstadisticasView(APIView):
+    """GET /clases/estadisticas/ — métricas globales para el panel de administración."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Sum, Count
+        from collections import Counter
+
+        # ── Ingresos ────────────────────────────────────────────
+        ingresos_suscripciones = (
+            Suscripcion.objects
+            .filter(monto_pagado__isnull=False)
+            .aggregate(total=Sum('monto_pagado'))['total'] or 0
+        )
+        ingresos_reservas = (
+            Reserva.objects
+            .filter(tipo='unica', monto_pagado__isnull=False)
+            .aggregate(total=Sum('monto_pagado'))['total'] or 0
+        )
+        total_ingresos = float(ingresos_suscripciones) + float(ingresos_reservas)
+
+        # ── Clases por inscriptos ────────────────────────────────
+        clases_qs = (
+            Clase.objects
+            .filter(estado='activa')
+            .annotate(num_inscriptos=Count('inscriptos'))
+            .order_by('-num_inscriptos')
+        )
+        clases_data = [
+            {
+                'id': c.id,
+                'nombre': c.nombre,
+                'especialidad_display': c.get_especialidad_display(),
+                'tipo_clase': c.tipo_clase,
+                'horario': c.horario,
+                'dias': c.dias,
+                'num_inscriptos': c.num_inscriptos,
+                'cupo': c.cupo,
+            }
+            for c in clases_qs
+        ]
+
+        # ── Usuarios suspendidos ─────────────────────────────────
+        usuarios_suspendidos = User.objects.filter(is_active=False, role='client').count()
+        usuarios_suspendidos_lista = list(
+            User.objects.filter(is_active=False, role='client')
+            .values('id', 'first_name', 'last_name', 'email')
+        )
+
+        # ── Horario más elegido (ponderado por inscriptos) ───────
+        franja_counter = Counter()
+        for c in Clase.objects.filter(estado='activa'):
+            hora = c.horario_inicio.hour
+            if hora < 12:
+                franja = 'Mañana (8-12h)'
+            elif hora < 18:
+                franja = 'Tarde (12-18h)'
+            else:
+                franja = 'Noche (18-22h)'
+            franja_counter[franja] += c.inscriptos.count()
+
+        horarios_data = [
+            {'franja': k, 'cantidad': v}
+            for k, v in sorted(franja_counter.items(), key=lambda x: -x[1])
+        ]
+
+        # ── Nuevos registros ────────────────────────────────────
+        from datetime import datetime, timedelta
+        ahora = datetime.now()
+        hace_semana = ahora - timedelta(days=7)
+        hace_mes    = ahora - timedelta(days=30)
+        hace_anio   = ahora - timedelta(days=365)
+
+        total_usuarios     = User.objects.filter(role='client').count()
+        nuevos_semana      = User.objects.filter(role='client', date_joined__gte=hace_semana).count()
+        nuevos_mes         = User.objects.filter(role='client', date_joined__gte=hace_mes).count()
+        nuevos_anio        = User.objects.filter(role='client', date_joined__gte=hace_anio).count()
+
+        return Response({
+            'ingresos': {
+                'total': total_ingresos,
+                'suscripciones': float(ingresos_suscripciones),
+                'reservas': float(ingresos_reservas),
+            },
+            'clases': clases_data,
+            'usuarios_suspendidos': usuarios_suspendidos,
+            'usuarios_suspendidos_lista': usuarios_suspendidos_lista,
+            'horarios': horarios_data,
+            'registros': {
+                'total': total_usuarios,
+                'ultima_semana': nuevos_semana,
+                'ultimo_mes': nuevos_mes,
+                'ultimo_anio': nuevos_anio,
+            },
+        })

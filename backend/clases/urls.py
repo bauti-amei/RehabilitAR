@@ -19,6 +19,7 @@ from .views import (
     # Asistencia
     ClaseInscriptosAsistenciaView, RegistrarAsistenciaView,
     GenerarQrView, ValidarQrAsistenciaView, MiAsistenciaClaseView,
+    EstadisticasView,
 )
 
 
@@ -70,4 +71,5 @@ urlpatterns = [
     path('<int:pk>/qr/',                     GenerarQrView.as_view(),                 name='generar-qr'),
     path('<int:pk>/mi-asistencia/',          MiAsistenciaClaseView.as_view(),         name='mi-asistencia'),
     path('validar-qr/',                      ValidarQrAsistenciaView.as_view(),       name='validar-qr'),
+    path('estadisticas/',                    EstadisticasView.as_view(),              name='estadisticas'),
 ]
