@@ -124,3 +124,6 @@ export const validarQrRequest = (token) =>
 
 export const getMiAsistenciaRequest = (claseId) =>
   api.get(`/clases/${claseId}/mi-asistencia/`)
+
+export const getEstadisticasRequest = () =>
+  api.get('/clases/estadisticas/')
