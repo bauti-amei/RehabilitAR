@@ -225,3 +225,21 @@ class Credito(models.Model):
 
     def __str__(self):
         return f'{self.usuario} — {self.tipo_clase} — {self.mes}/{self.anio}'
+
+class Notificacion(models.Model):
+    # Al usar settings.AUTH_USER_MODEL nos colgamos de tu mismo sistema de usuarios.
+    # Con null=True y blank=True hacemos que pueda ser personal o general.
+    usuario    = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        null=True, blank=True, 
+        on_delete=models.CASCADE, 
+        related_name='notificaciones'
+    )
+    titulo     = models.CharField(max_length=150)
+    mensaje    = models.TextField()
+    leida      = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True) # Usamos created_at igual que en tus otros modelos
+
+    def __str__(self):
+        destinatario = self.usuario if self.usuario else "Todos"
+        return f'{destinatario} — {self.titulo} — {"Leída" if self.leida else "No leída"}'

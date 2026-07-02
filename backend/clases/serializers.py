@@ -1,7 +1,7 @@
 from datetime import datetime
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Clase, Sala, Suscripcion, Reserva, DIAS_SEMANA
+from .models import Clase, Sala, Suscripcion, Reserva, DIAS_SEMANA, Notificacion
 
 
 class InscriptoSerializer(serializers.Serializer):
@@ -339,3 +339,8 @@ class PendientesDePagoSerializer(serializers.Serializer):
         if isinstance(obj, Suscripcion):
             return float(obj.valor_clase)
         return None
+    
+class NotificacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notificacion
+        fields = ['id', 'titulo', 'mensaje', 'leida', 'created_at']

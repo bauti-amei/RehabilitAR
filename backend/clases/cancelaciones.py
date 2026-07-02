@@ -3,7 +3,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
 
-from .models import Clase, Credito, Reserva
+from .models import Clase, Credito, Reserva, Notificacion
+from .notificaciones import enviar_notificacion_a_usuarios
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -49,6 +50,7 @@ def cancelar_clase(clase_obj, motivo):
 
     reservas = Reserva.objects.filter(clase=clase_obj, estado__in=['activa', 'lista_espera']).select_related('usuario')
     razon = MENSAJES_CANCELACION.get(motivo, 'fue cancelada.')
+    usuarios_a_notificar = []
     count = 0
     for r in reservas:
         # Cancelar cada reserva
@@ -62,6 +64,8 @@ def cancelar_clase(clase_obj, motivo):
                 clase_obj.inscriptos.remove(r.usuario)
             except Exception:
                 pass
+        if r.usuario:
+            usuarios_a_notificar.append(r.usuario)
 
         # Notificar a cada usuario
         try:
@@ -80,6 +84,28 @@ def cancelar_clase(clase_obj, motivo):
             pass
 
         _procesar_reembolso(r)
+
+    if usuarios_a_notificar:
+        try:
+            # 1. Intentamos obtener la fecha de forma segura
+            fecha_str = "Fecha no disponible"
+            
+            # Si el objeto tiene un atributo 'fecha', intentamos formatearlo
+            if hasattr(clase_obj, 'fecha') and clase_obj.fecha:
+                fecha_str = clase_obj.fecha.strftime('%d/%m/%Y')
+            # Si es clase fija, suele tener un campo 'dias'
+            elif hasattr(clase_obj, 'dias') and clase_obj.dias:
+                fecha_str = clase_obj.dias
+            
+            # 2. Construimos el mensaje
+            mensaje_final = f'La clase "{clase_obj.nombre}" del día {fecha_str} {razon}'
+            enviar_notificacion_a_usuarios(
+                usuarios=usuarios_a_notificar,
+                titulo="Clase Cancelada ⚠️",
+                mensaje=mensaje_final
+            )
+        except Exception as e:
+            print(f"Error al enviar notificaciones masivas: {e}")
 
     return count
 
